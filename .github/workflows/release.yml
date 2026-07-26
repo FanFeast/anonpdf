@@ -61,19 +61,24 @@ jobs:
       - name: Build bundle and APK
         run: ./gradlew bundleRelease assembleRelease
 
-      - name: Confirm the release build declares no permissions
+      - name: Confirm the release build has no network access
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/release/app-release.apk
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -1)
           FOUND=$("$AAPT" dump permissions "$APK" \
             | grep '^uses-permission' \
-            | grep -v 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
+            | grep -vE 'MANAGE_EXTERNAL_STORAGE|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
             || true)
           if [ -n "$FOUND" ]; then
             echo "Unexpected permissions in the release manifest:"; echo "$FOUND"; exit 1
           fi
-          echo "Release build declares no permissions."
+          NETWORK=$("$AAPT" dump permissions "$APK" \
+            | grep -E 'INTERNET|ACCESS_NETWORK_STATE|ACCESS_WIFI_STATE' || true)
+          if [ -n "$NETWORK" ]; then
+            echo "Network permission in a release build:"; echo "$NETWORK"; exit 1
+          fi
+          echo "Release permissions are as reviewed, and no network access."
 
       - name: Remove signing material
         if: always()

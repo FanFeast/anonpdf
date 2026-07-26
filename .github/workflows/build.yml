@@ -36,23 +36,34 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew assembleDebug
 
-      - name: Check the app still declares no permissions
+      - name: Check the declared permissions against the reviewed list
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -1)
-          # Anything other than AndroidX's own signature-level receiver guard is a
-          # regression in the core promise of this app, so fail the build.
+          # The app is allowed exactly two entries: storage access for the file
+          # browser, and AndroidX's signature-level self-receiver guard. Anything
+          # else is a regression in the promise that documents cannot leave the
+          # device, so fail the build and make someone justify it.
           FOUND=$("$AAPT" dump permissions "$APK" \
             | grep '^uses-permission' \
-            | grep -v 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
+            | grep -vE 'MANAGE_EXTERNAL_STORAGE|DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
             || true)
           if [ -n "$FOUND" ]; then
             echo "Unexpected permissions in the merged manifest:"
             echo "$FOUND"
+            echo "If intentional, update PRIVACY.md, PrivacyContractTest and this check."
             exit 1
           fi
-          echo "No permissions declared. Good."
+          # And nothing that could move a file off the device, ever.
+          NETWORK=$("$AAPT" dump permissions "$APK" \
+            | grep -E 'INTERNET|ACCESS_NETWORK_STATE|ACCESS_WIFI_STATE' || true)
+          if [ -n "$NETWORK" ]; then
+            echo "Network permission present, which breaks the core guarantee:"
+            echo "$NETWORK"
+            exit 1
+          fi
+          echo "Permissions are as reviewed, and no network access. Good."
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
