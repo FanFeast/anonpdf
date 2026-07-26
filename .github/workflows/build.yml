@@ -1,0 +1,121 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# One run per branch; a new push supersedes an in-flight run.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    name: Unit tests and debug build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Lint
+        run: ./gradlew lintDebug
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Check the app still declares no permissions
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -1)
+          # Anything other than AndroidX's own signature-level receiver guard is a
+          # regression in the core promise of this app, so fail the build.
+          FOUND=$("$AAPT" dump permissions "$APK" \
+            | grep '^uses-permission' \
+            | grep -v 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
+            || true)
+          if [ -n "$FOUND" ]; then
+            echo "Unexpected permissions in the merged manifest:"
+            echo "$FOUND"
+            exit 1
+          fi
+          echo "No permissions declared. Good."
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonpdf-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            app/build/reports/
+          if-no-files-found: ignore
+
+  instrumented:
+    name: Instrumented tests (API ${{ matrix.api }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest version supported, and the version targeted.
+        api: [31, 36]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # The emulator needs hardware acceleration to finish in a sane time.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run instrumented tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: default
+          arch: x86_64
+          force-avd-creation: false
+          emulator-options: >-
+            -no-window -no-snapshot-save -no-audio -no-boot-anim
+            -gpu swiftshader_indirect -camera-back none
+          disable-animations: true
+          script: ./gradlew connectedDebugAndroidTest
+
+      - name: Upload instrumented test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrumented-reports-api${{ matrix.api }}
+          path: app/build/reports/androidTests/
+          if-no-files-found: ignore

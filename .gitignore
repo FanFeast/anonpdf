@@ -1,0 +1,30 @@
+# Signing material — never commit these.
+keystore.properties
+*.jks
+*.keystore
+*.p12
+
+# Local SDK location, machine specific.
+local.properties
+
+# Build output
+build/
+app/build/
+.gradle/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+release/
+captures/
+
+# IDE
+.idea/
+*.iml
+.kotlin/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db

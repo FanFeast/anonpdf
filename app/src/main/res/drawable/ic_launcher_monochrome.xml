@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Page silhouette with the keyhole punched out, so themed icons read
+         correctly when the system tints this to a single colour. -->
+    <path
+        android:fillColor="#000000"
+        android:fillType="evenOdd"
+        android:pathData="M36,24h25l15,15v45a4,4 0 0 1 -4,4H36a4,4 0 0 1 -4,-4V28a4,4 0 0 1 4,-4zM54,46a8,8 0 1 0 -4,14.9V72a4,4 0 0 0 8,0V60.9A8,8 0 0 0 54,46z" />
+</vector>

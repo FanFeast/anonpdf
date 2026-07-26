@@ -1,0 +1,96 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# Signing material comes from repository secrets, which must be set before this
+# workflow can produce an uploadable bundle:
+#
+#   KEYSTORE_BASE64   base64 of your upload keystore  (base64 -w0 upload.jks)
+#   KEYSTORE_PASSWORD store password
+#   KEY_ALIAS         key alias
+#   KEY_PASSWORD      key password
+#
+# Without them the job still runs and produces an unsigned APK, which is fine
+# for testing but cannot be uploaded to Play.
+
+jobs:
+  release:
+    name: Build release artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      # The `secrets` context is not usable directly in a step-level `if`, so
+      # reduce it to a job-level boolean here.
+      HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Restore signing material
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+          cat > keystore.properties <<EOF
+          storeFile=$RUNNER_TEMP/upload.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Build bundle and APK
+        run: ./gradlew bundleRelease assembleRelease
+
+      - name: Confirm the release build declares no permissions
+        run: |
+          set -euo pipefail
+          APK=app/build/outputs/apk/release/app-release.apk
+          AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -1)
+          FOUND=$("$AAPT" dump permissions "$APK" \
+            | grep '^uses-permission' \
+            | grep -v 'DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION' \
+            || true)
+          if [ -n "$FOUND" ]; then
+            echo "Unexpected permissions in the release manifest:"; echo "$FOUND"; exit 1
+          fi
+          echo "Release build declares no permissions."
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f keystore.properties "$RUNNER_TEMP/upload.jks"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonpdf-release
+          path: |
+            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Attach APK to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: app/build/outputs/apk/release/app-release.apk
+          generate_release_notes: true

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+      AnonPDF declares NO permissions. Not internet, not storage, nothing.
+      Every file is reached through the Storage Access Framework, which means the
+      user hands us one document at a time and we can never enumerate their disk.
+      The <uses-permission tools:node="remove"> entries below are a hard guarantee:
+      if any dependency ever tries to merge a permission in, the build strips it.
+    -->
+    <uses-permission
+        android:name="android.permission.INTERNET"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.ACCESS_NETWORK_STATE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        tools:node="remove" />
+    <uses-permission
+        android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove" />
+
+    <application
+        android:name=".AnonPdfApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:largeHeap="true"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.AnonPDF">
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+            android:exported="true"
+            android:theme="@style/Theme.AnonPDF"
+            android:windowSoftInputMode="adjustResize">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Open PDFs handed to us by other apps (files, mail, browser downloads). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Lets the user hand a finished file to another app they choose from the
+          share sheet. Not exported, no permissions granted until the user picks a
+          target, and scoped to the output folder in our own cache.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+</manifest>

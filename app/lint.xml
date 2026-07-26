@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      Adaptive icons live in mipmap-anydpi-v26 by convention, and AAPT2 does not
+      pick them up from an unversioned mipmap-anydpi folder. The qualifier is
+      redundant given minSdk 31, but it is the only arrangement that builds.
+    -->
+    <issue
+        id="ObsoleteSdkInt"
+        severity="ignore" />
+
+    <!--
+      targetSdk is deliberately one release behind compileSdk: we compile against
+      the newest APIs but only opt in to runtime behaviour changes we have
+      actually tested against. Bump this once the newer platform is verified.
+    -->
+    <issue
+        id="OldTargetApi"
+        severity="ignore" />
+
+    <!--
+      The Compose compiler plugin has to match the Kotlin version that AGP
+      compiles with, so it cannot be bumped independently.
+    -->
+    <issue
+        id="NewerVersionAvailable"
+        severity="ignore" />
+    <issue
+        id="GradleDependency"
+        severity="informational" />
+</lint>
