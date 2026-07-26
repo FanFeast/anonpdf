@@ -165,14 +165,32 @@ internal object PdfDraw {
             false,
         ).use { stream -> stream.restoreGraphicsState() }
 
+        // Read both boxes before writing either. PDFBox clips getCropBox() to the
+        // MediaBox, so shrinking the MediaBox first makes the next CropBox read
+        // return the already-shrunk value — and scaling that again lands the crop
+        // at factor squared, cutting most of the page away.
         val media = page.mediaBox
+        val crop = page.cropBox
         page.mediaBox = media.scaledBy(factor)
-        page.cropBox = page.cropBox.scaledBy(factor)
+        page.cropBox = crop.scaledBy(factor)
     }
 
-    /** Shrinks the visible area to [insets], expressed as fractions of each edge. */
-    fun cropPage(page: PDPage, insets: CropInsets) {
-        if (insets.isEmpty) return
+    /**
+     * Shrinks the visible area, given insets as fractions of each edge **of the
+     * page as displayed**.
+     *
+     * The caller drags a frame over a rendered page, so "left" means the left the
+     * user saw. A page carrying a /Rotate is shown turned, so that edge is not the
+     * CropBox's left — on a quarter-turned page it is the bottom. The insets are
+     * rotated into page space first; skipping that step trims the wrong side, and
+     * the mistake is invisible until someone crops a rotated scan.
+     *
+     * Reads the page's current /Rotate, so callers must set the final rotation
+     * before cropping.
+     */
+    fun cropPage(page: PDPage, displayInsets: CropInsets) {
+        if (displayInsets.isEmpty) return
+        val insets = toPageSpace(displayInsets, PdfOps.normalizeRotation(page.rotation))
         val box = page.cropBox
         val left = box.width * insets.left
         val right = box.width * insets.right
@@ -187,6 +205,35 @@ internal object PdfDraw {
             width,
             height,
         )
+    }
+
+    /**
+     * Rotates display-space edge insets into unrotated page space.
+     *
+     * Derived from the same display-to-page mapping [applyDisplayTransform] uses:
+     * at 90° a display point (dx, dy) lands at page (W - dy, dx), so the display
+     * left edge is the page bottom, and so on round.
+     */
+    private fun toPageSpace(insets: CropInsets, rotation: Int): CropInsets = when (rotation) {
+        90 -> CropInsets(
+            left = insets.top,
+            top = insets.right,
+            right = insets.bottom,
+            bottom = insets.left,
+        )
+        180 -> CropInsets(
+            left = insets.right,
+            top = insets.bottom,
+            right = insets.left,
+            bottom = insets.top,
+        )
+        270 -> CropInsets(
+            left = insets.bottom,
+            top = insets.left,
+            right = insets.top,
+            bottom = insets.right,
+        )
+        else -> insets
     }
 
     /**

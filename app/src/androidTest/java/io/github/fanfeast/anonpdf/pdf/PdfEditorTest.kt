@@ -3,6 +3,7 @@ package io.github.fanfeast.anonpdf.pdf
 import android.content.Context
 import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.core.graphics.scale
 import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
@@ -17,6 +18,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import kotlin.math.abs
 
 /**
  * The editor's promise is that the preview is the output. These tests hold it to
@@ -79,6 +81,30 @@ class PdfEditorTest {
             }
         }
         return if (total == 0) 0f else differing.toFloat() / total
+    }
+
+    /**
+     * Mean per-channel difference, 0..255, over sampled pixels.
+     *
+     * Tolerant of resampling and anti-aliasing in a way that exact pixel equality
+     * is not, while still being nowhere near able to hide a page whose content was
+     * clipped or moved.
+     */
+    private fun averageChannelDifference(a: Bitmap, b: Bitmap): Float {
+        if (a.width != b.width || a.height != b.height) return 255f
+        var total = 0L
+        var samples = 0
+        for (y in 0 until a.height step 3) {
+            for (x in 0 until a.width step 3) {
+                val left = a.getPixel(x, y)
+                val right = b.getPixel(x, y)
+                total += abs(((left shr 16) and 0xFF) - ((right shr 16) and 0xFF))
+                total += abs(((left shr 8) and 0xFF) - ((right shr 8) and 0xFF))
+                total += abs((left and 0xFF) - (right and 0xFF))
+                samples += 3
+            }
+        }
+        return if (samples == 0) 0f else total.toFloat() / samples
     }
 
     /** Fraction of pixels that are not white — i.e. how much was actually drawn. */
@@ -178,37 +204,141 @@ class PdfEditorTest {
     }
 
     @Test
-    fun scalingResizesThePageAndKeepsTheContentOnIt(): Unit = runBlocking {
-        val source = textPdf(1, "Scaled")
-        val output = out("scaled")
+    fun cropOnARotatedPageTrimsTheEdgeTheUserDragged(): Unit = runBlocking {
+        // The crop frame is dragged over the page *as displayed*. A quarter-turned
+        // page shows its CropBox bottom on the left, so applying a "left" inset
+        // straight to the box would trim the wrong side — invisible on an upright
+        // page, wrong on every rotated scan.
+        val source = textPdf(1, "Turned")
+        val output = out("rotated-crop")
 
-        PdfEditor.applyPlan(source, output, plan(1, ScalePages(0.5f, setOf(0))))
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                RotatePages(90, setOf(0)),
+                // Trim 20% off the left of what the user is looking at.
+                CropPages(CropInsets(left = 0.2f), setOf(0)),
+            ),
+        )
 
         PdfOps.load(output).use { document ->
-            val box = document.getPage(0).mediaBox
-            assertEquals(PDRectangle.A4.width * 0.5f, box.width, 1f)
-            assertEquals(PDRectangle.A4.height * 0.5f, box.height, 1f)
+            val page = document.getPage(0)
+            assertEquals(90, page.rotation)
+            val box = page.cropBox
+            // Displayed-left is the page bottom at 90 degrees, so the box loses
+            // height and keeps its full width.
+            assertEquals(
+                "width must be untouched; if it shrank, the insets were not rotated",
+                PDRectangle.A4.width,
+                box.width,
+                1f,
+            )
+            assertEquals(PDRectangle.A4.height * 0.8f, box.height, 1f)
+            assertEquals(PDRectangle.A4.height * 0.2f, box.lowerLeftY, 1f)
         }
-        // Text scaled with the page rather than being clipped off it.
-        assertTrue(PdfOps.extractText(output).contains("Scaled 1"))
 
+        // And it shows up in the render: displayed width is the box height at 90
+        // degrees, so the visible page gets narrower, not shorter.
         val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
-        assertTrue(
-            "a scaled page must still have visible content",
-            inkFraction(rendered) > 0.01f,
+        val aspect = rendered.width.toFloat() / rendered.height
+        assertEquals(
+            "rendered aspect should reflect a narrowed landscape page",
+            (PDRectangle.A4.height * 0.8f) / PDRectangle.A4.width,
+            aspect,
+            0.02f,
         )
         rendered.recycle()
     }
 
-    @Test
-    fun scalingUpAlsoWorks(): Unit = runBlocking {
-        val source = textPdf(1, "Big")
-        val output = out("scaled-up")
-        PdfEditor.applyPlan(source, output, plan(1, ScalePages(1.5f, setOf(0))))
+    /**
+     * Scaling has to move the boxes *and* the artwork by the same amount.
+     *
+     * The strong assertion is the render comparison: a scaled page drawn to a given
+     * width must look like the unscaled page drawn to that width, because scaling
+     * changes the page's size, not its composition. Checking box dimensions and
+     * "is there any ink" is not enough — an earlier version of this test passed
+     * while the content was being clipped to a quarter of the page.
+     */
+    private suspend fun assertScaleKeepsLayout(factor: Float) {
+        val source = textPdf(1, "Scaled")
+        val output = out("scaled-$factor")
+
+        PdfEditor.applyPlan(source, output, plan(1, ScalePages(factor, setOf(0))))
+
         PdfOps.load(output).use { document ->
-            assertEquals(PDRectangle.A4.width * 1.5f, document.getPage(0).mediaBox.width, 1f)
+            val page = document.getPage(0)
+            assertEquals(
+                "mediaBox width",
+                PDRectangle.A4.width * factor,
+                page.mediaBox.width,
+                1f,
+            )
+            assertEquals(
+                "mediaBox height",
+                PDRectangle.A4.height * factor,
+                page.mediaBox.height,
+                1f,
+            )
+            // The visible area has to track the page, not shrink faster than it.
+            assertEquals(
+                "cropBox width must match the mediaBox, not be scaled twice",
+                PDRectangle.A4.width * factor,
+                page.cropBox.width,
+                1f,
+            )
+            assertEquals(
+                PDRectangle.A4.height * factor,
+                page.cropBox.height,
+                1f,
+            )
         }
-        assertTrue(PdfOps.extractText(output).contains("Big 1"))
+
+        assertTrue(PdfOps.extractText(output).contains("Scaled 1"))
+
+        val before = PdfRasterizer.open(source).use { it.renderByWidth(0, 380) }
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 380) }
+
+        // Scaling the boxes by a float leaves the aspect ratio a hair different, so
+        // the rendered height can land a pixel or two out. That is rounding, not a
+        // layout change; normalise it away rather than asserting exact equality.
+        assertEquals("width", before.width, rendered.width)
+        assertTrue(
+            "height should differ only by rounding: ${before.height} vs ${rendered.height}",
+            abs(before.height - rendered.height) <= 3,
+        )
+        val after = if (rendered.height == before.height) {
+            rendered
+        } else {
+            rendered.scale(before.width, before.height)
+        }
+
+        val difference = averageChannelDifference(before, after)
+        assertTrue(
+            "a scaled page must contain the same layout; mean channel difference " +
+                "$difference at factor $factor",
+            difference < 12f,
+        )
+        assertTrue("and must not be blank", inkFraction(after) > 0.005f)
+        before.recycle()
+        if (after !== rendered) rendered.recycle()
+        after.recycle()
+    }
+
+    @Test
+    fun scalingDownKeepsTheWholeLayout(): Unit = runBlocking {
+        assertScaleKeepsLayout(0.5f)
+    }
+
+    @Test
+    fun scalingDownHardKeepsTheWholeLayout(): Unit = runBlocking {
+        assertScaleKeepsLayout(0.25f)
+    }
+
+    @Test
+    fun scalingUpKeepsTheWholeLayout(): Unit = runBlocking {
+        assertScaleKeepsLayout(1.5f)
     }
 
     @Test

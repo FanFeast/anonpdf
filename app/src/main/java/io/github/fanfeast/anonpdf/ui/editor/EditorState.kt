@@ -86,6 +86,20 @@ class EditorState(val pageCount: Int) {
         position = newPosition.coerceIn(0, (plan.kept.size - 1).coerceAtLeast(0))
     }
 
+    /**
+     * Moves the preview onto a page the next edit will actually affect.
+     *
+     * Without this, opening Scale while looking at page 1 with pages 3 and 5
+     * selected would show a preview that never changes as the slider moves — the
+     * tool is working, just not on anything visible.
+     */
+    fun showFirstTarget() {
+        val targets = targets()
+        if (currentSourceIndex in targets) return
+        val index = plan.kept.indexOfFirst { it.sourceIndex in targets }
+        if (index >= 0) position = index
+    }
+
     fun toggleSelection(sourceIndex: Int) {
         selection = if (sourceIndex in selection) {
             selection - sourceIndex

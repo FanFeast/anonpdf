@@ -247,10 +247,13 @@ object PdfEditor {
         page: com.tom_roush.pdfbox.pdmodel.PDPage,
         state: PageState,
     ) {
-        // Scale first: it resizes the boxes, and the crop is a fraction of them.
+        // Order matters. Scale resizes the boxes, but crop insets are fractions so
+        // they survive it either way. Rotation has to be settled *before* cropping,
+        // because the insets were captured against the page as displayed and
+        // cropPage rotates them into page space using the page's final /Rotate.
         PdfDraw.scalePage(document, page, state.scale)
-        PdfDraw.cropPage(page, state.crop)
         page.rotation = PdfOps.normalizeRotation(page.rotation + state.rotationDelta)
+        PdfDraw.cropPage(page, state.crop)
     }
 
     private fun stampWatermark(

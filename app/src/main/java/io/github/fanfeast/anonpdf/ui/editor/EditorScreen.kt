@@ -1,22 +1,24 @@
-@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@file:OptIn(ExperimentalMaterial3Api::class)
 
 package io.github.fanfeast.anonpdf.ui.editor
 
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.LruCache
+import android.util.SizeF
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -28,7 +30,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -37,13 +38,13 @@ import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Numbers
-import androidx.compose.material.icons.filled.Redo
+import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.RestoreFromTrash
-import androidx.compose.material.icons.filled.RotateLeft
-import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.RotateLeft
+import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.ZoomOutMap
 import androidx.compose.material3.AssistChip
@@ -75,18 +76,22 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import io.github.fanfeast.anonpdf.pdf.CropInsets
 import io.github.fanfeast.anonpdf.pdf.CropPages
 import io.github.fanfeast.anonpdf.pdf.DeletePages
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.EditPlan
 import io.github.fanfeast.anonpdf.pdf.MovePage
+import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.PageState
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.RestorePages
@@ -95,6 +100,7 @@ import io.github.fanfeast.anonpdf.pdf.RotatePages
 import io.github.fanfeast.anonpdf.pdf.ScalePages
 import io.github.fanfeast.anonpdf.pdf.SetPageNumbers
 import io.github.fanfeast.anonpdf.pdf.SetWatermark
+import io.github.fanfeast.anonpdf.pdf.WatermarkOptions
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
 import io.github.fanfeast.anonpdf.ui.common.OpenOutcome
 import io.github.fanfeast.anonpdf.ui.common.openDocumentSession
@@ -105,18 +111,39 @@ import io.github.fanfeast.anonpdf.ui.components.PasswordDialog
 import io.github.fanfeast.anonpdf.ui.components.ResultCard
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
 import io.github.fanfeast.anonpdf.ui.tools.ToolResult
+import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 private const val THUMBNAIL_WIDTH_PX = 160
+private const val THUMBNAIL_SPACING_DP = 8
 
 /** Preview render widths snap to this grid, so a resize does not thrash. */
 private const val PREVIEW_BUCKET_PX = 200
 private const val PREVIEW_MAX_PX = 1400
 
 /** Settling time before re-rendering, so dragging a slider does not queue renders. */
-private const val PREVIEW_DEBOUNCE_MS = 160L
+private const val PREVIEW_DEBOUNCE_MS = 170L
+
+/** How close to the strip's edge a drag has to get before it starts scrolling. */
+private const val AUTO_SCROLL_EDGE_PX = 110f
+private const val AUTO_SCROLL_STEP_PX = 14f
+
+/**
+ * Which tool is currently open.
+ *
+ * Each variant carries its own draft, which feeds the preview, so a slider drag
+ * shows the real result before anything is committed to the edit history.
+ */
+private sealed interface EditorMode {
+    data object Normal : EditorMode
+    data class Cropping(val insets: CropInsets) : EditorMode
+    data class Scaling(val factor: Float) : EditorMode
+    data class Watermarking(val options: WatermarkOptions) : EditorMode
+    data class Numbering(val options: PageNumberOptions) : EditorMode
+}
 
 @Composable
 fun EditorScreen(
@@ -139,11 +166,7 @@ fun EditorScreen(
 
     var preview by remember { mutableStateOf<Bitmap?>(null) }
     var previewBusy by remember { mutableStateOf(false) }
-    var cropDraft by remember { mutableStateOf<CropInsets?>(null) }
-
-    var showScale by remember { mutableStateOf(false) }
-    var showWatermark by remember { mutableStateOf(false) }
-    var showNumbers by remember { mutableStateOf(false) }
+    var mode by remember { mutableStateOf<EditorMode>(EditorMode.Normal) }
     var showPending by remember { mutableStateOf(false) }
 
     var busyMessage by remember { mutableStateOf<String?>(null) }
@@ -170,6 +193,7 @@ fun EditorScreen(
                     session = outcome.session
                     editor = EditorState(outcome.session.pageCount)
                     preview = null
+                    mode = EditorMode.Normal
                     askPassword = false
                     passwordError = null
                 }
@@ -219,23 +243,51 @@ fun EditorScreen(
     }
 
     val plan = state.plan
-    val kept = plan.kept
     val currentSource = state.currentSourceIndex
 
-    // While cropping, the preview must show the page *uncropped* so the user can
-    // see what they are about to cut away.
-    val previewPlan: EditPlan = remember(plan, cropDraft, currentSource) {
-        val target = currentSource
-        if (cropDraft == null || target == null) {
-            plan
-        } else {
-            plan.copy(
+    /**
+     * The plan the preview should show: the committed one, plus whatever the open
+     * tool is currently drafting. Cropping is the exception — it clears the crop so
+     * the user can see the whole page underneath the frame they are dragging.
+     */
+    val previewPlan: EditPlan = remember(plan, mode, currentSource) {
+        val targets = state.targets()
+        when (val current = mode) {
+            EditorMode.Normal -> plan
+            is EditorMode.Cropping -> plan.copy(
                 pages = plan.pages.map {
-                    if (it.sourceIndex == target) it.copy(crop = CropInsets()) else it
+                    if (it.sourceIndex == currentSource) it.copy(crop = CropInsets()) else it
                 },
+            )
+            is EditorMode.Scaling -> plan.copy(
+                pages = plan.pages.map {
+                    if (it.sourceIndex in targets) it.copy(scale = current.factor) else it
+                },
+            )
+            is EditorMode.Watermarking -> plan.copy(watermark = current.options)
+            is EditorMode.Numbering -> plan.copy(pageNumbers = current.options)
+        }
+    }
+
+    val kept = previewPlan.kept
+
+    /**
+     * Page sizes as they will appear, so the preview can show them at their true
+     * relative size. Without this every page renders to the same width, which
+     * makes scaling invisible and a landscape page look the same as a portrait one.
+     */
+    val effectiveSizes = remember(previewPlan, document) {
+        kept.map { pageState ->
+            effectiveSize(
+                document.pageSizes.getOrNull(pageState.sourceIndex) ?: SizeF(595f, 842f),
+                pageState,
             )
         }
     }
+    val widestPage = effectiveSizes.maxOfOrNull { it.width } ?: 1f
+    val widthFraction =
+        ((effectiveSizes.getOrNull(state.position)?.width ?: widestPage) / widestPage)
+            .coerceIn(0.12f, 1f)
 
     var previewWidthPx by remember { mutableStateOf(600) }
 
@@ -261,15 +313,16 @@ fun EditorScreen(
         topBar = {
             AnonTopBar(title = document.name, onBack = onBack) {
                 IconButton(onClick = { state.undo() }, enabled = state.canUndo) {
-                    Icon(Icons.Filled.Undo, contentDescription = "Undo")
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
                 }
                 IconButton(onClick = { state.redo() }, enabled = state.canRedo) {
-                    Icon(Icons.Filled.Redo, contentDescription = "Redo")
+                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
                 }
                 IconButton(
                     onClick = {
                         state.reset()
                         result = null
+                        mode = EditorMode.Normal
                     },
                     enabled = state.canUndo,
                 ) { Icon(Icons.Filled.Restore, contentDescription = "Revert all") }
@@ -291,9 +344,9 @@ fun EditorScreen(
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
-                    previewWidthPx = with(density) {
-                        bucket((maxWidth.toPx() * 0.94f).roundToInt())
-                    }
+                    val frameWidth = maxWidth * 0.94f
+                    previewWidthPx = with(density) { bucket(frameWidth.toPx().roundToInt()) }
+                    val bitmap = preview
 
                     when {
                         kept.isEmpty() -> Text(
@@ -302,13 +355,14 @@ fun EditorScreen(
                             textAlign = TextAlign.Center,
                         )
 
-                        preview != null -> Box(contentAlignment = Alignment.Center) {
-                            val bitmap = preview!!
+                        bitmap != null -> {
+                            // Drawn at the page's true size relative to the widest
+                            // page, so scale and mixed page sizes are both visible.
+                            val shown = frameWidth * widthFraction
                             Box(
                                 Modifier
-                                    .padding(12.dp)
-                                    .width(with(density) { bitmap.width.toDp() })
-                                    .height(with(density) { bitmap.height.toDp() }),
+                                    .width(shown)
+                                    .aspectRatio(bitmap.width.toFloat() / bitmap.height),
                             ) {
                                 Image(
                                     bitmap = bitmap.asImageBitmap(),
@@ -318,10 +372,10 @@ fun EditorScreen(
                                         .fillMaxSize()
                                         .background(Color.White),
                                 )
-                                cropDraft?.let { insets ->
+                                (mode as? EditorMode.Cropping)?.let { cropping ->
                                     CropOverlay(
-                                        insets = insets,
-                                        onChange = { cropDraft = it },
+                                        insets = cropping.insets,
+                                        onChange = { mode = EditorMode.Cropping(it) },
                                         modifier = Modifier.fillMaxSize(),
                                     )
                                 }
@@ -335,18 +389,16 @@ fun EditorScreen(
                         Box(
                             Modifier
                                 .fillMaxSize()
-                                .padding(16.dp),
+                                .padding(14.dp),
                             contentAlignment = Alignment.TopEnd,
-                        ) {
-                            CircularProgressIndicator(Modifier.size(18.dp))
-                        }
+                        ) { CircularProgressIndicator(Modifier.size(16.dp)) }
                     }
 
-                    if (kept.size > 1 && cropDraft == null) {
+                    if (kept.size > 1 && mode is EditorMode.Normal) {
                         Row(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .padding(bottom = 6.dp),
+                                .padding(bottom = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             IconButton(
@@ -365,7 +417,10 @@ fun EditorScreen(
                                 Text(
                                     "page ${state.position + 1} / ${kept.size}",
                                     style = MaterialTheme.typography.labelMedium,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(
+                                        horizontal = 10.dp,
+                                        vertical = 5.dp,
+                                    ),
                                 )
                             }
                             IconButton(
@@ -388,47 +443,61 @@ fun EditorScreen(
                     cache = thumbnails,
                     selection = state.selection,
                     currentSourceIndex = currentSource,
+                    selecting = state.scope == ApplyScope.SELECTION,
                     onTap = { sourceIndex ->
-                        val index = kept.indexOfFirst { it.sourceIndex == sourceIndex }
-                        if (index >= 0) state.goTo(index)
+                        if (state.scope == ApplyScope.SELECTION) {
+                            state.toggleSelection(sourceIndex)
+                        } else {
+                            val index = plan.kept.indexOfFirst { it.sourceIndex == sourceIndex }
+                            if (index >= 0) state.goTo(index)
+                        }
                     },
-                    onLongPress = { state.toggleSelection(it) },
+                    onMove = { sourceIndex, offset ->
+                        state.apply(MovePage(sourceIndex, offset))
+                    },
                 )
 
                 // -------------------------------------------------- controls
                 Surface(tonalElevation = 3.dp) {
-                    if (cropDraft != null) {
-                        CropControls(
-                            insets = cropDraft!!,
-                            targetLabel = state.targetLabel(),
-                            onChange = { cropDraft = it },
-                            onCancel = { cropDraft = null },
-                            onApply = {
-                                state.apply(CropPages(cropDraft!!, state.targets()))
-                                cropDraft = null
-                            },
-                        )
-                    } else {
-                        EditorControls(
+                    when (val current = mode) {
+                        EditorMode.Normal -> EditorControls(
                             state = state,
                             plan = plan,
                             onRotate = { state.apply(RotatePages(it, state.targets())) },
                             onCrop = {
-                                val existing = currentSource
-                                    ?.let { source -> plan.pages.first { it.sourceIndex == source } }
+                                state.showFirstTarget()
+                                val existing = state.currentSourceIndex
+                                    ?.let { source ->
+                                        plan.pages.firstOrNull { it.sourceIndex == source }
+                                    }
                                     ?.crop
-                                cropDraft = existing?.takeIf { !it.isEmpty }
-                                    ?: CropInsets(0.06f, 0.06f, 0.06f, 0.06f)
+                                mode = EditorMode.Cropping(
+                                    existing?.takeIf { !it.isEmpty }
+                                        ?: CropInsets(0.06f, 0.06f, 0.06f, 0.06f),
+                                )
                             },
-                            onScale = { showScale = true },
+                            onScale = {
+                                state.showFirstTarget()
+                                val existing = state.currentSourceIndex
+                                    ?.let { source ->
+                                        plan.pages.firstOrNull { it.sourceIndex == source }
+                                    }
+                                    ?.scale ?: 1f
+                                mode = EditorMode.Scaling(existing)
+                            },
                             onDelete = { state.apply(DeletePages(state.targets())) },
                             onRestore = { state.apply(RestorePages(state.targets())) },
-                            onMove = { offset ->
-                                currentSource?.let { state.apply(MovePage(it, offset)) }
-                            },
                             onReverse = { state.apply(ReversePages) },
-                            onWatermark = { showWatermark = true },
-                            onNumbers = { showNumbers = true },
+                            onWatermark = {
+                                mode = EditorMode.Watermarking(
+                                    plan.watermark ?: WatermarkOptions(text = ""),
+                                )
+                            },
+                            onNumbers = {
+                                mode = EditorMode.Numbering(
+                                    plan.pageNumbers ?: PageNumberOptions(),
+                                )
+                            },
                             onShowPending = { showPending = true },
                             onSave = {
                                 scope.launch {
@@ -447,8 +516,8 @@ fun EditorScreen(
                                         result = ToolResult.One(
                                             file = output,
                                             suggestedName = "$stem-edited.pdf",
-                                            note = "${kept.size} page" +
-                                                (if (kept.size == 1) "" else "s") +
+                                            note = "${plan.kept.size} page" +
+                                                (if (plan.kept.size == 1) "" else "s") +
                                                 ", ${state.ops.size} edit" +
                                                 (if (state.ops.size == 1) "" else "s") +
                                                 " applied.",
@@ -461,12 +530,63 @@ fun EditorScreen(
                                 }
                             },
                         )
+
+                        is EditorMode.Cropping -> CropPanel(
+                            insets = current.insets,
+                            targetLabel = state.targetLabel(),
+                            onChange = { mode = EditorMode.Cropping(it) },
+                            onCancel = { mode = EditorMode.Normal },
+                            onApply = {
+                                state.apply(CropPages(current.insets, state.targets()))
+                                mode = EditorMode.Normal
+                            },
+                        )
+
+                        is EditorMode.Scaling -> ScalePanel(
+                            factor = current.factor,
+                            targetLabel = state.targetLabel(),
+                            onChange = { mode = EditorMode.Scaling(it) },
+                            onCancel = { mode = EditorMode.Normal },
+                            onApply = {
+                                state.apply(ScalePages(current.factor, state.targets()))
+                                mode = EditorMode.Normal
+                            },
+                        )
+
+                        is EditorMode.Watermarking -> WatermarkPanel(
+                            options = current.options,
+                            hasExisting = plan.watermark != null,
+                            onChange = { mode = EditorMode.Watermarking(it) },
+                            onRemove = {
+                                state.apply(SetWatermark(null))
+                                mode = EditorMode.Normal
+                            },
+                            onCancel = { mode = EditorMode.Normal },
+                            onApply = {
+                                state.apply(SetWatermark(current.options))
+                                mode = EditorMode.Normal
+                            },
+                        )
+
+                        is EditorMode.Numbering -> PageNumbersPanel(
+                            pageCount = plan.kept.size,
+                            options = current.options,
+                            hasExisting = plan.pageNumbers != null,
+                            onChange = { mode = EditorMode.Numbering(it) },
+                            onRemove = {
+                                state.apply(SetPageNumbers(null))
+                                mode = EditorMode.Normal
+                            },
+                            onCancel = { mode = EditorMode.Normal },
+                            onApply = {
+                                state.apply(SetPageNumbers(current.options))
+                                mode = EditorMode.Normal
+                            },
+                        )
                     }
                 }
 
-                error?.let {
-                    Column(Modifier.padding(12.dp)) { ErrorNote(it) }
-                }
+                error?.let { Column(Modifier.padding(12.dp)) { ErrorNote(it) } }
             }
 
             result?.let { finished ->
@@ -490,44 +610,6 @@ fun EditorScreen(
         }
     }
 
-    if (showScale) {
-        val existing = currentSource
-            ?.let { source -> plan.pages.first { it.sourceIndex == source } }
-            ?.scale ?: 1f
-        ScaleDialog(
-            targetLabel = state.targetLabel(),
-            initial = existing,
-            onDismiss = { showScale = false },
-            onApply = { factor ->
-                state.apply(ScalePages(factor, state.targets()))
-                showScale = false
-            },
-        )
-    }
-
-    if (showWatermark) {
-        WatermarkDialog(
-            initial = plan.watermark,
-            onDismiss = { showWatermark = false },
-            onApply = { options ->
-                state.apply(SetWatermark(options))
-                showWatermark = false
-            },
-        )
-    }
-
-    if (showNumbers) {
-        PageNumbersDialog(
-            pageCount = kept.size,
-            initial = plan.pageNumbers,
-            onDismiss = { showNumbers = false },
-            onApply = { options ->
-                state.apply(SetPageNumbers(options))
-                showNumbers = false
-            },
-        )
-    }
-
     if (showPending) {
         PendingEditsDialog(
             descriptions = state.ops.map { it.describe() },
@@ -537,6 +619,24 @@ fun EditorScreen(
                 showPending = false
             },
         )
+    }
+}
+
+/**
+ * The page's size as the reader will see it: scaled, cropped, and with a quarter
+ * turn swapping the axes.
+ *
+ * The base size already accounts for the page's stored /Rotate, because that is
+ * what the renderer reports.
+ */
+private fun effectiveSize(base: SizeF, state: PageState): SizeF {
+    val width = base.width * state.scale * (1f - state.crop.left - state.crop.right)
+    val height = base.height * state.scale * (1f - state.crop.top - state.crop.bottom)
+    val quarterTurned = ((state.rotationDelta / 90) % 2 + 2) % 2 == 1
+    return if (quarterTurned) {
+        SizeF(max(1f, height), max(1f, width))
+    } else {
+        SizeF(max(1f, width), max(1f, height))
     }
 }
 
@@ -580,6 +680,13 @@ private fun EmptyEditor(
     }
 }
 
+/**
+ * The thumbnail strip, with long-press-and-drag reordering.
+ *
+ * The drop target is worked out from the pointer's position over the strip rather
+ * than from how far the finger has travelled. That makes it immune to the list
+ * scrolling underneath mid-drag, which is what lets edge auto-scroll work at all.
+ */
 @Composable
 private fun PageStrip(
     plan: EditPlan,
@@ -587,44 +694,164 @@ private fun PageStrip(
     cache: LruCache<Int, Bitmap>,
     selection: Set<Int>,
     currentSourceIndex: Int?,
+    selecting: Boolean,
     onTap: (Int) -> Unit,
-    onLongPress: (Int) -> Unit,
+    onMove: (sourceIndex: Int, offset: Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val spacingPx = with(density) { THUMBNAIL_SPACING_DP.dp.toPx() }
 
-    LaunchedEffect(currentSourceIndex) {
+    // Drag state is plain values, updated from the gesture callbacks. The layout
+    // info they are derived from is deliberately never read during composition:
+    // doing so recomposes the whole strip on every scroll frame.
+    var dragFrom by remember { mutableStateOf<Int?>(null) }
+    var dragTarget by remember { mutableStateOf<Int?>(null) }
+    var dragTranslation by remember { mutableStateOf(0f) }
+    var scrollDirection by remember { mutableStateOf(0) }
+    var itemWidthPx by remember { mutableStateOf(0f) }
+
+    /**
+     * Works out the drop slot from where the finger is over the strip, not from how
+     * far it has travelled. Position-based means the list can scroll underneath
+     * mid-drag and the target stays right, which is what makes edge auto-scroll
+     * possible at all.
+     */
+    fun refreshDrag(index: Int, localX: Float) {
+        val info = listState.layoutInfo
+        val visible = info.visibleItemsInfo
+        val own = visible.firstOrNull { it.index == index }
+        val width = own?.size?.toFloat() ?: itemWidthPx
+        if (width > 0f) itemWidthPx = width
+
+        val pointerX = (own?.offset?.toFloat() ?: 0f) + localX
+        dragTranslation = pointerX - ((own?.offset?.toFloat() ?: 0f) + width / 2f)
+
+        dragTarget = when {
+            visible.isEmpty() -> index
+            else -> visible.firstOrNull { pointerX >= it.offset && pointerX <= it.offset + it.size }
+                ?.index
+                ?: if (pointerX < visible.first().offset) {
+                    visible.first().index
+                } else {
+                    visible.last().index
+                }
+        }
+
+        scrollDirection = when {
+            pointerX < AUTO_SCROLL_EDGE_PX -> -1
+            pointerX > info.viewportEndOffset - AUTO_SCROLL_EDGE_PX -> 1
+            else -> 0
+        }
+    }
+
+    fun endDrag(commit: Boolean) {
+        val from = dragFrom
+        val to = dragTarget
+        if (commit && from != null && to != null && to != from) {
+            onMove(plan.pages[from].sourceIndex, to - from)
+        }
+        dragFrom = null
+        dragTarget = null
+        dragTranslation = 0f
+        scrollDirection = 0
+    }
+
+    // Auto-scroll while a drag is parked near either edge, so a long document can
+    // be reordered without letting go.
+    LaunchedEffect(scrollDirection) {
+        if (scrollDirection == 0) return@LaunchedEffect
+        while (true) {
+            listState.scrollBy(scrollDirection * AUTO_SCROLL_STEP_PX)
+            awaitFrame()
+        }
+    }
+
+    LaunchedEffect(currentSourceIndex, dragFrom) {
+        if (dragFrom != null) return@LaunchedEffect
         val index = plan.pages.indexOfFirst { it.sourceIndex == currentSourceIndex }
         if (index >= 0) runCatching { listState.animateScrollToItem(index) }
     }
 
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(104.dp)
-            .background(MaterialTheme.colorScheme.surface),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(
-            horizontal = 10.dp,
-            vertical = 8.dp,
-        ),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        items(plan.pages.size) { index ->
-            val page = plan.pages[index]
-            Thumbnail(
-                page = page,
-                position = if (page.deleted) null else {
-                    plan.kept.indexOfFirst { it.sourceIndex == page.sourceIndex } + 1
-                },
-                session = session,
-                cache = cache,
-                selected = page.sourceIndex in selection,
-                current = page.sourceIndex == currentSourceIndex,
-                onTap = { onTap(page.sourceIndex) },
-                onLongPress = { onLongPress(page.sourceIndex) },
-            )
+    Column(Modifier.background(MaterialTheme.colorScheme.surface)) {
+        LazyRow(
+            state = listState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(102.dp),
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(THUMBNAIL_SPACING_DP.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            items(plan.pages.size) { position ->
+                val page = plan.pages[position]
+                val from = dragFrom
+                val to = dragTarget
+                val isDragged = from == position
+
+                // Open a gap: everything between the origin and the target slides
+                // one place over, so the drop position is obvious.
+                val slideBy = if (from != null && to != null && !isDragged) {
+                    val step = itemWidthPx + spacingPx
+                    when {
+                        from < to && position in (from + 1)..to -> -step
+                        from > to && position in to until from -> step
+                        else -> 0f
+                    }
+                } else {
+                    0f
+                }
+
+                Thumbnail(
+                    page = page,
+                    position = if (page.deleted) {
+                        null
+                    } else {
+                        plan.kept.indexOfFirst { it.sourceIndex == page.sourceIndex } + 1
+                    },
+                    session = session,
+                    cache = cache,
+                    selected = page.sourceIndex in selection,
+                    current = page.sourceIndex == currentSourceIndex,
+                    selecting = selecting,
+                    dragging = isDragged,
+                    modifier = Modifier
+                        .zIndex(if (isDragged) 1f else 0f)
+                        .graphicsLayer {
+                            translationX = if (isDragged) dragTranslation else slideBy
+                            if (isDragged) {
+                                scaleX = 1.08f
+                                scaleY = 1.08f
+                                shadowElevation = 12f
+                            }
+                        }
+                        .pointerInput(position, plan.pages.size) {
+                            detectDragGesturesAfterLongPress(
+                                onDragStart = { start ->
+                                    dragFrom = position
+                                    refreshDrag(position, start.x)
+                                },
+                                onDrag = { change, _ ->
+                                    refreshDrag(position, change.position.x)
+                                },
+                                onDragEnd = { endDrag(commit = true) },
+                                onDragCancel = { endDrag(commit = false) },
+                            )
+                        }
+                        .clickable { onTap(page.sourceIndex) },
+                )
+            }
         }
+        Text(
+            if (selecting) {
+                "Tap pages to select them. Long-press and drag to reorder."
+            } else {
+                "Long-press and drag a page to reorder it."
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 12.dp, bottom = 4.dp),
+        )
     }
 }
 
@@ -636,8 +863,9 @@ private fun Thumbnail(
     cache: LruCache<Int, Bitmap>,
     selected: Boolean,
     current: Boolean,
-    onTap: () -> Unit,
-    onLongPress: () -> Unit,
+    selecting: Boolean,
+    dragging: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     var bitmap by remember(page.sourceIndex) { mutableStateOf(cache.get(page.sourceIndex)) }
 
@@ -653,20 +881,19 @@ private fun Thumbnail(
     }
 
     val borderColour = when {
-        current -> MaterialTheme.colorScheme.primary
+        dragging -> MaterialTheme.colorScheme.primary
         selected -> MaterialTheme.colorScheme.tertiary
+        current && !selecting -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.outlineVariant
     }
+    val borderWidth = if (dragging || selected || (current && !selecting)) 2.dp else 1.dp
 
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.combinedClickable(onClick = onTap, onLongClick = onLongPress),
-    ) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
         Box(
             modifier = Modifier
-                .height(62.dp)
+                .height(60.dp)
                 .aspectRatio(0.72f)
-                .border(if (current || selected) 2.dp else 1.dp, borderColour)
+                .border(borderWidth, borderColour)
                 .background(Color.White)
                 .alpha(if (page.deleted) 0.32f else 1f),
             contentAlignment = Alignment.Center,
@@ -689,16 +916,23 @@ private fun Thumbnail(
                     modifier = Modifier.size(18.dp),
                 )
             }
+            if (selected) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f)),
+                )
+            }
         }
         Text(
             text = position?.toString() ?: "—",
             style = MaterialTheme.typography.labelMedium,
-            color = if (current) {
+            color = if (current || selected) {
                 MaterialTheme.colorScheme.primary
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
-            fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
+            fontWeight = if (current || selected) FontWeight.Bold else FontWeight.Normal,
         )
     }
 }
@@ -712,7 +946,6 @@ private fun EditorControls(
     onScale: () -> Unit,
     onDelete: () -> Unit,
     onRestore: () -> Unit,
-    onMove: (Int) -> Unit,
     onReverse: () -> Unit,
     onWatermark: () -> Unit,
     onNumbers: () -> Unit,
@@ -723,21 +956,18 @@ private fun EditorControls(
         ?.let { source -> plan.pages.firstOrNull { it.sourceIndex == source }?.deleted }
         ?: false
 
-    Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+    Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
         Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(
-                "Apply to",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             ApplyScope.entries.forEach { option ->
                 FilterChip(
                     selected = state.scope == option,
-                    onClick = { state.scope = option },
+                    onClick = {
+                        state.scope = option
+                        if (option != ApplyScope.SELECTION) state.clearSelection()
+                    },
                     label = {
                         Text(
                             if (option == ApplyScope.SELECTION && state.selection.isNotEmpty()) {
@@ -749,46 +979,42 @@ private fun EditorControls(
                     },
                 )
             }
-            if (state.selection.isEmpty()) {
-                TextButton(onClick = { state.selectAll() }) { Text("Select all") }
-            } else {
-                TextButton(onClick = { state.clearSelection() }) { Text("Clear") }
+            if (state.scope == ApplyScope.SELECTION) {
+                if (state.selection.isEmpty()) {
+                    TextButton(onClick = { state.selectAll() }) { Text("All") }
+                } else {
+                    TextButton(onClick = { state.clearSelection() }) { Text("None") }
+                }
             }
         }
 
-        Spacer(Modifier.height(2.dp))
         Text(
-            "Long-press a thumbnail to add it to the selection. " +
-                "Next edit hits ${state.targetLabel()}.",
+            "Next edit hits ${state.targetLabel()}.",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
 
-        // Two rows of five rather than one scrolling row of ten: a horizontal
-        // scroller hid the last four tools entirely, and shrinking the buttons
-        // enough to fit would put them under the 48dp touch-target minimum.
+        // Two rows of four. Reordering lives on the strip now, so the old
+        // Earlier/Later arrows are gone.
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            ToolButton(Icons.Filled.RotateLeft, "Left") { onRotate(-90) }
-            ToolButton(Icons.Filled.RotateRight, "Right") { onRotate(90) }
+            ToolButton(Icons.AutoMirrored.Filled.RotateLeft, "Left") { onRotate(-90) }
+            ToolButton(Icons.AutoMirrored.Filled.RotateRight, "Right") { onRotate(90) }
             ToolButton(Icons.Filled.Crop, "Crop", onClick = onCrop)
             ToolButton(Icons.Filled.ZoomOutMap, "Scale", onClick = onScale)
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+        ) {
             if (currentDeleted) {
                 ToolButton(Icons.Filled.RestoreFromTrash, "Restore", onClick = onRestore)
             } else {
                 ToolButton(Icons.Filled.Delete, "Delete", onClick = onDelete)
             }
-        }
-        Spacer(Modifier.height(2.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-        ) {
-            ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Earlier") { onMove(-1) }
-            ToolButton(Icons.AutoMirrored.Filled.KeyboardArrowRight, "Later") { onMove(1) }
             ToolButton(Icons.Filled.SwapVert, "Reverse", onClick = onReverse)
             ToolButton(
                 Icons.Filled.WaterDrop,
@@ -804,7 +1030,7 @@ private fun EditorControls(
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             AssistChip(
                 onClick = onShowPending,
@@ -829,38 +1055,6 @@ private fun EditorControls(
 }
 
 @Composable
-private fun CropControls(
-    insets: CropInsets,
-    targetLabel: String,
-    onChange: (CropInsets) -> Unit,
-    onCancel: () -> Unit,
-    onApply: () -> Unit,
-) {
-    Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
-        Text(
-            "Drag the frame. Crop will apply to $targetLabel.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "L ${pct(insets.left)}  T ${pct(insets.top)}  " +
-                "R ${pct(insets.right)}  B ${pct(insets.bottom)}",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = { onChange(CropInsets(0.06f, 0.06f, 0.06f, 0.06f)) }) {
-                Text("Reset")
-            }
-            Spacer(Modifier.weight(1f))
-            OutlinedButton(onClick = onCancel) { Text("Cancel") }
-            Button(onClick = onApply) { Text("Apply crop") }
-        }
-    }
-}
-
-@Composable
 private fun ToolButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
@@ -870,8 +1064,8 @@ private fun ToolButton(
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(62.dp)
-            .combinedClickable(onClick = onClick)
+            .width(70.dp)
+            .clickable(onClick = onClick)
             .padding(vertical = 4.dp),
     ) {
         Icon(
@@ -897,8 +1091,6 @@ private fun ToolButton(
         )
     }
 }
-
-private fun pct(value: Float) = "${(value * 100).roundToInt()}%"
 
 private fun bucket(px: Int): Int {
     val bucketed = ((px + PREVIEW_BUCKET_PX - 1) / PREVIEW_BUCKET_PX) * PREVIEW_BUCKET_PX

@@ -25,13 +25,27 @@ Most of the work happens here. Pick pages, stack up as many changes as you like,
 watch the real rendered output update as you go, and write the file once at the
 end. Nothing touches disk until you save, and the original is never modified.
 
-| Editing | Visual crop | Watermark |
+| Editing | Drag to reorder | Visual crop |
 |---|---|---|
-| ![Editor](docs/screenshots/editor.png) | ![Crop](docs/screenshots/editor-crop.png) | ![Watermark](docs/screenshots/editor-watermark.png) |
+| ![Editor](docs/screenshots/editor.png) | ![Reorder](docs/screenshots/editor-reorder.png) | ![Crop](docs/screenshots/editor-crop.png) |
 
-Rotate, crop, scale, delete, restore, reorder, reverse, watermark and page
-numbers — each applied to **this page**, a **selection** you long-press together,
-or **all pages**. Undo and redo the whole history.
+| Scale, previewed at true size | Multi-select | Watermark |
+|---|---|---|
+| ![Scale](docs/screenshots/editor-scale.png) | ![Select](docs/screenshots/editor-select.png) | ![Watermark](docs/screenshots/editor-watermark.png) |
+
+Rotate, crop, scale, delete, restore, reverse, watermark and page numbers — each
+applied to **this page**, a **selection**, or **all pages**. Undo and redo the
+whole history.
+
+- **Reorder by dragging.** Long-press a thumbnail and drag it; a gap opens where
+  it will land, and the strip auto-scrolls when you reach an edge.
+- **Multi-select by tapping.** Switch the scope to *Selected* and plain taps
+  toggle pages, so picking several is one tap each.
+- **Options open in place**, under the preview rather than over it, so you can
+  drag a slider and watch the page change.
+- **Pages are shown at their true relative size.** Scale a page to 50% and it
+  appears half as wide; a landscape page in a portrait document looks wider,
+  because it is.
 
 The preview is not an approximation. It is built by the same code that writes the
 final file, and a test renders both and asserts they match pixel for pixel.
@@ -157,15 +171,18 @@ sdk.dir=/path/to/Android/Sdk
 
 ```bash
 ./gradlew testDebugUnitTest          # 27 JVM tests: page ranges, edit-plan folding
-./gradlew connectedDebugAndroidTest  # 42 device tests; needs a device or emulator
+./gradlew connectedDebugAndroidTest  # 44 device tests; needs a device or emulator
 ```
 
 The instrumented suite is where the real coverage lives. It builds PDFs, runs
 every operation against them, and asserts on the results: page counts and order
 after reorganising, crop boxes, scaling geometry, encryption round-trips,
 compression ratios, page numbers reflecting the final order, rendered pixels for
-the watermark, and that a preview matches its export exactly. It also asserts the
-privacy contract, including that a socket connection and a DNS lookup both fail.
+the watermark, and that a preview matches its export exactly. Two of them exist
+because a weaker version passed while the code was wrong: scaling is checked by
+re-rendering and comparing the whole layout, not just the page dimensions, and
+cropping is checked on a rotated page. It also asserts the privacy contract,
+including that a socket connection and a DNS lookup both fail.
 
 ### Release builds
 
