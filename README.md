@@ -1,5 +1,10 @@
 # AnonPDF
 
+[![Build](https://github.com/FanFeast/anonpdf/actions/workflows/build.yml/badge.svg)](https://github.com/FanFeast/anonpdf/actions/workflows/build.yml)
+[![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
+[![Android 12+](https://img.shields.io/badge/Android-12%2B-3DDC84.svg)](#requirements)
+[![Permissions: none](https://img.shields.io/badge/permissions-none-success.svg)](#the-privacy-claim-and-how-to-check-it)
+
 A PDF reader and editor for Android that does its work on your device and nowhere else.
 
 **No ads. No accounts. No tracking. No paid tier. No network permission.**
