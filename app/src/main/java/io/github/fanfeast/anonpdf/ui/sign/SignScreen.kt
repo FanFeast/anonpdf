@@ -12,10 +12,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.drag
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +25,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -262,7 +261,7 @@ fun SignScreen(
                     }
 
                     Text(
-                        "Tap or drag on the page to position the signature.",
+                        "Tap the page where you want your signature.",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -480,22 +479,19 @@ private fun PagePlacement(
 ) {
     BoxWithConstraints(
         modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(pageAspect.coerceIn(0.3f, 3f))
+            // Bounded height, and driven by height rather than width, so a portrait
+            // page does not take over the whole scrolling screen.
+            .heightIn(max = 440.dp)
+            .aspectRatio(pageAspect.coerceIn(0.3f, 3f), matchHeightConstraintsFirst = true)
             .background(Color.White)
             .border(1.dp, MaterialTheme.colorScheme.outline)
-            // A single gesture handler covers both tap-to-place and drag-to-adjust.
+            // Taps only, deliberately. A drag handler here would consume the
+            // vertical gesture and trap the surrounding scroll, leaving the user
+            // unable to reach the button below.
             .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown()
-                    val normalized = down.position.normalizedIn(size)
+                detectTapGestures { offset ->
+                    val normalized = offset.normalizedIn(size)
                     onMove(normalized.x, normalized.y)
-                    down.consume()
-                    drag(down.id) { change ->
-                        val moved = change.position.normalizedIn(size)
-                        onMove(moved.x, moved.y)
-                        change.consume()
-                    }
                 }
             },
     ) {
