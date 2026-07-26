@@ -36,6 +36,11 @@ android {
                 storePassword = keystoreProps.getProperty("storePassword")
                 keyAlias = keystoreProps.getProperty("keyAlias")
                 keyPassword = keystoreProps.getProperty("keyPassword")
+                // v1 (JAR) signing only matters below API 24 and minSdk is 31.
+                // v3 adds key-rotation support for direct APK installs.
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
             }
         }
     }

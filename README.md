@@ -20,6 +20,10 @@ enforced by Android.
 
 ## The privacy claim, and how to check it
 
+Android's own app info screen, for the release build:
+
+![No permissions requested](docs/screenshots/permissions.png)
+
 AnonPDF declares **zero permissions**. You can verify this yourself:
 
 ```bash

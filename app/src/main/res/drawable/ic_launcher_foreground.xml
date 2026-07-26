@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  Keep this in step with docs/play/generate_store_graphics.py, which redraws the
+  same mark for the Play Store listing from these coordinates.
+-->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -13,13 +17,11 @@
     <!-- folded corner -->
     <path
         android:fillColor="#93A6C0"
-        android:pathData="M61,24l15,15H65a4,4 0 0 1 -4,-4z" />
+        android:pathData="M61,24l15,15H61z" />
 
-    <!-- keyhole: nothing gets in without you -->
+    <!-- keyhole: nothing gets in without you. One outline — the circle's major
+         arc, then the tapered stem — so there are no seams between shapes. -->
     <path
         android:fillColor="#2F81F7"
-        android:pathData="M54,46a8,8 0 1 1 0,16a8,8 0 1 1 0,-16z" />
-    <path
-        android:fillColor="#2F81F7"
-        android:pathData="M50,58h8v14a4,4 0 0 1 -8,0z" />
+        android:pathData="M51.2,61.49A8,8 0 1 1 56.8,61.49L59,71.5L49,71.5Z" />
 </vector>

@@ -5,10 +5,12 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Page silhouette with the keyhole punched out, so themed icons read
-         correctly when the system tints this to a single colour. -->
+    <!--
+      Page silhouette with the keyhole punched out via evenOdd, so themed icons
+      still read as a locked document once the system tints this to one colour.
+    -->
     <path
         android:fillColor="#000000"
         android:fillType="evenOdd"
-        android:pathData="M36,24h25l15,15v45a4,4 0 0 1 -4,4H36a4,4 0 0 1 -4,-4V28a4,4 0 0 1 4,-4zM54,46a8,8 0 1 0 -4,14.9V72a4,4 0 0 0 8,0V60.9A8,8 0 0 0 54,46z" />
+        android:pathData="M36,24h25l15,15v45a4,4 0 0 1 -4,4H36a4,4 0 0 1 -4,-4V28a4,4 0 0 1 4,-4zM51.2,61.49A8,8 0 1 1 56.8,61.49L59,71.5L49,71.5Z" />
 </vector>
