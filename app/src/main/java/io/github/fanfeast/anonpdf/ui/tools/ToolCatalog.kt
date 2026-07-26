@@ -4,35 +4,33 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Article
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
-import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.MergeType
-import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.Reorder
-import androidx.compose.material.icons.filled.Rotate90DegreesCw
-import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.ui.graphics.vector.ImageVector
 
+/**
+ * The one-shot tools.
+ *
+ * Anything that changes individual pages — rotate, crop, scale, delete, reorder,
+ * watermark, page numbers — lives in the editor instead, where the result can be
+ * previewed and several changes combined before saving. What is left here are the
+ * jobs that act on whole files, or that produce something other than one PDF.
+ */
 enum class ToolId {
     MERGE,
     SPLIT,
     EXTRACT,
-    ORGANIZE,
-    ROTATE,
-    CROP,
     COMPRESS,
     PDF_TO_IMAGES,
     IMAGES_TO_PDF,
-    WATERMARK,
-    PAGE_NUMBERS,
+    EXTRACT_TEXT,
     PROTECT,
     UNLOCK,
-    EXTRACT_TEXT,
     SIGN,
 }
 
@@ -43,7 +41,7 @@ enum class ToolInput { SINGLE_PDF, MULTIPLE_PDF, IMAGES }
 enum class ToolOutput { PDF, TEXT, MANY_FILES }
 
 enum class ToolGroup(val label: String) {
-    PAGES("Pages"),
+    FILES("Whole files"),
     CONVERT("Convert & compress"),
     MARKUP("Markup"),
     SECURITY("Security"),
@@ -71,7 +69,7 @@ object ToolCatalog {
             title = "Merge PDFs",
             summary = "Join several files into one, in the order you pick them",
             icon = Icons.Filled.MergeType,
-            group = ToolGroup.PAGES,
+            group = ToolGroup.FILES,
             input = ToolInput.MULTIPLE_PDF,
             output = ToolOutput.PDF,
         ),
@@ -80,7 +78,7 @@ object ToolCatalog {
             title = "Split PDF",
             summary = "Break one document into several files by page range",
             icon = Icons.Filled.ContentCut,
-            group = ToolGroup.PAGES,
+            group = ToolGroup.FILES,
             input = ToolInput.SINGLE_PDF,
             output = ToolOutput.MANY_FILES,
         ),
@@ -89,35 +87,7 @@ object ToolCatalog {
             title = "Extract pages",
             summary = "Pull chosen pages out into a single new PDF",
             icon = Icons.Filled.FilterNone,
-            group = ToolGroup.PAGES,
-            input = ToolInput.SINGLE_PDF,
-            output = ToolOutput.PDF,
-        ),
-        ToolSpec(
-            id = ToolId.ORGANIZE,
-            title = "Organise pages",
-            summary = "Reorder, rotate and delete pages on a thumbnail grid",
-            icon = Icons.Filled.Reorder,
-            group = ToolGroup.PAGES,
-            input = ToolInput.SINGLE_PDF,
-            output = ToolOutput.PDF,
-            hasCustomScreen = true,
-        ),
-        ToolSpec(
-            id = ToolId.ROTATE,
-            title = "Rotate PDF",
-            summary = "Turn every page at once",
-            icon = Icons.Filled.Rotate90DegreesCw,
-            group = ToolGroup.PAGES,
-            input = ToolInput.SINGLE_PDF,
-            output = ToolOutput.PDF,
-        ),
-        ToolSpec(
-            id = ToolId.CROP,
-            title = "Crop margins",
-            summary = "Trim whitespace off the edges of every page",
-            icon = Icons.Filled.Crop,
-            group = ToolGroup.PAGES,
+            group = ToolGroup.FILES,
             input = ToolInput.SINGLE_PDF,
             output = ToolOutput.PDF,
         ),
@@ -160,24 +130,6 @@ object ToolCatalog {
                 "come out empty — reading them would need OCR, which AnonPDF does not do.",
         ),
         ToolSpec(
-            id = ToolId.WATERMARK,
-            title = "Add watermark",
-            summary = "Stamp text across every page",
-            icon = Icons.Filled.WaterDrop,
-            group = ToolGroup.MARKUP,
-            input = ToolInput.SINGLE_PDF,
-            output = ToolOutput.PDF,
-        ),
-        ToolSpec(
-            id = ToolId.PAGE_NUMBERS,
-            title = "Add page numbers",
-            summary = "Number the pages, skipping a cover if you like",
-            icon = Icons.Filled.Numbers,
-            group = ToolGroup.MARKUP,
-            input = ToolInput.SINGLE_PDF,
-            output = ToolOutput.PDF,
-        ),
-        ToolSpec(
             id = ToolId.SIGN,
             title = "Sign PDF",
             summary = "Draw your signature and place it on a page",
@@ -215,4 +167,5 @@ object ToolCatalog {
 
     val grouped: List<Pair<ToolGroup, List<ToolSpec>>> =
         ToolGroup.entries.map { group -> group to all.filter { it.group == group } }
+            .filter { it.second.isNotEmpty() }
 }

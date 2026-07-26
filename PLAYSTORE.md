@@ -69,6 +69,45 @@ app signing key, so letting Google manage it is the safer choice.
 Back up both the keystore file and `keystore.properties`. Do not put them in the
 repository.
 
+## Read this too: the storage permission needs a declaration
+
+AnonPDF declares `MANAGE_EXTERNAL_STORAGE` (All files access) so the built-in
+browser can list PDFs on the device. Google classes this as a **restricted
+permission**. You will have to complete a **Permissions declaration form** in Play
+Console, and there is a real chance of rejection: the policy reserves broad file
+access for a short list of app types — file managers, backup tools, antivirus, and
+document management apps.
+
+A PDF editor that manages the user's document files is a defensible fit under
+"document management", but it is an argument you have to make, not a given.
+
+**Your options, in order of least friction:**
+
+1. **Ship without it.** Remove the `<uses-permission>` line from
+   `app/src/main/AndroidManifest.xml` and the app falls back to the system file
+   picker for everything. Nothing breaks — the browse screen explains the
+   situation and offers the picker. Data safety stays trivially clean and there is
+   no declaration to defend. Consider this for the very first release, then add
+   the permission in an update once the app is live.
+2. **Ship with it and file the declaration.** Text you can adapt:
+
+   > AnonPDF is an offline PDF reader and editor. All files access is used solely
+   > to locate and read PDF documents the user wants to open, so the app can
+   > present a list of their documents rather than requiring them to navigate the
+   > system picker for each file. The permission is optional: the app is fully
+   > functional through the Storage Access Framework if it is declined. AnonPDF
+   > declares no INTERNET permission, so no file it reads can be transmitted
+   > anywhere. Source: https://github.com/FanFeast/anonpdf
+
+   Record a short screen capture showing the browse screen listing PDFs and the
+   in-app explanation of why access is requested — Google usually asks for a demo
+   video.
+3. **Use a folder grant instead.** `ACTION_OPEN_DOCUMENT_TREE` gets you a
+   persistent grant on one folder the user picks, needs no manifest permission and
+   no declaration, and covers most of the same ground. Not currently implemented.
+
+If review pushes back, option 1 is a one-line change and a rebuild.
+
 ## Store listing copy
 
 **App name** (30 char limit)
@@ -77,10 +116,10 @@ repository.
 AnonPDF
 ```
 
-**Short description** (80 char limit — this is 79)
+**Short description** (80 char limit — this is 77)
 
 ```
-Offline PDF reader and editor. No ads, no accounts, no tracking, no permissions.
+Offline PDF reader and editor. No ads, no accounts, no tracking, no internet.
 ```
 
 **Full description** (4000 char limit)
@@ -90,7 +129,17 @@ AnonPDF is a PDF reader and editor that does its work on your device and nowhere
 
 No ads. No accounts. No subscriptions. No tracking. No cloud.
 
-AnonPDF requests no Android permissions at all — including no permission to use the network. It is not that we promise not to upload your documents; the app has no way to reach the internet, and Android enforces that. You can check for yourself in Settings > Apps > AnonPDF > Permissions.
+AnonPDF has no permission to use the internet. It is not that we promise not to upload your documents — the app has no way to reach the network, and Android enforces that rather than trusting us.
+
+THE EDITOR
+Make several changes at once and watch the real result before you commit to it. Pick a page, a selection, or the whole document, then:
+• Rotate, crop with draggable handles, scale, delete, restore
+• Reorder page by page, or reverse the document
+• Add a text watermark — diagonal, centred, tiled, top or bottom
+• Add page numbers, with your own format, and skip a cover page
+• Undo and redo the whole history
+
+The preview is not an approximation. It is produced by the same code that writes the file, so what you see is what you get. Nothing is written until you save, and your original file is never modified.
 
 READ
 • Smooth continuous scrolling, using the PDF renderer built into Android
@@ -99,28 +148,24 @@ READ
 • Opens password-protected PDFs
 • Open PDFs straight from your files app, email or browser downloads
 
-ORGANISE PAGES
+FIND YOUR FILES
+• A built-in list of every PDF on your device, newest first, searchable by name
+• Or browse folder by folder
+• Or just use the system file picker, if you would rather not grant file access
+
+WHOLE-FILE JOBS
 • Merge several PDFs into one
 • Split a document into separate files by page range, or every N pages
 • Extract just the pages you want
-• Reorder, rotate and delete pages on a thumbnail grid
-• Rotate every page at once
-• Crop margins
-
-CONVERT AND COMPRESS
-• Compress a PDF, with a choice between keeping text selectable or getting the smallest possible file — the app tells you which trade-off you are making
+• Compress, with a choice between keeping text selectable or getting the smallest possible file — the app tells you which trade-off you are making
 • Export pages as JPG or PNG at the resolution you choose
 • Turn photos and scans into a PDF, with A4, Letter or fit-to-image pages
 • Extract the text into a plain .txt file
-
-MARKUP
-• Add a text watermark — diagonal, centred, tiled, top or bottom, with adjustable opacity and size
-• Add page numbers, with a format of your choosing, and skip a cover page if you need to
+• Protect a PDF with an AES-256 password, or remove one you know
 • Draw your signature and place it on a page
 
-SECURITY
-• Protect a PDF with a password, using AES-256 encryption
-• Remove a password from a PDF you can already open
+ABOUT THE ONE PERMISSION
+AnonPDF asks for All files access so it can list the PDFs on your device instead of making you find each one in the system picker. It reads document files and nothing else. It is optional — decline it and every feature still works through the picker. Because the app has no internet permission, files it reads cannot go anywhere regardless.
 
 WHAT IT STORES
 A list of recently opened file names, temporary working copies of the file you are editing, and your display preferences. All of it stays in the app's own private storage, all of it is excluded from cloud backup, and you can clear any of it from Settings. There are no identifiers of any kind.
@@ -150,11 +195,13 @@ Play will not accept the listing without these.
 
 The repo screenshots you can upload as-is:
 
-- `docs/screenshots/home.png` — tool library and the privacy banner
+- `docs/screenshots/home.png` — the library and the privacy banner
+- `docs/screenshots/editor.png` — the editor with its page strip and tools
+- `docs/screenshots/editor-crop.png` — dragging the crop frame
+- `docs/screenshots/editor-watermark.png` — a watermark previewed live
 - `docs/screenshots/viewer.png` — reading a document
 - `docs/screenshots/viewer-night.png` — night mode
-- `docs/screenshots/organize.png` — the page grid
-- `docs/screenshots/watermark.png` — a tool with its options
+- `docs/screenshots/browse.png` — the built-in file list
 - `docs/screenshots/protect.png` — password protection
 
 To capture more, run the app on a device or emulator and use
@@ -174,6 +221,9 @@ To capture more, run the app on a device or emulator and use
 5. **App access** — choose **All functionality is available without any special
    access**. There is no login.
 6. **Ads** — **No, my app does not contain ads.**
+6b. **Permissions declaration** — required because of `MANAGE_EXTERNAL_STORAGE`.
+    See the section at the top of this document for the text and the demo video
+    Google will want. Skip this step entirely by dropping the permission.
 7. **Content rating** — fill in the questionnaire. Every answer is *No* /
    *None*: no violence, no sexual content, no profanity, no gambling, no user
    interaction, no data sharing, no location. You should end up with the lowest
@@ -209,18 +259,19 @@ Because the answer to the first question is **No**, the whole rest of the form
 disappears. The resulting store listing will read "No data collected" and
 "No data shared with third parties".
 
+Reading files is not collecting them. Play's definition of collection is
+transmitting data off the device; a local-only read never leaves, so the answer
+stays No even with all-files access granted. The recent-files list and the cached
+working copies are local-only for the same reason.
+
 If Play asks you to justify it during review, the substance of the reply is:
 
-> The app declares no Android permissions, including no INTERNET permission, so
-> it cannot transmit data. Files are read via the Storage Access Framework only
-> when the user selects them in the system picker. All processing is on-device.
-> The source is public at https://github.com/FanFeast/anonpdf and the test suite
-> asserts that the app requests no permissions and that outbound network
-> connections fail.
-
-Note the distinction Play draws: data the app keeps **only on the device** and
-never sends anywhere is *not* "collection". The recent-files list and cached
-working copies are local-only, so they do not need to be declared.
+> The app declares no INTERNET permission, so it cannot transmit anything. Its
+> only permission is MANAGE_EXTERNAL_STORAGE, used solely to locate and read PDF
+> documents the user opens; it is optional and the app falls back to the Storage
+> Access Framework without it. All processing is on-device. The source is public
+> at https://github.com/FanFeast/anonpdf, and the test suite asserts that no other
+> permission is declared and that outbound sockets and DNS lookups both fail.
 
 ## Version bumps
 

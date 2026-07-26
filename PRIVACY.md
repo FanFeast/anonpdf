@@ -6,9 +6,13 @@
 
 AnonPDF collects nothing, transmits nothing, and shares nothing with anyone.
 
-There is no server. There is no account. The app holds no Android permissions —
-including no permission to use the network — so it is technically incapable of
-sending your documents anywhere.
+There is no server and no account. The app has no permission to use the network,
+so it is technically incapable of sending your documents anywhere — the operating
+system refuses the connection, whatever the app might try.
+
+AnonPDF can read PDF files on your device, if you allow it, so that it can show
+you a list of them instead of making you hunt through the system file picker every
+time. Reading them is all it does with them.
 
 ## Data we collect
 
@@ -48,16 +52,38 @@ so they do not leave your phone even that way. Uninstalling the app removes them
 
 ## Permissions
 
-AnonPDF requests **no permissions at all**. You can confirm this in
-**Settings → Apps → AnonPDF → Permissions**, or in the "App permissions" section
-of its Play Store listing.
+AnonPDF declares exactly one permission:
 
-Files are opened through Android's Storage Access Framework: you pick a document
-in the system file picker, and the system grants AnonPDF read access to that one
-document. The app cannot browse or enumerate your storage.
+**`MANAGE_EXTERNAL_STORAGE`** ("All files access") — so the built-in browser can
+list the PDFs on your device. It is used for reading document files and nothing
+else. AnonPDF does not scan your photos, does not build an index, and does not
+send any part of what it reads anywhere, because it has no way to.
 
-Saving a file works the same way in reverse — you choose the destination in the
-system picker, and the app writes only there.
+This permission is **optional**. If you never grant it, AnonPDF falls back to
+Android's Storage Access Framework: you pick a document in the system file
+picker, and the system grants access to that one document. Every feature still
+works; you just have to pick files one at a time.
+
+Saving always works through the picker — you choose the destination and the app
+writes only there. AnonPDF never overwrites your original file.
+
+### One thing worth being clear about
+
+All-files access is what Android calls a *special app access*, not a normal
+runtime permission. It lives under **Settings → Apps → Special app access → All
+files access**, and it does **not** show up on the app's ordinary "Permissions"
+page. That page will say "No permissions requested" whether or not you have
+granted it.
+
+We are pointing this out rather than leaving you to discover it, because that
+screen is a natural place to go looking and it would give you a misleadingly
+reassuring answer. To check the real state, use the Special app access screen.
+
+### What is deliberately not requested
+
+No network. No location, contacts, camera, microphone, phone state, or Bluetooth.
+No photo or media permissions. An automated test fails the build if anything
+beyond the single storage permission ever appears in the app's manifest.
 
 ## Sharing
 
@@ -102,9 +128,11 @@ You do not have to trust this document. AnonPDF is open source:
 - The manifest, which lists the permissions, is at
   `app/src/main/AndroidManifest.xml`.
 - The complete dependency list is at `gradle/libs.versions.toml`.
-- The automated test suite asserts that the app requests no permissions, that
-  backup is disabled, and that an outbound network connection actually fails.
-  See `app/src/androidTest/java/io/github/fanfeast/anonpdf/PrivacyContractTest.kt`.
+- The automated test suite asserts that no permission beyond the single storage
+  one is declared, that nothing capable of moving data off the device is declared,
+  that backup is disabled, and that an outbound socket *and* a DNS lookup both
+  actually fail. See
+  `app/src/androidTest/java/io/github/fanfeast/anonpdf/PrivacyContractTest.kt`.
 
 ## Contact
 

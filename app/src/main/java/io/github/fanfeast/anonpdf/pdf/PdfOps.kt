@@ -58,7 +58,7 @@ object PdfOps {
      * A document opened with a password stays flagged as encrypted, and PDFBox
      * refuses to re-save it. The user gave us the password, so drop the flag.
      */
-    private fun PDDocument.prepareForSave() {
+    internal fun PDDocument.prepareForSave() {
         if (isEncrypted) isAllSecurityToBeRemoved = true
     }
 
@@ -205,22 +205,7 @@ object PdfOps {
     ) = withContext(Dispatchers.IO) {
         load(input, password).use { doc ->
             for (index in 0 until doc.numberOfPages) {
-                val page = doc.getPage(index)
-                val box = page.cropBox
-                val left = box.width * insets.left
-                val right = box.width * insets.right
-                val top = box.height * insets.top
-                val bottom = box.height * insets.bottom
-                val newWidth = box.width - left - right
-                val newHeight = box.height - top - bottom
-                if (newWidth > 1f && newHeight > 1f) {
-                    page.cropBox = PDRectangle(
-                        box.lowerLeftX + left,
-                        box.lowerLeftY + bottom,
-                        newWidth,
-                        newHeight,
-                    )
-                }
+                PdfDraw.cropPage(doc.getPage(index), insets)
                 onProgress((index + 1f) / doc.numberOfPages)
             }
             doc.prepareForSave()
@@ -239,112 +224,17 @@ object PdfOps {
     ) = withContext(Dispatchers.IO) {
         require(options.text.isNotBlank()) { "Enter some watermark text." }
         load(input, password).use { doc ->
-            val font: PDFont =
-                if (options.bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA
-            val text = sanitizeForFont(options.text, font)
+            val font = PdfDraw.watermarkFont(options)
+            val text = PdfDraw.sanitizeForFont(options.text, font)
             if (text.isBlank()) error("That text cannot be drawn with the built-in fonts.")
 
             for (index in 0 until doc.numberOfPages) {
-                val page = doc.getPage(index)
-                PDPageContentStream(
-                    doc,
-                    page,
-                    PDPageContentStream.AppendMode.APPEND,
-                    true,
-                    true,
-                ).use { cs ->
-                    cs.saveGraphicsState()
-                    val display = applyDisplayTransform(cs, page)
-
-                    val graphicsState = PDExtendedGraphicsState().apply {
-                        nonStrokingAlphaConstant = options.opacity
-                        strokingAlphaConstant = options.opacity
-                    }
-                    cs.setGraphicsStateParameters(graphicsState)
-                    cs.setNonStrokingColor(
-                        red(options.color),
-                        green(options.color),
-                        blue(options.color),
-                    )
-
-                    val textWidth = font.getStringWidth(text) / 1000f * options.fontSize
-                    when (options.layout) {
-                        WatermarkLayout.DIAGONAL -> drawRotatedText(
-                            cs, font, text, options.fontSize,
-                            display.width / 2f, display.height / 2f, textWidth, 45.0,
-                        )
-                        WatermarkLayout.CENTER -> drawRotatedText(
-                            cs, font, text, options.fontSize,
-                            display.width / 2f, display.height / 2f, textWidth, 0.0,
-                        )
-                        WatermarkLayout.TOP -> drawRotatedText(
-                            cs, font, text, options.fontSize,
-                            display.width / 2f, display.height - options.fontSize * 2f,
-                            textWidth, 0.0,
-                        )
-                        WatermarkLayout.BOTTOM -> drawRotatedText(
-                            cs, font, text, options.fontSize,
-                            display.width / 2f, options.fontSize * 2f, textWidth, 0.0,
-                        )
-                        WatermarkLayout.TILED -> drawTiled(
-                            cs, font, text, options.fontSize, display, textWidth,
-                        )
-                    }
-                    cs.restoreGraphicsState()
-                }
+                PdfDraw.watermarkPage(doc, doc.getPage(index), options, text, font)
                 onProgress((index + 1f) / doc.numberOfPages)
             }
             doc.prepareForSave()
             doc.save(output)
         }
-    }
-
-    private fun drawTiled(
-        cs: PDPageContentStream,
-        font: PDFont,
-        text: String,
-        fontSize: Float,
-        display: SizeF,
-        textWidth: Float,
-    ) {
-        val stepX = max(textWidth * 1.6f, fontSize * 4f)
-        val stepY = max(fontSize * 5f, 90f)
-        val columns = ceil(display.width / stepX).toInt() + 1
-        val rows = ceil(display.height / stepY).toInt() + 1
-        for (row in 0 until rows) {
-            for (column in 0 until columns) {
-                // Offset alternate rows so the pattern does not read as a grid.
-                val offset = if (row % 2 == 0) 0f else stepX / 2f
-                drawRotatedText(
-                    cs, font, text, fontSize,
-                    column * stepX + offset, row * stepY, textWidth, 30.0,
-                )
-            }
-        }
-    }
-
-    private fun drawRotatedText(
-        cs: PDPageContentStream,
-        font: PDFont,
-        text: String,
-        fontSize: Float,
-        centerX: Float,
-        centerY: Float,
-        textWidth: Float,
-        degrees: Double,
-    ) {
-        cs.saveGraphicsState()
-        cs.transform(Matrix.getTranslateInstance(centerX, centerY))
-        if (degrees != 0.0) {
-            cs.transform(Matrix.getRotateInstance(Math.toRadians(degrees), 0f, 0f))
-        }
-        cs.beginText()
-        cs.setFont(font, fontSize)
-        // Nudge down by roughly a third of the cap height to sit on the centre line.
-        cs.newLineAtOffset(-textWidth / 2f, -fontSize / 3f)
-        cs.showText(text)
-        cs.endText()
-        cs.restoreGraphicsState()
     }
 
     // --------------------------------------------------------- page numbers
@@ -357,69 +247,40 @@ object PdfOps {
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
         load(input, password).use { doc ->
-            val font: PDFont = PDType1Font.HELVETICA
+            val font = PdfDraw.labelFont
             val total = doc.numberOfPages
-            val numbered = total - options.firstPageIndex
 
             for (index in 0 until total) {
-                if (index < options.firstPageIndex) {
-                    onProgress((index + 1f) / total)
-                    continue
-                }
-                val number = options.startNumber + (index - options.firstPageIndex)
-                val label = sanitizeForFont(
-                    options.format
-                        .replace("{n}", number.toString())
-                        .replace("{total}", (options.startNumber + numbered - 1).toString()),
-                    font,
-                )
-                if (label.isBlank()) {
-                    onProgress((index + 1f) / total)
-                    continue
-                }
-
-                val page = doc.getPage(index)
-                PDPageContentStream(
-                    doc,
-                    page,
-                    PDPageContentStream.AppendMode.APPEND,
-                    true,
-                    true,
-                ).use { cs ->
-                    cs.saveGraphicsState()
-                    val display = applyDisplayTransform(cs, page)
-                    cs.setNonStrokingColor(
-                        red(options.color),
-                        green(options.color),
-                        blue(options.color),
+                if (index >= options.firstPageIndex) {
+                    val label = PdfDraw.sanitizeForFont(
+                        pageNumberLabel(options, index - options.firstPageIndex, total),
+                        font,
                     )
-                    val width = font.getStringWidth(label) / 1000f * options.fontSize
-                    val x = when (options.position) {
-                        NumberPosition.TOP_LEFT, NumberPosition.BOTTOM_LEFT ->
-                            options.marginPoints
-                        NumberPosition.TOP_CENTER, NumberPosition.BOTTOM_CENTER ->
-                            (display.width - width) / 2f
-                        NumberPosition.TOP_RIGHT, NumberPosition.BOTTOM_RIGHT ->
-                            display.width - options.marginPoints - width
-                    }
-                    val y = when (options.position) {
-                        NumberPosition.TOP_LEFT, NumberPosition.TOP_CENTER,
-                        NumberPosition.TOP_RIGHT,
-                        -> display.height - options.marginPoints
-                        else -> options.marginPoints
-                    }
-                    cs.beginText()
-                    cs.setFont(font, options.fontSize)
-                    cs.newLineAtOffset(x, y)
-                    cs.showText(label)
-                    cs.endText()
-                    cs.restoreGraphicsState()
+                    PdfDraw.labelPage(doc, doc.getPage(index), label, options, font)
                 }
                 onProgress((index + 1f) / total)
             }
             doc.prepareForSave()
             doc.save(output)
         }
+    }
+
+    /**
+     * Renders the label for one page.
+     *
+     * [positionAmongNumbered] counts from zero over the pages that actually get a
+     * number, so a skipped cover does not consume a number. Split out so the
+     * editor's single-page preview can show the same text the export will.
+     */
+    fun pageNumberLabel(
+        options: PageNumberOptions,
+        positionAmongNumbered: Int,
+        totalPages: Int,
+    ): String {
+        val numbered = (totalPages - options.firstPageIndex).coerceAtLeast(1)
+        return options.format
+            .replace("{n}", (options.startNumber + positionAmongNumbered).toString())
+            .replace("{total}", (options.startNumber + numbered - 1).toString())
     }
 
     // ---------------------------------------------------------- stamp image
@@ -446,7 +307,7 @@ object PdfOps {
                     true,
                 ).use { cs ->
                     cs.saveGraphicsState()
-                    val display = applyDisplayTransform(cs, page)
+                    val display = PdfDraw.applyDisplayTransform(cs, page)
                     val width = display.width * stamp.widthRatio
                     val height = width * stamp.bitmap.height / stamp.bitmap.width.toFloat()
                     val x = display.width * stamp.centerXRatio - width / 2f
@@ -552,66 +413,17 @@ object PdfOps {
      * we detach a page from its parent those lookups fail and the page renders
      * blank or wrongly sized. Reading then writing each value pins it in place.
      */
-    private fun pinInheritedAttributes(page: PDPage) {
+    internal fun pinInheritedAttributes(page: PDPage) {
         page.mediaBox = page.mediaBox
         page.cropBox = page.cropBox
         page.rotation = page.rotation
         page.resources?.let { page.resources = it }
     }
 
-    /**
-     * Maps "what the user sees" onto PDF user space and returns the displayed
-     * page size.
-     *
-     * A page carries a /Rotate that viewers apply before showing it, so a
-     * watermark placed with raw page coordinates lands sideways on a rotated
-     * page. This pre-multiplies the inverse rotation, letting every caller work
-     * in upright display coordinates with the origin at the bottom left.
-     */
-    private fun applyDisplayTransform(cs: PDPageContentStream, page: PDPage): SizeF {
-        val box = page.cropBox
-        cs.transform(Matrix.getTranslateInstance(box.lowerLeftX, box.lowerLeftY))
-        return when (normalizeRotation(page.rotation)) {
-            90 -> {
-                cs.transform(Matrix.getRotateInstance(Math.PI / 2, box.width, 0f))
-                SizeF(box.height, box.width)
-            }
-            180 -> {
-                cs.transform(Matrix.getRotateInstance(Math.PI, box.width, box.height))
-                SizeF(box.width, box.height)
-            }
-            270 -> {
-                cs.transform(Matrix.getRotateInstance(-Math.PI / 2, 0f, box.height))
-                SizeF(box.height, box.width)
-            }
-            else -> SizeF(box.width, box.height)
-        }
-    }
-
     fun normalizeRotation(degrees: Int): Int {
         val snapped = (degrees / 90) * 90
         return ((snapped % 360) + 360) % 360
     }
-
-    /**
-     * The 14 built-in PDF fonts cover WinAnsi only, and [PDFont.showText] throws
-     * on anything else. Swap unsupported characters for '?' so a stray emoji in a
-     * watermark degrades instead of failing the whole operation.
-     */
-    private fun sanitizeForFont(text: String, font: PDFont): String {
-        val flattened = text.replace(Regex("[\\r\\n\\t]"), " ")
-        val builder = StringBuilder(flattened.length)
-        for (character in flattened) {
-            val candidate = character.toString()
-            val supported = runCatching { font.getStringWidth(candidate) }.isSuccess
-            builder.append(if (supported) candidate else "?")
-        }
-        return builder.toString().trim()
-    }
-
-    private fun red(color: Int) = ((color shr 16) and 0xFF) / 255f
-    private fun green(color: Int) = ((color shr 8) and 0xFF) / 255f
-    private fun blue(color: Int) = (color and 0xFF) / 255f
 
     /** Standard page boxes used when building a PDF from images. */
     fun presetRectangle(preset: PdfPageSizePreset, imageWidth: Int, imageHeight: Int): PDRectangle =

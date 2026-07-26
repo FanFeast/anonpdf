@@ -2,16 +2,13 @@ package io.github.fanfeast.anonpdf.ui.tools
 
 import android.content.Context
 import android.net.Uri
-import io.github.fanfeast.anonpdf.pdf.CropInsets
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
-import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.PageRanges
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
-import io.github.fanfeast.anonpdf.pdf.WatermarkOptions
 import io.github.fanfeast.anonpdf.ui.components.formatBytes
 
 /**
@@ -35,18 +32,13 @@ class ToolRunner(
         ToolId.MERGE -> runMerge(docs, onProgress)
         ToolId.SPLIT -> runSplit(docs.single(), options, onProgress)
         ToolId.EXTRACT -> runExtract(docs.single(), options, onProgress)
-        ToolId.ROTATE -> runRotate(docs.single(), options, onProgress)
-        ToolId.CROP -> runCrop(docs.single(), options, onProgress)
         ToolId.COMPRESS -> runCompress(docs.single(), options, onProgress)
         ToolId.PDF_TO_IMAGES -> runPdfToImages(docs.single(), options, onProgress)
         ToolId.IMAGES_TO_PDF -> runImagesToPdf(imageUris, options, onProgress)
         ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
-        ToolId.WATERMARK -> runWatermark(docs.single(), options, onProgress)
-        ToolId.PAGE_NUMBERS -> runPageNumbers(docs.single(), options, onProgress)
         ToolId.PROTECT -> runProtect(docs.single(), options, onProgress)
         ToolId.UNLOCK -> runUnlock(docs.single(), onProgress)
-        ToolId.ORGANIZE, ToolId.SIGN ->
-            error("${spec.title} has its own screen and does not run here.")
+        ToolId.SIGN -> error("${spec.title} has its own screen and does not run here.")
     }
 
     private suspend fun runMerge(docs: List<InputDoc>, onProgress: Progress): ToolResult {
@@ -110,51 +102,6 @@ class ToolRunner(
             file = output,
             suggestedName = "${DocumentStore.stem(doc.name)}-pages.pdf",
             note = "Kept page${if (pages.size == 1) "" else "s"} ${PageRanges.describe(pages)}.",
-        )
-    }
-
-    private suspend fun runRotate(
-        doc: InputDoc,
-        options: ToolOptionsState,
-        onProgress: Progress,
-    ): ToolResult {
-        val output = store.newOutputFile("${DocumentStore.stem(doc.name)}-rotated", "pdf")
-        PdfOps.rotateAll(doc.requireFile(), output, options.rotation, doc.password, onProgress)
-        return ToolResult.One(
-            file = output,
-            suggestedName = "${DocumentStore.stem(doc.name)}-rotated.pdf",
-            note = "Every page turned ${options.rotation}°.",
-        )
-    }
-
-    private suspend fun runCrop(
-        doc: InputDoc,
-        options: ToolOptionsState,
-        onProgress: Progress,
-    ): ToolResult {
-        val insets = if (options.cropPerEdge) {
-            CropInsets(
-                left = options.cropLeft,
-                top = options.cropTop,
-                right = options.cropRight,
-                bottom = options.cropBottom,
-            )
-        } else {
-            val inset = options.cropPreset.inset
-            CropInsets(inset, inset, inset, inset)
-        }
-        require(!insets.isEmpty) { "Choose how much to trim." }
-        require(insets.left + insets.right < 0.9f && insets.top + insets.bottom < 0.9f) {
-            "That would crop away the whole page."
-        }
-        val output = store.newOutputFile("${DocumentStore.stem(doc.name)}-cropped", "pdf")
-        PdfOps.crop(doc.requireFile(), output, insets, doc.password, onProgress)
-        return ToolResult.One(
-            file = output,
-            suggestedName = "${DocumentStore.stem(doc.name)}-cropped.pdf",
-            note = "Crop applied to all ${doc.pageCount} pages. " +
-                "The trimmed content is hidden, not deleted, so it can be undone " +
-                "by any PDF editor.",
         )
     }
 
@@ -269,68 +216,6 @@ class ToolRunner(
             suggestedName = "$stem.txt",
             isText = true,
             note = note,
-        )
-    }
-
-    private suspend fun runWatermark(
-        doc: InputDoc,
-        options: ToolOptionsState,
-        onProgress: Progress,
-    ): ToolResult {
-        require(options.watermarkText.isNotBlank()) { "Enter the watermark text." }
-        val output = store.newOutputFile("${DocumentStore.stem(doc.name)}-watermarked", "pdf")
-        PdfOps.watermark(
-            input = doc.requireFile(),
-            output = output,
-            options = WatermarkOptions(
-                text = options.watermarkText.trim(),
-                fontSize = options.watermarkFontSize,
-                opacity = options.watermarkOpacity,
-                layout = options.watermarkLayout,
-            ),
-            password = doc.password,
-            onProgress = onProgress,
-        )
-        return ToolResult.One(
-            file = output,
-            suggestedName = "${DocumentStore.stem(doc.name)}-watermarked.pdf",
-            note = "Watermarked all ${doc.pageCount} pages.",
-        )
-    }
-
-    private suspend fun runPageNumbers(
-        doc: InputDoc,
-        options: ToolOptionsState,
-        onProgress: Progress,
-    ): ToolResult {
-        require(options.numberFormat.contains("{n}")) {
-            "The format needs to include {n}, which stands for the page number."
-        }
-        require(options.numberSkip in 0 until doc.pageCount) {
-            "You cannot skip all ${doc.pageCount} pages."
-        }
-        val output = store.newOutputFile("${DocumentStore.stem(doc.name)}-numbered", "pdf")
-        PdfOps.addPageNumbers(
-            input = doc.requireFile(),
-            output = output,
-            options = PageNumberOptions(
-                format = options.numberFormat,
-                position = options.numberPosition,
-                startNumber = options.numberStart,
-                firstPageIndex = options.numberSkip,
-                fontSize = options.numberFontSize,
-            ),
-            password = doc.password,
-            onProgress = onProgress,
-        )
-        return ToolResult.One(
-            file = output,
-            suggestedName = "${DocumentStore.stem(doc.name)}-numbered.pdf",
-            note = if (options.numberSkip > 0) {
-                "Numbered from page ${options.numberSkip + 1} onwards."
-            } else {
-                "All ${doc.pageCount} pages numbered."
-            },
         )
     }
 

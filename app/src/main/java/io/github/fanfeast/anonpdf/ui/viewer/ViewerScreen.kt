@@ -30,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Contrast
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
@@ -113,6 +114,7 @@ private class OpenedDocument(
 fun ViewerScreen(
     uri: Uri,
     onBack: () -> Unit,
+    onEdit: () -> Unit,
     onOpenTool: (ToolId, Uri) -> Unit,
 ) {
     val context = LocalContext.current
@@ -224,6 +226,9 @@ fun ViewerScreen(
             AnonTopBar(title = title, onBack = onBack) {
                 IconButton(onClick = { searchOpen = true }, enabled = document != null) {
                     Icon(Icons.Filled.Search, contentDescription = "Search text")
+                }
+                IconButton(onClick = onEdit, enabled = document != null) {
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit pages")
                 }
                 IconButton(onClick = {
                     invert = !invert

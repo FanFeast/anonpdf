@@ -3,11 +3,11 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <!--
-      AnonPDF declares NO permissions. Not internet, not storage, nothing.
-      Every file is reached through the Storage Access Framework, which means the
-      user hands us one document at a time and we can never enumerate their disk.
-      The <uses-permission tools:node="remove"> entries below are a hard guarantee:
-      if any dependency ever tries to merge a permission in, the build strips it.
+      The promise AnonPDF keeps is that documents cannot leave the device. That
+      rests on having no network permission at all: the entries below are removed
+      from the merged manifest, so if any dependency ever tries to introduce
+      them the build strips them out again. Without INTERNET the kernel refuses
+      outbound sockets, which is enforcement rather than a policy statement.
     -->
     <uses-permission
         android:name="android.permission.INTERNET"
@@ -15,15 +15,25 @@
     <uses-permission
         android:name="android.permission.ACCESS_NETWORK_STATE"
         tools:node="remove" />
+
+    <!--
+      Storage access, so the app can browse and open PDFs directly instead of
+      routing every single file through the system picker.
+
+      This is the only permission declared, and deliberately so. Under scoped
+      storage READ_EXTERNAL_STORAGE and READ_MEDIA_IMAGES only reach *media*;
+      a PDF sitting in Downloads is not media, so neither of them would let the
+      browser list anything. Declaring them would add Play friction for no
+      capability.
+
+      It is optional at runtime: decline it and AnonPDF falls back to the Storage
+      Access Framework, which needs no permission and still opens and saves files.
+      Google treats all-files access as restricted and wants a declaration in Play
+      Console explaining why a picker is not enough; see PLAYSTORE.md.
+    -->
     <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        tools:node="remove" />
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        tools:node="remove" />
-    <uses-permission
-        android:name="android.permission.READ_MEDIA_IMAGES"
-        tools:node="remove" />
+        android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+        tools:ignore="ScopedStorage" />
 
     <application
         android:name=".AnonPdfApplication"

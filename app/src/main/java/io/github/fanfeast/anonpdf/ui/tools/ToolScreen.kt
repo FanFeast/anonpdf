@@ -417,39 +417,6 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
 
         ToolId.EXTRACT -> PageRangeField(options, pageCount, "Pages to keep")
 
-        ToolId.ROTATE -> ChoiceChips(
-            label = "Turn every page",
-            options = listOf(90, 180, 270),
-            selected = options.rotation,
-            onSelect = { options.rotation = it },
-            optionLabel = { "$it°" },
-        )
-
-        ToolId.CROP -> {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(
-                    checked = options.cropPerEdge,
-                    onCheckedChange = { options.cropPerEdge = it },
-                )
-                Text("Set each edge separately", style = MaterialTheme.typography.bodyMedium)
-            }
-            Spacer(Modifier.height(8.dp))
-            if (options.cropPerEdge) {
-                EdgeSlider("Left", options.cropLeft) { options.cropLeft = it }
-                EdgeSlider("Top", options.cropTop) { options.cropTop = it }
-                EdgeSlider("Right", options.cropRight) { options.cropRight = it }
-                EdgeSlider("Bottom", options.cropBottom) { options.cropBottom = it }
-            } else {
-                ChoiceChips(
-                    label = "Trim from every edge",
-                    options = CropPreset.entries.filter { it != CropPreset.NONE },
-                    selected = options.cropPreset,
-                    onSelect = { options.cropPreset = it },
-                    optionLabel = { "${it.label} (${(it.inset * 100).roundToInt()}%)" },
-                )
-            }
-        }
-
         ToolId.COMPRESS -> {
             ChoiceChips(
                 label = "Mode",
@@ -530,89 +497,6 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        ToolId.WATERMARK -> {
-            OutlinedTextField(
-                value = options.watermarkText,
-                onValueChange = { options.watermarkText = it },
-                label = { Text("Watermark text") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(16.dp))
-            ChoiceChips(
-                label = "Placement",
-                options = WatermarkLayout.entries,
-                selected = options.watermarkLayout,
-                onSelect = { options.watermarkLayout = it },
-                optionLabel = { it.name.lowercase().replaceFirstChar(Char::uppercase) },
-            )
-            Spacer(Modifier.height(16.dp))
-            LabeledSlider(
-                label = "Opacity",
-                value = options.watermarkOpacity,
-                onValueChange = { options.watermarkOpacity = it },
-                valueRange = 0.05f..1f,
-                valueLabel = "${(options.watermarkOpacity * 100).roundToInt()}%",
-            )
-            LabeledSlider(
-                label = "Text size",
-                value = options.watermarkFontSize,
-                onValueChange = { options.watermarkFontSize = it },
-                valueRange = 12f..140f,
-                valueLabel = "${options.watermarkFontSize.roundToInt()} pt",
-            )
-        }
-
-        ToolId.PAGE_NUMBERS -> {
-            OutlinedTextField(
-                value = options.numberFormat,
-                onValueChange = { options.numberFormat = it },
-                label = { Text("Format") },
-                supportingText = { Text("{n} is the page number, {total} the count") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("{n}", "{n} / {total}", "Page {n}", "- {n} -").forEach { preset ->
-                    OutlinedButton(onClick = { options.numberFormat = preset }) {
-                        Text(preset, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-            ChoiceChips(
-                label = "Position",
-                options = NumberPosition.entries,
-                selected = options.numberPosition,
-                onSelect = { options.numberPosition = it },
-                optionLabel = {
-                    it.name.lowercase().split('_')
-                        .joinToString(" ") { part -> part.replaceFirstChar(Char::uppercase) }
-                },
-            )
-            Spacer(Modifier.height(16.dp))
-            NumberStepper(
-                label = "Start numbering at",
-                value = options.numberStart,
-                onChange = { options.numberStart = it.coerceIn(0, 9999) },
-                range = 0..9999,
-            )
-            NumberStepper(
-                label = "Skip first pages",
-                value = options.numberSkip,
-                onChange = { options.numberSkip = it.coerceIn(0, maxOf(0, pageCount - 1)) },
-                range = 0..maxOf(0, pageCount - 1),
-            )
-            LabeledSlider(
-                label = "Text size",
-                value = options.numberFontSize,
-                onValueChange = { options.numberFontSize = it },
-                valueRange = 7f..24f,
-                valueLabel = "${options.numberFontSize.roundToInt()} pt",
-            )
-        }
-
         ToolId.PROTECT -> {
             OutlinedTextField(
                 value = options.protectPassword,
@@ -659,7 +543,7 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
             style = MaterialTheme.typography.bodyMedium,
         )
 
-        ToolId.ORGANIZE, ToolId.SIGN -> Unit
+        ToolId.SIGN -> Unit
     }
 }
 

@@ -3,15 +3,16 @@ package io.github.fanfeast.anonpdf.ui
 import android.net.Uri
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.core.net.toUri
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.core.net.toUri
 import io.github.fanfeast.anonpdf.ui.about.AboutScreen
+import io.github.fanfeast.anonpdf.ui.browse.BrowseScreen
+import io.github.fanfeast.anonpdf.ui.editor.EditorScreen
 import io.github.fanfeast.anonpdf.ui.home.HomeScreen
-import io.github.fanfeast.anonpdf.ui.organize.OrganizeScreen
 import io.github.fanfeast.anonpdf.ui.settings.SettingsScreen
 import io.github.fanfeast.anonpdf.ui.sign.SignScreen
 import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
@@ -23,21 +24,22 @@ private object Routes {
     const val HOME = "home"
     const val ABOUT = "about"
     const val SETTINGS = "settings"
+    const val BROWSE = "browse"
 
     const val VIEWER = "viewer/{uri}"
     fun viewer(uri: Uri) = "viewer/${Uri.encode(uri.toString())}"
+
+    const val EDITOR = "editor?uri={uri}"
+    fun editor(uri: Uri?) = if (uri == null) {
+        "editor"
+    } else {
+        "editor?uri=${Uri.encode(uri.toString())}"
+    }
 
     const val TOOL = "tool/{toolId}?uri={uri}"
     fun tool(id: ToolId, uri: Uri?) = buildString {
         append("tool/${id.name}")
         if (uri != null) append("?uri=${Uri.encode(uri.toString())}")
-    }
-
-    const val ORGANIZE = "organize?uri={uri}"
-    fun organize(uri: Uri?) = if (uri == null) {
-        "organize"
-    } else {
-        "organize?uri=${Uri.encode(uri.toString())}"
     }
 
     const val SIGN = "sign?uri={uri}"
@@ -62,13 +64,9 @@ fun AnonPdfApp(initialUri: Uri?) {
         if (initialUri != null) navController.navigate(Routes.viewer(initialUri))
     }
 
-    /** Tools with a bespoke screen get their own route; the rest share one. */
+    /** Sign keeps its own screen; everything else in the catalogue shares one. */
     fun openTool(id: ToolId, uri: Uri?) {
-        val route = when (id) {
-            ToolId.ORGANIZE -> Routes.organize(uri)
-            ToolId.SIGN -> Routes.sign(uri)
-            else -> Routes.tool(id, uri)
-        }
+        val route = if (id == ToolId.SIGN) Routes.sign(uri) else Routes.tool(id, uri)
         navController.navigate(route)
     }
 
@@ -76,9 +74,21 @@ fun AnonPdfApp(initialUri: Uri?) {
         composable(Routes.HOME) {
             HomeScreen(
                 onOpenDocument = { uri -> navController.navigate(Routes.viewer(uri)) },
+                onEditDocument = { navController.navigate(Routes.editor(null)) },
+                onBrowse = { navController.navigate(Routes.BROWSE) },
                 onOpenTool = { id -> openTool(id, null) },
                 onOpenAbout = { navController.navigate(Routes.ABOUT) },
                 onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+            )
+        }
+
+        composable(Routes.BROWSE) {
+            BrowseScreen(
+                onOpen = { uri ->
+                    navController.popBackStack()
+                    navController.navigate(Routes.viewer(uri))
+                },
+                onBack = { navController.popBackStack() },
             )
         }
 
@@ -90,17 +100,29 @@ fun AnonPdfApp(initialUri: Uri?) {
             if (raw == null) {
                 LaunchedEffect(Unit) { navController.popBackStack() }
             } else {
+                val uri = raw.toUri()
                 ViewerScreen(
-                    uri = raw.toUri(),
+                    uri = uri,
                     onBack = { navController.popBackStack() },
-                    onOpenTool = { id, uri -> openTool(id, uri) },
+                    onEdit = { navController.navigate(Routes.editor(uri)) },
+                    onOpenTool = { id, toolUri -> openTool(id, toolUri) },
                 )
             }
         }
 
-        composable(route = Routes.TOOL, arguments = optionalUriArg() + listOf(
-            navArgument("toolId") { type = NavType.StringType },
-        )) { entry ->
+        composable(route = Routes.EDITOR, arguments = optionalUriArg()) { entry ->
+            EditorScreen(
+                initialUri = entry.arguments?.getString("uri")?.toUri(),
+                onBack = { navController.popBackStack() },
+            )
+        }
+
+        composable(
+            route = Routes.TOOL,
+            arguments = optionalUriArg() + listOf(
+                navArgument("toolId") { type = NavType.StringType },
+            ),
+        ) { entry ->
             val toolName = entry.arguments?.getString("toolId")
             val spec = ToolCatalog.all.firstOrNull { it.id.name == toolName }
             if (spec == null) {
@@ -112,13 +134,6 @@ fun AnonPdfApp(initialUri: Uri?) {
                     onBack = { navController.popBackStack() },
                 )
             }
-        }
-
-        composable(route = Routes.ORGANIZE, arguments = optionalUriArg()) { entry ->
-            OrganizeScreen(
-                initialUri = entry.arguments?.getString("uri")?.toUri(),
-                onBack = { navController.popBackStack() },
-            )
         }
 
         composable(route = Routes.SIGN, arguments = optionalUriArg()) { entry ->

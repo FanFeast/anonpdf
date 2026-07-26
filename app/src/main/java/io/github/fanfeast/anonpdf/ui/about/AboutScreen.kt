@@ -65,17 +65,34 @@ fun AboutScreen(onBack: () -> Unit) {
                     "server to upload to and no way to reach one.",
             )
             Bullet(
-                "Read your storage. There is no storage permission either. Files " +
-                    "arrive one at a time through the system picker, and only the ones " +
-                    "you choose.",
-            )
-            Bullet(
                 "Track you. No analytics, no crash reporting, no advertising SDK, " +
                     "no device identifiers, no account.",
             )
             Bullet(
                 "Charge you. Every tool is included. There is no paid tier and no " +
                     "feature held back.",
+            )
+
+            Spacer(Modifier.height(24.dp))
+            SectionLabel("The one permission it asks for")
+            Bullet(
+                "All files access, so the browser can list the PDFs on your device " +
+                    "instead of making you find each one in the system picker. It is " +
+                    "used for reading documents and nothing else.",
+            )
+            Bullet(
+                "It is optional. Decline it and everything still works through the " +
+                    "picker, one file at a time.",
+            )
+            Bullet(
+                "Android calls this a \"special app access\", so it does not appear " +
+                    "on this app's Permissions page — that page says \"no permissions " +
+                    "requested\" either way. Look under Settings, Apps, Special app " +
+                    "access, All files access to see the real state.",
+            )
+            Bullet(
+                "Reading files still cannot leak them: without network permission " +
+                    "there is nowhere for them to go.",
             )
 
             Spacer(Modifier.height(24.dp))

@@ -22,15 +22,18 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,20 +45,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.data.AppPreferences
-import kotlinx.coroutines.launch
 import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.SectionLabel
 import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
 import io.github.fanfeast.anonpdf.ui.tools.ToolId
 import io.github.fanfeast.anonpdf.ui.tools.ToolSpec
-import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 
 @Composable
 fun HomeScreen(
     onOpenDocument: (Uri) -> Unit,
+    onEditDocument: () -> Unit,
+    onBrowse: () -> Unit,
     onOpenTool: (ToolId) -> Unit,
     onOpenAbout: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -105,6 +110,37 @@ fun HomeScreen(
                     Spacer(Modifier.width(10.dp))
                     Text("Open a PDF", style = MaterialTheme.typography.titleMedium)
                 }
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onBrowse,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Storage,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("My files")
+                    }
+                    OutlinedButton(
+                        onClick = onEditDocument,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(46.dp),
+                    ) {
+                        Icon(
+                            Icons.Filled.Edit,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Edit pages")
+                    }
+                }
             }
 
             if (recents.isNotEmpty()) {
@@ -131,6 +167,8 @@ fun HomeScreen(
 
             item {
                 Spacer(Modifier.height(24.dp))
+                EditorPromo(onClick = onEditDocument)
+                Spacer(Modifier.height(20.dp))
             }
 
             ToolCatalog.grouped.forEach { (group, specs) ->
@@ -147,7 +185,7 @@ fun HomeScreen(
             item {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "No account, no ads, no analytics, no network permission. " +
+                    "No ads, no analytics, no account, no network permission. " +
                         "Open source.",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -175,12 +213,40 @@ private fun PrivacyBanner() {
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
-                    "Everything stays on this phone",
+                    "Nothing leaves this phone",
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    "AnonPDF holds no permissions at all — not even internet. " +
-                        "It cannot upload your files because it cannot reach the network.",
+                    "AnonPDF has no network permission at all, so Android will not " +
+                        "let it upload your documents even if something tried. " +
+                        "No account, no ads, no tracking.",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+    }
+}
+
+/** Points at the editor, since that is where most of the work now happens. */
+@Composable
+private fun EditorPromo(onClick: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Edit pages", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Rotate, crop, scale, delete and reorder pages, add a watermark " +
+                        "or page numbers — several at once, with a live preview of the " +
+                        "real result before you save.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
