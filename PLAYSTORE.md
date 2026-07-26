@@ -7,11 +7,54 @@ Play will ask. Written for a personal Google account.
 
 You need:
 
-- A **Google Play Developer account** — one-off 25 USD registration at
-  <https://play.google.com/console/signup>. Personal accounts now require
+- A **Google Play Developer account** — one-off **US$25** registration at
+  <https://play.google.com/console/signup>. Personal accounts also require
   identity verification, which can take a couple of days, so start there first.
 - The signed bundle: `app/build/outputs/bundle/release/app-release.aab`
 - The upload keystore and its password, kept somewhere safe and backed up
+
+### The fee, from India
+
+There is no regional discount. The fee is US$25 flat worldwide, billed in
+rupees at the conversion rate on the day, and Indian GST is added on top — so
+expect roughly **₹2,100–2,500** rather than less. It is one-time and
+non-refundable; the account then stays active indefinitely.
+
+Use a card that permits international transactions. Indian cards are declined
+fairly often on this payment because of the 2021 RBI rules on recurring and
+cross-border card mandates. A card that has worked for other USD purchases is
+the safest bet.
+
+### Read this before you plan a launch date
+
+If you register a **personal** account (which is what an individual Google
+account gets you), Google requires a closed test before you may publish
+publicly:
+
+> you must run a closed test for your app with a minimum of 12 testers who have
+> been opted-in for at least the last 14 days continuously
+
+The 14 days must be consecutive, and if a tester opts out the clock is affected.
+So realistically:
+
+| | |
+|---|---|
+| Account registration + identity verification | 1–3 days |
+| Recruit 12 testers and get them opted in | your call |
+| Closed test running | 14 consecutive days minimum |
+| Apply for production access, then review | days |
+
+That is **two to three weeks minimum** from registering to being live, and it is
+a queue you cannot shorten by paying. Line the 12 testers up early — they need
+Google accounts, and each has to accept the opt-in link and keep the app
+installed.
+
+An **organization** account is exempt from the 12-tester requirement, but needs a
+D-U-N-S number for a registered business entity. If AnonPDF is a personal
+project, the personal account plus the closed test is the normal path.
+
+None of this blocks anything today: the app is finished and the signed bundle is
+built. It is purely Google's queue.
 
 ### About the keystore
 
@@ -141,11 +184,16 @@ To capture more, run the app on a device or emulator and use
 9. **Data safety** — see the exact answers below.
 10. **Government apps** — No. **Financial features** — None.
 11. **Health apps** — No.
-12. **Production release** — upload `app-release.aab`, write the release notes,
-    set the countries, then roll out.
+12. **Closed test first** (personal accounts) — create a closed testing track,
+    upload `app-release.aab` there, and share the opt-in link with your 12
+    testers. Leave it running 14 consecutive days. See the timing note at the
+    top of this document.
+13. **Production release** — once you have production access, promote the same
+    bundle to production, write the release notes, set the countries, then roll
+    out.
 
-Expect review to take anywhere from a few hours to a few days for a new
-developer account.
+Review itself takes hours to days. The 14-day closed test is the part that
+dominates the schedule for a new personal account.
 
 ## Data safety form — exact answers
 
