@@ -140,6 +140,9 @@ fun toolPages(currentPageDeleted: Boolean): List<ToolPage> = listOf(
 /** How many pages [toolPages] returns, for hoisting the pager's state. */
 const val TOOL_PAGE_COUNT = 4
 
+/** Two rows of [ToolCell]s: icon + label + padding, twice. */
+private val TOOL_GRID_HEIGHT = 136.dp
+
 @Composable
 fun ToolPager(
     pages: List<ToolPage>,
@@ -181,7 +184,16 @@ fun ToolPager(
         }
         Spacer(Modifier.height(2.dp))
 
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxWidth()) { page ->
+        // Every page gets the same height, whether it holds one row of tools or
+        // two. Without this, swiping from the one short page onto a taller one
+        // resizes the pager mid-drag, which cancels the settle and bounces the
+        // swipe back where it started.
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(TOOL_GRID_HEIGHT),
+        ) { page ->
             val tools = pages[page].tools
             Column {
                 tools.chunked(4).forEach { row ->
