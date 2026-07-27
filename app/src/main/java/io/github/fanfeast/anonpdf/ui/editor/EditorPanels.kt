@@ -26,6 +26,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.pdf.CropInsets
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
+import io.github.fanfeast.anonpdf.pdf.PageOrientation
+import io.github.fanfeast.anonpdf.pdf.PaperSize
+import io.github.fanfeast.anonpdf.pdf.ResizeTarget
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
 import io.github.fanfeast.anonpdf.pdf.WatermarkOptions
@@ -123,39 +126,113 @@ fun CropPanel(
     }
 }
 
+/** Whether the page is being put on a named sheet or just scaled by a number. */
+enum class SizeMode(val label: String) {
+    PAPER("Paper size"),
+    PERCENT("Percentage"),
+}
+
 @Composable
-fun ScalePanel(
+fun ResizePanel(
+    mode: SizeMode,
     factor: Float,
+    target: ResizeTarget,
     targetLabel: String,
-    onChange: (Float) -> Unit,
+    resultingSize: String,
+    onModeChange: (SizeMode) -> Unit,
+    onFactorChange: (Float) -> Unit,
+    onTargetChange: (ResizeTarget) -> Unit,
     onCancel: () -> Unit,
     onApply: () -> Unit,
 ) {
     PanelFrame(
-        title = "Scale",
+        title = "Resize",
         subtitle = targetLabel,
         onCancel = onCancel,
         onApply = onApply,
     ) {
-        Text(
-            "Resizes the page and everything on it. The preview above changes size " +
-                "as you drag.",
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        ChoiceChips(
+            label = "",
+            options = SizeMode.entries,
+            selected = mode,
+            onSelect = onModeChange,
+            optionLabel = { it.label },
         )
-        Spacer(Modifier.height(4.dp))
-        LabeledSlider(
-            label = "Size",
-            value = factor,
-            onValueChange = onChange,
-            valueRange = 0.25f..2f,
-            valueLabel = "${(factor * 100).roundToInt()}%",
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(0.5f, 0.75f, 1f, 1.5f).forEach { preset ->
-                OutlinedButton(onClick = { onChange(preset) }) {
-                    Text("${(preset * 100).roundToInt()}%")
+        Spacer(Modifier.height(10.dp))
+
+        when (mode) {
+            SizeMode.PAPER -> {
+                Text(
+                    "Puts the page on a sheet of this exact size. The preview above " +
+                        "shows the result.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                ChoiceChips(
+                    label = "Sheet",
+                    options = PaperSize.entries,
+                    selected = target.paper,
+                    onSelect = { onTargetChange(target.copy(paper = it)) },
+                    optionLabel = { it.label },
+                )
+                Spacer(Modifier.height(10.dp))
+                ChoiceChips(
+                    label = "Orientation",
+                    options = PageOrientation.entries,
+                    selected = target.orientation,
+                    onSelect = { onTargetChange(target.copy(orientation = it)) },
+                    optionLabel = { it.label },
+                )
+                Spacer(Modifier.height(10.dp))
+                ChoiceChips(
+                    label = "Where they do not match",
+                    options = listOf(false, true),
+                    selected = target.fill,
+                    onSelect = { onTargetChange(target.copy(fill = it)) },
+                    optionLabel = { if (it) "Fill, crop overflow" else "Fit, leave margins" },
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    resultingSize,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    target.paper.physical,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            SizeMode.PERCENT -> {
+                Text(
+                    "Keeps the page's proportions and changes its size. The preview " +
+                        "above changes size as you drag.",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(4.dp))
+                LabeledSlider(
+                    label = "Size",
+                    value = factor,
+                    onValueChange = onFactorChange,
+                    valueRange = 0.25f..2f,
+                    valueLabel = "${(factor * 100).roundToInt()}%",
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(0.5f, 0.75f, 1f, 1.5f).forEach { preset ->
+                        OutlinedButton(onClick = { onFactorChange(preset) }) {
+                            Text("${(preset * 100).roundToInt()}%")
+                        }
+                    }
                 }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    resultingSize,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }

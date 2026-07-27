@@ -183,8 +183,11 @@ fun <T> ChoiceChips(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyMedium)
-        Spacer(Modifier.height(8.dp))
+        // A blank label means "no heading" — don't reserve a line for it.
+        if (label.isNotBlank()) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(8.dp))
+        }
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),

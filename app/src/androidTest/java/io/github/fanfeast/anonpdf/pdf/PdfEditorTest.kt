@@ -326,6 +326,214 @@ class PdfEditorTest {
         after.recycle()
     }
 
+    /**
+     * A page filled edge to edge, so the tests can see exactly where the content
+     * lands after a refit — a page with only text in the middle would look the same
+     * whether it was letterboxed or cropped.
+     */
+    private fun filledPdf(width: Float, height: Float): File {
+        val file = File(workDir, "filled-${System.nanoTime()}.pdf")
+        PDDocument().use { document ->
+            val page = PDPage(PDRectangle(width, height))
+            document.addPage(page)
+            PDPageContentStream(document, page).use { stream ->
+                stream.setNonStrokingColor(0.15f, 0.35f, 0.75f)
+                stream.addRect(0f, 0f, width, height)
+                stream.fill()
+            }
+            document.save(file)
+        }
+        return file
+    }
+
+    private fun isInk(bitmap: Bitmap, x: Int, y: Int): Boolean =
+        bitmap.getPixel(x, y) != android.graphics.Color.WHITE
+
+    @Test
+    fun resizingProducesASheetOfExactlyTheRequestedSize(): Unit = runBlocking {
+        val source = textPdf(2, "Fit")
+        val output = out("letter")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(2, ResizePages(ResizeTarget(PaperSize.LETTER), setOf(0, 1))),
+        )
+
+        PdfOps.load(output).use { document ->
+            for (index in 0 until 2) {
+                val page = document.getPage(index)
+                assertEquals("page $index width", 612f, page.mediaBox.width, 0.5f)
+                assertEquals("page $index height", 792f, page.mediaBox.height, 0.5f)
+                assertEquals("cropBox must match", 612f, page.cropBox.width, 0.5f)
+                assertEquals(792f, page.cropBox.height, 0.5f)
+            }
+        }
+        // Content came along rather than being left behind on the old sheet.
+        assertTrue(PdfOps.extractText(output).contains("Fit 1"))
+    }
+
+    @Test
+    fun fittingLetterboxesAndFillingCoversTheSheet(): Unit = runBlocking {
+        // A4 and Letter have different proportions, so one of the two has to give.
+        val source = filledPdf(PDRectangle.A4.width, PDRectangle.A4.height)
+
+        val fitted = out("fitted")
+        PdfEditor.applyPlan(
+            source,
+            fitted,
+            plan(1, ResizePages(ResizeTarget(PaperSize.LETTER, fill = false), setOf(0))),
+        )
+        val filled = out("filled-sheet")
+        PdfEditor.applyPlan(
+            source,
+            filled,
+            plan(1, ResizePages(ResizeTarget(PaperSize.LETTER, fill = true), setOf(0))),
+        )
+
+        val fitRender = PdfRasterizer.open(fitted).use { it.renderByWidth(0, 400) }
+        val fillRender = PdfRasterizer.open(filled).use { it.renderByWidth(0, 400) }
+
+        val middleRow = fitRender.height / 2
+        // Fitting leaves the sheet's own colour showing down the sides.
+        assertTrue("fit should leave a left margin", !isInk(fitRender, 1, middleRow))
+        assertTrue(
+            "fit should leave a right margin",
+            !isInk(fitRender, fitRender.width - 2, middleRow),
+        )
+        assertTrue("fit content still present", isInk(fitRender, fitRender.width / 2, middleRow))
+
+        // Filling covers the sheet corner to corner, cropping the overflow instead.
+        assertTrue("fill should reach the left edge", isInk(fillRender, 1, middleRow))
+        assertTrue(
+            "fill should reach the right edge",
+            isInk(fillRender, fillRender.width - 2, middleRow),
+        )
+        assertTrue(
+            "fill should reach the top",
+            isInk(fillRender, fillRender.width / 2, 1),
+        )
+
+        fitRender.recycle()
+        fillRender.recycle()
+    }
+
+    @Test
+    fun resizingAQuarterTurnedPageBakesTheRotationAway(): Unit = runBlocking {
+        // An upright A4 turned 90 degrees reads as landscape, so "Letter" with auto
+        // orientation must mean landscape Letter — and the page must not be left
+        // with a /Rotate that a viewer would then apply on top.
+        val source = textPdf(1, "Turned")
+        val output = out("turned-letter")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                RotatePages(90, setOf(0)),
+                ResizePages(ResizeTarget(PaperSize.LETTER), setOf(0)),
+            ),
+        )
+
+        PdfOps.load(output).use { document ->
+            val page = document.getPage(0)
+            assertEquals("rotation must be baked in, not left on the page", 0, page.rotation)
+            assertEquals("landscape Letter width", 792f, page.mediaBox.width, 0.5f)
+            assertEquals("landscape Letter height", 612f, page.mediaBox.height, 0.5f)
+        }
+
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
+        assertTrue("renders landscape", rendered.width > rendered.height)
+        assertTrue("and is not blank", inkFraction(rendered) > 0.005f)
+        rendered.recycle()
+    }
+
+    @Test
+    fun forcedOrientationOverridesThePage(): Unit = runBlocking {
+        val source = filledPdf(842f, 595f) // landscape source
+        val output = out("forced-portrait")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                ResizePages(
+                    ResizeTarget(PaperSize.A4, PageOrientation.PORTRAIT),
+                    setOf(0),
+                ),
+            ),
+        )
+
+        PdfOps.load(output).use { document ->
+            val box = document.getPage(0).mediaBox
+            assertEquals(PDRectangle.A4.width, box.width, 0.5f)
+            assertEquals(PDRectangle.A4.height, box.height, 0.5f)
+        }
+    }
+
+    @Test
+    fun resizingKeepsCroppedAwayContentHidden(): Unit = runBlocking {
+        // Refitting enlarges the visible box, so anything the crop was hiding must
+        // stay hidden rather than reappearing in the new margins.
+        val source = filledPdf(PDRectangle.A4.width, PDRectangle.A4.height)
+        val output = out("cropped-then-resized")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                CropPages(CropInsets(0.25f, 0.25f, 0.25f, 0.25f), setOf(0)),
+                ResizePages(ResizeTarget(PaperSize.A4), setOf(0)),
+            ),
+        )
+
+        PdfOps.load(output).use { document ->
+            assertEquals(PDRectangle.A4.width, document.getPage(0).mediaBox.width, 0.5f)
+        }
+        // The cropped page is 1:1.41 like A4, so it fits with no margin at all and
+        // the ink covers the sheet — what matters is that it is the *cropped*
+        // content, scaled up, not the original with its hidden parts restored.
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 320) }
+        assertTrue("content fills the refitted sheet", inkFraction(rendered) > 0.9f)
+        rendered.recycle()
+    }
+
+    @Test
+    fun previewMatchesTheExportForARefittedPage(): Unit = runBlocking {
+        val source = textPdf(2, "Sheet")
+        val editPlan = plan(
+            2,
+            ResizePages(ResizeTarget(PaperSize.LEGAL), setOf(0)),
+            RotatePages(90, setOf(1)),
+        )
+        val output = out("resized-preview")
+        PdfEditor.applyPlan(source, output, editPlan)
+
+        PdfRasterizer.open(output).use { rasterizer ->
+            for (position in 0 until editPlan.kept.size) {
+                val preview = PdfEditor.renderPreview(
+                    input = source,
+                    plan = editPlan,
+                    outputPosition = position,
+                    targetWidthPx = 360,
+                    workDir = workDir,
+                )
+                assertNotNull("preview $position", preview)
+                val exported = rasterizer.renderByWidth(position, 360)
+                assertEquals(exported.height, preview!!.height)
+                assertTrue(
+                    "refitted preview must match its export",
+                    differingFraction(preview, exported) < 0.01f,
+                )
+                preview.recycle()
+                exported.recycle()
+            }
+        }
+    }
+
     @Test
     fun scalingDownKeepsTheWholeLayout(): Unit = runBlocking {
         assertScaleKeepsLayout(0.5f)

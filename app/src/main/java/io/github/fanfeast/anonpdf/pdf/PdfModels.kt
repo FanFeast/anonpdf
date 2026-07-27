@@ -93,6 +93,59 @@ enum class ImageFormat(val extension: String, val mime: String) {
 
 enum class PdfPageSizePreset { FIT_IMAGE, A4, LETTER }
 
+/**
+ * The standard paper sizes worth offering, in PostScript points at 72 per inch.
+ *
+ * Dimensions are given portrait; [PageOrientation] decides which way round they
+ * are used. Values match the ISO 216 and ANSI definitions PDFBox uses.
+ */
+enum class PaperSize(
+    val label: String,
+    val widthPoints: Float,
+    val heightPoints: Float,
+    /** Physical size, for the "210 × 297 mm" hint under the picker. */
+    val physical: String,
+) {
+    A3("A3", 841.89f, 1190.55f, "297 × 420 mm"),
+    A4("A4", 595.28f, 841.89f, "210 × 297 mm"),
+    A5("A5", 419.53f, 595.28f, "148 × 210 mm"),
+    LETTER("Letter", 612f, 792f, "8.5 × 11 in"),
+    LEGAL("Legal", 612f, 1008f, "8.5 × 14 in"),
+    TABLOID("Tabloid", 792f, 1224f, "11 × 17 in"),
+}
+
+enum class PageOrientation(val label: String) {
+    /** Keep whichever way round the page already is. */
+    AUTO("Match page"),
+    PORTRAIT("Portrait"),
+    LANDSCAPE("Landscape"),
+}
+
+/**
+ * Refits a page onto a standard sheet.
+ *
+ * [fill] chooses between covering the sheet — cropping the overflow — and fitting
+ * inside it, which leaves margins where the aspect ratios differ. Fitting is the
+ * safe default because it never throws content away.
+ */
+data class ResizeTarget(
+    val paper: PaperSize,
+    val orientation: PageOrientation = PageOrientation.AUTO,
+    val fill: Boolean = false,
+) {
+    /** The sheet's size as displayed, given the page it is being applied to. */
+    fun sizeFor(sourceWidth: Float, sourceHeight: Float): Pair<Float, Float> {
+        val shortSide = minOf(paper.widthPoints, paper.heightPoints)
+        val longSide = maxOf(paper.widthPoints, paper.heightPoints)
+        val landscape = when (orientation) {
+            PageOrientation.AUTO -> sourceWidth > sourceHeight
+            PageOrientation.PORTRAIT -> false
+            PageOrientation.LANDSCAPE -> true
+        }
+        return if (landscape) longSide to shortSide else shortSide to longSide
+    }
+}
+
 data class ImagesToPdfOptions(
     val pageSize: PdfPageSizePreset = PdfPageSizePreset.FIT_IMAGE,
     val marginPoints: Float = 0f,

@@ -93,7 +93,10 @@ import io.github.fanfeast.anonpdf.pdf.EditPlan
 import io.github.fanfeast.anonpdf.pdf.MovePage
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.PageState
+import io.github.fanfeast.anonpdf.pdf.PaperSize
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
+import io.github.fanfeast.anonpdf.pdf.ResizePages
+import io.github.fanfeast.anonpdf.pdf.ResizeTarget
 import io.github.fanfeast.anonpdf.pdf.RestorePages
 import io.github.fanfeast.anonpdf.pdf.ReversePages
 import io.github.fanfeast.anonpdf.pdf.RotatePages
@@ -140,7 +143,11 @@ private const val AUTO_SCROLL_STEP_PX = 14f
 private sealed interface EditorMode {
     data object Normal : EditorMode
     data class Cropping(val insets: CropInsets) : EditorMode
-    data class Scaling(val factor: Float) : EditorMode
+    data class Resizing(
+        val mode: SizeMode,
+        val factor: Float,
+        val target: ResizeTarget,
+    ) : EditorMode
     data class Watermarking(val options: WatermarkOptions) : EditorMode
     data class Numbering(val options: PageNumberOptions) : EditorMode
 }
@@ -259,9 +266,14 @@ fun EditorScreen(
                     if (it.sourceIndex == currentSource) it.copy(crop = CropInsets()) else it
                 },
             )
-            is EditorMode.Scaling -> plan.copy(
+            is EditorMode.Resizing -> plan.copy(
                 pages = plan.pages.map {
-                    if (it.sourceIndex in targets) it.copy(scale = current.factor) else it
+                    when {
+                        it.sourceIndex !in targets -> it
+                        current.mode == SizeMode.PAPER ->
+                            it.copy(resize = current.target, scale = 1f)
+                        else -> it.copy(scale = current.factor, resize = null)
+                    }
                 },
             )
             is EditorMode.Watermarking -> plan.copy(watermark = current.options)
@@ -284,10 +296,6 @@ fun EditorScreen(
             )
         }
     }
-    val widestPage = effectiveSizes.maxOfOrNull { it.width } ?: 1f
-    val widthFraction =
-        ((effectiveSizes.getOrNull(state.position)?.width ?: widestPage) / widestPage)
-            .coerceIn(0.12f, 1f)
 
     var previewWidthPx by remember { mutableStateOf(600) }
 
@@ -344,8 +352,19 @@ fun EditorScreen(
                         .background(MaterialTheme.colorScheme.surfaceVariant),
                     contentAlignment = Alignment.Center,
                 ) {
-                    val frameWidth = maxWidth * 0.94f
-                    previewWidthPx = with(density) { bucket(frameWidth.toPx().roundToInt()) }
+                    // One points-to-dp scale for the whole document, chosen so the
+                    // largest page just fits. That keeps relative page sizes honest
+                    // and stops a tall page overflowing the space and being clipped.
+                    val widestPage = effectiveSizes.maxOfOrNull { it.width } ?: 1f
+                    val tallestPage = effectiveSizes.maxOfOrNull { it.height } ?: 1f
+                    val dpPerPoint = minOf(
+                        (maxWidth * 0.96f).value / widestPage,
+                        (maxHeight * 0.96f).value / tallestPage,
+                    )
+                    val shownSize = effectiveSizes.getOrNull(state.position)
+                    previewWidthPx = with(density) {
+                        bucket((widestPage * dpPerPoint).dp.toPx().roundToInt())
+                    }
                     val bitmap = preview
 
                     when {
@@ -356,13 +375,12 @@ fun EditorScreen(
                         )
 
                         bitmap != null -> {
-                            // Drawn at the page's true size relative to the widest
-                            // page, so scale and mixed page sizes are both visible.
-                            val shown = frameWidth * widthFraction
+                            // Sized from the page's own dimensions rather than the
+                            // bitmap's, so a refit or a scale shows up immediately.
                             Box(
                                 Modifier
-                                    .width(shown)
-                                    .aspectRatio(bitmap.width.toFloat() / bitmap.height),
+                                    .width(((shownSize?.width ?: 1f) * dpPerPoint).dp)
+                                    .height(((shownSize?.height ?: 1f) * dpPerPoint).dp),
                             ) {
                                 Image(
                                     bitmap = bitmap.asImageBitmap(),
@@ -476,14 +494,23 @@ fun EditorScreen(
                                         ?: CropInsets(0.06f, 0.06f, 0.06f, 0.06f),
                                 )
                             },
-                            onScale = {
+                            onResize = {
                                 state.showFirstTarget()
-                                val existing = state.currentSourceIndex
-                                    ?.let { source ->
-                                        plan.pages.firstOrNull { it.sourceIndex == source }
-                                    }
-                                    ?.scale ?: 1f
-                                mode = EditorMode.Scaling(existing)
+                                val page = state.currentSourceIndex?.let { source ->
+                                    plan.pages.firstOrNull { it.sourceIndex == source }
+                                }
+                                mode = EditorMode.Resizing(
+                                    // Reopen on whichever way the page was last
+                                    // sized; paper sizes otherwise, since "put this
+                                    // on Letter" is the common request.
+                                    mode = if (page != null && page.scale != 1f) {
+                                        SizeMode.PERCENT
+                                    } else {
+                                        SizeMode.PAPER
+                                    },
+                                    factor = page?.scale ?: 1f,
+                                    target = page?.resize ?: ResizeTarget(PaperSize.A4),
+                                )
                             },
                             onDelete = { state.apply(DeletePages(state.targets())) },
                             onRestore = { state.apply(RestorePages(state.targets())) },
@@ -542,13 +569,26 @@ fun EditorScreen(
                             },
                         )
 
-                        is EditorMode.Scaling -> ScalePanel(
+                        is EditorMode.Resizing -> ResizePanel(
+                            mode = current.mode,
                             factor = current.factor,
+                            target = current.target,
                             targetLabel = state.targetLabel(),
-                            onChange = { mode = EditorMode.Scaling(it) },
+                            resultingSize = describeResult(
+                                effectiveSizes.getOrNull(state.position),
+                            ),
+                            onModeChange = { mode = current.copy(mode = it) },
+                            onFactorChange = { mode = current.copy(factor = it) },
+                            onTargetChange = { mode = current.copy(target = it) },
                             onCancel = { mode = EditorMode.Normal },
                             onApply = {
-                                state.apply(ScalePages(current.factor, state.targets()))
+                                state.apply(
+                                    if (current.mode == SizeMode.PAPER) {
+                                        ResizePages(current.target, state.targets())
+                                    } else {
+                                        ScalePages(current.factor, state.targets())
+                                    },
+                                )
                                 mode = EditorMode.Normal
                             },
                         )
@@ -630,14 +670,31 @@ fun EditorScreen(
  * what the renderer reports.
  */
 private fun effectiveSize(base: SizeF, state: PageState): SizeF {
-    val width = base.width * state.scale * (1f - state.crop.left - state.crop.right)
-    val height = base.height * state.scale * (1f - state.crop.top - state.crop.bottom)
+    // Same order the engine uses: turn, then crop what is on show, then size it.
     val quarterTurned = ((state.rotationDelta / 90) % 2 + 2) % 2 == 1
-    return if (quarterTurned) {
-        SizeF(max(1f, height), max(1f, width))
+    val turnedWidth = if (quarterTurned) base.height else base.width
+    val turnedHeight = if (quarterTurned) base.width else base.height
+
+    val croppedWidth = turnedWidth * (1f - state.crop.left - state.crop.right)
+    val croppedHeight = turnedHeight * (1f - state.crop.top - state.crop.bottom)
+
+    val resize = state.resize
+    return if (resize != null) {
+        val (sheetWidth, sheetHeight) = resize.sizeFor(croppedWidth, croppedHeight)
+        SizeF(sheetWidth, sheetHeight)
     } else {
-        SizeF(max(1f, width), max(1f, height))
+        SizeF(
+            max(1f, croppedWidth * state.scale),
+            max(1f, croppedHeight * state.scale),
+        )
     }
+}
+
+/** "612 × 792 pt", for the readout under the size controls. */
+private fun describeResult(size: SizeF?): String = if (size == null) {
+    ""
+} else {
+    "Result: ${size.width.roundToInt()} × ${size.height.roundToInt()} pt"
 }
 
 @Composable
@@ -943,7 +1000,7 @@ private fun EditorControls(
     plan: EditPlan,
     onRotate: (Int) -> Unit,
     onCrop: () -> Unit,
-    onScale: () -> Unit,
+    onResize: () -> Unit,
     onDelete: () -> Unit,
     onRestore: () -> Unit,
     onReverse: () -> Unit,
@@ -1004,7 +1061,7 @@ private fun EditorControls(
             ToolButton(Icons.AutoMirrored.Filled.RotateLeft, "Left") { onRotate(-90) }
             ToolButton(Icons.AutoMirrored.Filled.RotateRight, "Right") { onRotate(90) }
             ToolButton(Icons.Filled.Crop, "Crop", onClick = onCrop)
-            ToolButton(Icons.Filled.ZoomOutMap, "Scale", onClick = onScale)
+            ToolButton(Icons.Filled.ZoomOutMap, "Resize", onClick = onResize)
         }
         Row(
             modifier = Modifier.fillMaxWidth(),

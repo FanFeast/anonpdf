@@ -45,6 +45,18 @@ data class ScalePages(val factor: Float, val targets: Set<Int>) : EditOp {
     override fun describe() = "Scale ${(factor * 100).toInt()}% · ${scopeOf(targets)}"
 }
 
+data class ResizePages(val target: ResizeTarget, val targets: Set<Int>) : EditOp {
+    override fun describe(): String {
+        val how = if (target.fill) "fill" else "fit"
+        val orientation = when (target.orientation) {
+            PageOrientation.AUTO -> ""
+            PageOrientation.PORTRAIT -> " portrait"
+            PageOrientation.LANDSCAPE -> " landscape"
+        }
+        return "Resize to ${target.paper.label}$orientation ($how) · ${scopeOf(targets)}"
+    }
+}
+
 data class DeletePages(val targets: Set<Int>) : EditOp {
     override fun describe() = "Delete · ${scopeOf(targets)}"
 }
@@ -78,10 +90,13 @@ data class PageState(
     val rotationDelta: Int = 0,
     val crop: CropInsets = CropInsets(),
     val scale: Float = 1f,
+    /** Refit onto a standard sheet. Mutually exclusive with [scale]. */
+    val resize: ResizeTarget? = null,
     val deleted: Boolean = false,
 ) {
     val isUntouched: Boolean
-        get() = rotationDelta == 0 && crop.isEmpty && scale == 1f && !deleted
+        get() = rotationDelta == 0 && crop.isEmpty && scale == 1f &&
+            resize == null && !deleted
 }
 
 /** The normalised result of folding an op list. Drives both preview and export. */
@@ -115,7 +130,15 @@ object EditPlanBuilder {
         // Crop and scale replace, because the controls that produce them report an
         // absolute value rather than a delta.
         is CropPages -> plan.mapTargets(op.targets) { it.copy(crop = op.insets) }
-        is ScalePages -> plan.mapTargets(op.targets) { it.copy(scale = op.factor) }
+
+        // Scaling by a factor and refitting onto a sheet are two answers to the
+        // same question, so each clears the other rather than stacking.
+        is ScalePages -> plan.mapTargets(op.targets) {
+            it.copy(scale = op.factor, resize = null)
+        }
+        is ResizePages -> plan.mapTargets(op.targets) {
+            it.copy(resize = op.target, scale = 1f)
+        }
 
         is DeletePages -> plan.mapTargets(op.targets) { it.copy(deleted = true) }
         is RestorePages -> plan.mapTargets(op.targets) { it.copy(deleted = false) }
@@ -247,13 +270,20 @@ object PdfEditor {
         page: com.tom_roush.pdfbox.pdmodel.PDPage,
         state: PageState,
     ) {
-        // Order matters. Scale resizes the boxes, but crop insets are fractions so
-        // they survive it either way. Rotation has to be settled *before* cropping,
-        // because the insets were captured against the page as displayed and
-        // cropPage rotates them into page space using the page's final /Rotate.
-        PdfDraw.scalePage(document, page, state.scale)
+        // Order matters, and this is the only order that is right.
+        //
+        // Rotation first: both of the steps after it read the page's final /Rotate
+        // to work out which edge is which. Cropping second, so that resizing fits
+        // what the reader can actually see onto the sheet rather than the full
+        // uncropped page. Sizing last.
         page.rotation = PdfOps.normalizeRotation(page.rotation + state.rotationDelta)
         PdfDraw.cropPage(page, state.crop)
+        val resize = state.resize
+        if (resize != null) {
+            PdfDraw.resizePage(document, page, resize)
+        } else {
+            PdfDraw.scalePage(document, page, state.scale)
+        }
     }
 
     private fun stampWatermark(

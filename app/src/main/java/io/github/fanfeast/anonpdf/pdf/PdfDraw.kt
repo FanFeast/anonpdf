@@ -11,6 +11,7 @@ import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
 import com.tom_roush.pdfbox.util.Matrix
 import kotlin.math.ceil
 import kotlin.math.max
+import kotlin.math.min
 
 /**
  * Page-level drawing shared by the one-shot tools and the editor.
@@ -173,6 +174,88 @@ internal object PdfDraw {
         val crop = page.cropBox
         page.mediaBox = media.scaledBy(factor)
         page.cropBox = crop.scaledBy(factor)
+    }
+
+    /**
+     * Refits a page onto a standard sheet, centring what was visible on it.
+     *
+     * Unlike [scalePage], which changes a page's size but keeps its proportions,
+     * this puts the content on a sheet of an exact size — the "fit my page onto
+     * Letter" operation. Where the aspect ratios differ the leftover becomes even
+     * margins, or is cropped away if [ResizeTarget.fill] is set.
+     *
+     * Any /Rotate is baked into the content and the page left at rotation zero.
+     * Otherwise a quarter-turned page asked for "Letter" would end up with a
+     * Letter box that a viewer then displays sideways, which is not what anybody
+     * means by the request.
+     *
+     * Reads the page's current /Rotate and CropBox, so the caller must settle
+     * rotation and cropping first.
+     */
+    fun resizePage(document: PDDocument, page: PDPage, target: ResizeTarget) {
+        val box = page.cropBox
+        val rotation = PdfOps.normalizeRotation(page.rotation)
+        val quarterTurned = rotation == 90 || rotation == 270
+
+        // What the reader currently sees, which is what has to be made to fit.
+        val displayWidth = if (quarterTurned) box.height else box.width
+        val displayHeight = if (quarterTurned) box.width else box.height
+        if (displayWidth <= 0f || displayHeight <= 0f) return
+
+        val (sheetWidth, sheetHeight) = target.sizeFor(displayWidth, displayHeight)
+        val scale = if (target.fill) {
+            max(sheetWidth / displayWidth, sheetHeight / displayHeight)
+        } else {
+            min(sheetWidth / displayWidth, sheetHeight / displayHeight)
+        }
+        if (scale <= 0f) return
+
+        // Page space -> upright display space, origin at the display bottom-left.
+        // The inverse of what applyDisplayTransform does, derived the same way.
+        val toDisplay = when (rotation) {
+            90 -> Matrix(0f, -1f, 1f, 0f, -box.lowerLeftY, box.width + box.lowerLeftX)
+            180 -> Matrix(
+                -1f, 0f, 0f, -1f,
+                box.width + box.lowerLeftX,
+                box.height + box.lowerLeftY,
+            )
+            270 -> Matrix(0f, 1f, -1f, 0f, box.height + box.lowerLeftY, -box.lowerLeftX)
+            else -> Matrix(1f, 0f, 0f, 1f, -box.lowerLeftX, -box.lowerLeftY)
+        }
+        // Then scale onto the sheet and centre whatever is left over.
+        val ontoSheet = Matrix(
+            scale, 0f, 0f, scale,
+            (sheetWidth - displayWidth * scale) / 2f,
+            (sheetHeight - displayHeight * scale) / 2f,
+        )
+
+        PDPageContentStream(
+            document,
+            page,
+            PDPageContentStream.AppendMode.PREPEND,
+            true,
+            false,
+        ).use { stream ->
+            stream.saveGraphicsState()
+            stream.transform(toDisplay.multiply(ontoSheet))
+            // Clip in the original page's own coordinates — the transform above is
+            // already in effect, so this keeps anything the CropBox was hiding from
+            // reappearing in the new margins.
+            stream.addRect(box.lowerLeftX, box.lowerLeftY, box.width, box.height)
+            stream.clip()
+        }
+        PDPageContentStream(
+            document,
+            page,
+            PDPageContentStream.AppendMode.APPEND,
+            true,
+            false,
+        ).use { stream -> stream.restoreGraphicsState() }
+
+        val sheet = PDRectangle(0f, 0f, sheetWidth, sheetHeight)
+        page.rotation = 0
+        page.mediaBox = sheet
+        page.cropBox = sheet
     }
 
     /**

@@ -54,6 +54,63 @@ class EditPlanBuilderTest {
     }
 
     @Test
+    fun `resizing to a sheet and scaling by a factor each clear the other`() {
+        // They are two answers to the same question, so stacking them would be
+        // meaningless — whichever came last is what the user meant.
+        val scaledThenResized = plan(
+            1,
+            ScalePages(0.5f, setOf(0)),
+            ResizePages(ResizeTarget(PaperSize.LETTER), setOf(0)),
+        )
+        assertEquals(1f, scaledThenResized.pages[0].scale, 0.0001f)
+        assertEquals(PaperSize.LETTER, scaledThenResized.pages[0].resize?.paper)
+
+        val resizedThenScaled = plan(
+            1,
+            ResizePages(ResizeTarget(PaperSize.LETTER), setOf(0)),
+            ScalePages(0.5f, setOf(0)),
+        )
+        assertEquals(null, resizedThenScaled.pages[0].resize)
+        assertEquals(0.5f, resizedThenScaled.pages[0].scale, 0.0001f)
+    }
+
+    @Test
+    fun `resizing counts as a change and only touches its targets`() {
+        val result = plan(3, ResizePages(ResizeTarget(PaperSize.A5), setOf(1)))
+        assertTrue(result.hasChanges)
+        assertEquals(null, result.pages[0].resize)
+        assertEquals(PaperSize.A5, result.pages[1].resize?.paper)
+        assertEquals(null, result.pages[2].resize)
+    }
+
+    @Test
+    fun `auto orientation follows the page, and can be overridden`() {
+        val target = ResizeTarget(PaperSize.LETTER, PageOrientation.AUTO)
+        // A landscape page onto Letter should stay landscape.
+        assertEquals(792f to 612f, target.sizeFor(sourceWidth = 900f, sourceHeight = 600f))
+        // A portrait one should stay portrait.
+        assertEquals(612f to 792f, target.sizeFor(sourceWidth = 600f, sourceHeight = 900f))
+
+        val forced = ResizeTarget(PaperSize.LETTER, PageOrientation.PORTRAIT)
+        assertEquals(612f to 792f, forced.sizeFor(sourceWidth = 900f, sourceHeight = 600f))
+    }
+
+    @Test
+    fun `resize descriptions name the sheet and the fit`() {
+        assertEquals(
+            "Resize to Letter (fit) · page 1",
+            ResizePages(ResizeTarget(PaperSize.LETTER), setOf(0)).describe(),
+        )
+        assertEquals(
+            "Resize to A4 landscape (fill) · pages 1-2",
+            ResizePages(
+                ResizeTarget(PaperSize.A4, PageOrientation.LANDSCAPE, fill = true),
+                setOf(0, 1),
+            ).describe(),
+        )
+    }
+
+    @Test
     fun `deleting drops a page from kept but leaves it recoverable`() {
         val result = plan(3, DeletePages(setOf(1)))
         assertEquals(3, result.pages.size)
