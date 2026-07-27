@@ -132,9 +132,13 @@ No ads. No accounts. No subscriptions. No tracking. No cloud.
 AnonPDF has no permission to use the internet. It is not that we promise not to upload your documents — the app has no way to reach the network, and Android enforces that rather than trusting us.
 
 THE EDITOR
-Make several changes at once and watch the real result before you commit to it. Pick a page, a selection, or the whole document, then:
-• Rotate, crop with draggable handles, scale, delete, restore
+Every tool is in one place, on swipeable pages, in a drawer you can fold away to read the document full-height. Make several changes at once and watch the real result before you commit to it. Pick a page, a selection, or the whole document, then:
+• Rotate, crop with draggable handles, delete, restore
+• Resize: scale by percentage, or refit onto A3, A4, A5, Letter, Legal or Tabloid
 • Reorder page by page, or reverse the document
+• Add text anywhere on a page, in the size and colour you choose
+• Cover something up with a white-out block, then type over it
+• Highlight a passage, or draw on the page freehand
 • Add a text watermark — diagonal, centred, tiled, top or bottom
 • Add page numbers, with your own format, and skip a cover page
 • Undo and redo the whole history
@@ -178,7 +182,7 @@ The complete source code is public, so the privacy claims above can be checked r
 https://github.com/FanFeast/anonpdf
 
 WHAT IT DOES NOT DO
-Being straight about the edges: there is no Word, Excel or PowerPoint conversion, and no OCR for reading text out of scanned pages. Both need either a very large bundled engine or a server, and this app is built around having neither. "Sign PDF" places a picture of your signature on the page — it is ink on paper, not a cryptographic certificate.
+Being straight about the edges: there is no Word, Excel or PowerPoint conversion, and no OCR for reading text out of scanned pages. Both need either a very large bundled engine or a server, and this app is built around having neither. A PDF's existing text cannot be retyped in place — that needs the document's own embedded fonts and would reflow the layout — so changing it means covering it with a white-out block and adding your own text on top, which the editor does in two taps. "Sign PDF" places a picture of your signature on the page — it is ink on paper, not a cryptographic certificate.
 
 Requires Android 12 or newer.
 ```
@@ -197,7 +201,11 @@ The repo screenshots you can upload as-is:
 
 - `docs/screenshots/home.png` — the library and the privacy banner
 - `docs/screenshots/editor.png` — the editor with its page strip and tools
+- `docs/screenshots/editor-text.png` — covering existing text and retyping it
+- `docs/screenshots/editor-draw.png` — a highlight and freehand ink on a page
 - `docs/screenshots/editor-crop.png` — dragging the crop frame
+- `docs/screenshots/editor-paper.png` — refitting a page onto a standard sheet
+- `docs/screenshots/editor-collapsed.png` — the tool drawer folded away
 - `docs/screenshots/editor-watermark.png` — a watermark previewed live
 - `docs/screenshots/viewer.png` — reading a document
 - `docs/screenshots/viewer-night.png` — night mode

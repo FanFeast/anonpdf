@@ -84,6 +84,20 @@ data class SetPageNumbers(val options: PageNumberOptions?) : EditOp {
         options?.let { "Page numbers \"${it.format}\"" } ?: "Remove page numbers"
 }
 
+/** Adds content on top of a page: text, a white-out block, a highlight, ink. */
+data class AddMark(val mark: PageMark) : EditOp {
+    override fun describe() = "Add ${mark.describe()}"
+}
+
+/** Replaces a mark with the same id — moving it, retyping it, restyling it. */
+data class UpdateMark(val mark: PageMark) : EditOp {
+    override fun describe() = "Edit ${mark.describe()}"
+}
+
+data class RemoveMark(val id: Long) : EditOp {
+    override fun describe() = "Remove added content"
+}
+
 /** What one output page looks like: where it came from and what was done to it. */
 data class PageState(
     val sourceIndex: Int,
@@ -104,11 +118,15 @@ data class EditPlan(
     val pages: List<PageState>,
     val watermark: WatermarkOptions? = null,
     val pageNumbers: PageNumberOptions? = null,
+    /** Content added on top of pages, in the order it was added. */
+    val marks: List<PageMark> = emptyList(),
 ) {
     val kept: List<PageState> get() = pages.filterNot { it.deleted }
 
+    fun marksFor(sourceIndex: Int) = marks.filter { it.sourceIndex == sourceIndex }
+
     val hasChanges: Boolean
-        get() = watermark != null || pageNumbers != null ||
+        get() = watermark != null || pageNumbers != null || marks.isNotEmpty() ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
             }
@@ -161,6 +179,12 @@ object EditPlanBuilder {
 
         is SetWatermark -> plan.copy(watermark = op.options)
         is SetPageNumbers -> plan.copy(pageNumbers = op.options)
+
+        is AddMark -> plan.copy(marks = plan.marks + op.mark)
+        is UpdateMark -> plan.copy(
+            marks = plan.marks.map { if (it.id == op.mark.id) op.mark else it },
+        )
+        is RemoveMark -> plan.copy(marks = plan.marks.filterNot { it.id == op.id })
     }
 
     private fun EditPlan.mapTargets(
@@ -201,6 +225,9 @@ object PdfEditor {
                 val page = originals.getOrNull(state.sourceIndex)
                     ?: error("Page ${state.sourceIndex + 1} is not in this document.")
                 applyPageState(document, page, state)
+                // Marks go on after the page geometry is settled, so an opaque
+                // white-out lands exactly where the user drew it.
+                PdfDraw.drawMarks(document, page, plan.marksFor(state.sourceIndex))
                 document.addPage(page)
                 onProgress(0.6f * (position + 1f) / kept.size)
             }
@@ -242,6 +269,7 @@ object PdfEditor {
                 originals.forEach { document.pages.remove(it) }
 
                 applyPageState(document, page, state)
+                PdfDraw.drawMarks(document, page, plan.marksFor(state.sourceIndex))
                 document.addPage(page)
 
                 stampWatermark(document, plan)

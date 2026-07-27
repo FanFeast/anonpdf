@@ -43,6 +43,11 @@ class EditorState(val pageCount: Int) {
 
     var scope by mutableStateOf(ApplyScope.PAGE)
 
+    private var markIds = 0L
+
+    /** Ids only need to be unique within this editing session. */
+    fun nextMarkId(): Long = ++markIds
+
     private val planState = derivedStateOf { EditPlanBuilder.build(pageCount, ops) }
 
     val plan: EditPlan get() = planState.value

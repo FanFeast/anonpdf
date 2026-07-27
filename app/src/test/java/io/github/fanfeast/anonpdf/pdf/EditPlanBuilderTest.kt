@@ -202,6 +202,75 @@ class EditPlanBuilderTest {
     }
 
     @Test
+    fun `marks are added, replaced by id, and removed`() {
+        val first = TextMark(id = 1L, sourceIndex = 0, text = "one", left = 0.1f, top = 0.1f)
+        val second = TextMark(id = 2L, sourceIndex = 1, text = "two", left = 0.2f, top = 0.2f)
+
+        var result = plan(2, AddMark(first), AddMark(second))
+        assertEquals(2, result.marks.size)
+        assertTrue(result.hasChanges)
+
+        // Updating replaces in place rather than appending a duplicate.
+        result = plan(
+            2,
+            AddMark(first),
+            AddMark(second),
+            UpdateMark(first.copy(text = "one edited", left = 0.4f)),
+        )
+        assertEquals(2, result.marks.size)
+        val updated = result.marks.first { it.id == 1L } as TextMark
+        assertEquals("one edited", updated.text)
+        assertEquals(0.4f, updated.left, 0.0001f)
+
+        result = plan(2, AddMark(first), AddMark(second), RemoveMark(1L))
+        assertEquals(listOf(2L), result.marks.map { it.id })
+    }
+
+    @Test
+    fun `marks are looked up by the page they belong to`() {
+        val result = plan(
+            3,
+            AddMark(TextMark(id = 1L, sourceIndex = 2, text = "a", left = 0f, top = 0f)),
+            AddMark(TextMark(id = 2L, sourceIndex = 2, text = "b", left = 0f, top = 0f)),
+            AddMark(TextMark(id = 3L, sourceIndex = 0, text = "c", left = 0f, top = 0f)),
+        )
+        assertEquals(listOf(1L, 2L), result.marksFor(2).map { it.id })
+        assertEquals(listOf(3L), result.marksFor(0).map { it.id })
+        assertEquals(emptyList<Long>(), result.marksFor(1).map { it.id })
+    }
+
+    @Test
+    fun `removing the only mark leaves nothing to save`() {
+        val mark = TextMark(id = 1L, sourceIndex = 0, text = "x", left = 0f, top = 0f)
+        assertFalse(plan(1, AddMark(mark), RemoveMark(1L)).hasChanges)
+    }
+
+    @Test
+    fun `a dragged rectangle is tidied whichever way it was drawn`() {
+        // Dragging up and to the left produces a rectangle with swapped edges.
+        val backwards = MarkRect(left = 0.8f, top = 0.9f, right = 0.2f, bottom = 0.3f).tidied()
+        assertEquals(0.2f, backwards.left, 0.0001f)
+        assertEquals(0.3f, backwards.top, 0.0001f)
+        assertEquals(0.8f, backwards.right, 0.0001f)
+        assertEquals(0.9f, backwards.bottom, 0.0001f)
+    }
+
+    @Test
+    fun `moving a rectangle stops at the page edges`() {
+        val rect = MarkRect(0.1f, 0.1f, 0.3f, 0.3f)
+        // Pushed hard left and up, it should clamp without changing size.
+        val clamped = rect.movedBy(-5f, -5f)
+        assertEquals(0f, clamped.left, 0.0001f)
+        assertEquals(0f, clamped.top, 0.0001f)
+        assertEquals(0.2f, clamped.width, 0.0001f)
+        assertEquals(0.2f, clamped.height, 0.0001f)
+
+        val other = rect.movedBy(5f, 5f)
+        assertEquals(1f, other.right, 0.0001f)
+        assertEquals(0.2f, other.width, 0.0001f)
+    }
+
+    @Test
     fun `op descriptions read as history a person can scan`() {
         assertEquals("Rotate 90° · pages 1-2", RotatePages(90, setOf(0, 1)).describe())
         assertEquals("Delete · page 3", DeletePages(setOf(2)).describe())

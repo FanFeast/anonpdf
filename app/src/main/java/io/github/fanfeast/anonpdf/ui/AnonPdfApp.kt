@@ -114,6 +114,7 @@ fun AnonPdfApp(initialUri: Uri?) {
             EditorScreen(
                 initialUri = entry.arguments?.getString("uri")?.toUri(),
                 onBack = { navController.popBackStack() },
+                onOpenTool = { id, toolUri -> openTool(id, toolUri) },
             )
         }
 

@@ -1,7 +1,8 @@
 package io.github.fanfeast.anonpdf.ui.tools
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Article
+import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Draw
@@ -9,7 +10,6 @@ import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
-import androidx.compose.material.icons.filled.MergeType
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.ui.graphics.vector.ImageVector
 
@@ -68,7 +68,7 @@ object ToolCatalog {
             id = ToolId.MERGE,
             title = "Merge PDFs",
             summary = "Join several files into one, in the order you pick them",
-            icon = Icons.Filled.MergeType,
+            icon = Icons.AutoMirrored.Filled.MergeType,
             group = ToolGroup.FILES,
             input = ToolInput.MULTIPLE_PDF,
             output = ToolOutput.PDF,
@@ -122,7 +122,7 @@ object ToolCatalog {
             id = ToolId.EXTRACT_TEXT,
             title = "Extract text",
             summary = "Pull the text out into a plain .txt file",
-            icon = Icons.Filled.Article,
+            icon = Icons.AutoMirrored.Filled.Article,
             group = ToolGroup.CONVERT,
             input = ToolInput.SINGLE_PDF,
             output = ToolOutput.TEXT,

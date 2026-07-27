@@ -242,11 +242,11 @@ private fun EditorPromo(onClick: () -> Unit) {
             Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Edit pages", style = MaterialTheme.typography.titleMedium)
+                Text("Edit a PDF", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Rotate, crop, scale, delete and reorder pages, add a watermark " +
-                        "or page numbers — several at once, with a live preview of the " +
-                        "real result before you save.",
+                    "Every tool in one place: rotate, crop, resize, delete and reorder " +
+                        "pages, add text, white-out, highlights or drawings — several at " +
+                        "once, with a live preview of the real result before you save.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

@@ -177,6 +177,118 @@ internal object PdfDraw {
     }
 
     /**
+     * Draws user-added content onto a page.
+     *
+     * Runs after the page has been rotated, cropped and resized, so the marks land
+     * where the user placed them on the page they were looking at — and so an
+     * opaque [FillMark] reliably covers what is underneath it.
+     */
+    fun drawMarks(document: PDDocument, page: PDPage, marks: List<PageMark>) {
+        if (marks.isEmpty()) return
+
+        PDPageContentStream(
+            document,
+            page,
+            PDPageContentStream.AppendMode.APPEND,
+            true,
+            true,
+        ).use { stream ->
+            stream.saveGraphicsState()
+            val display = applyDisplayTransform(stream, page)
+
+            for (mark in marks) {
+                when (mark) {
+                    is FillMark -> drawFill(stream, mark, display)
+                    is InkMark -> drawInk(stream, mark, display)
+                    is TextMark -> drawText(stream, mark, display)
+                }
+            }
+            stream.restoreGraphicsState()
+        }
+    }
+
+    private fun drawFill(
+        stream: PDPageContentStream,
+        mark: FillMark,
+        display: SizeF,
+    ) {
+        val rect = mark.rect.tidied()
+        if (rect.isDegenerate) return
+        stream.saveGraphicsState()
+        if (mark.opacity < 1f) {
+            stream.setGraphicsStateParameters(
+                PDExtendedGraphicsState().apply {
+                    nonStrokingAlphaConstant = mark.opacity
+                },
+            )
+        }
+        stream.setNonStrokingColor(red(mark.color), green(mark.color), blue(mark.color))
+        stream.addRect(
+            rect.left * display.width,
+            // Marks measure y downward from the top; PDF counts up from the bottom.
+            display.height * (1f - rect.bottom),
+            rect.width * display.width,
+            rect.height * display.height,
+        )
+        stream.fill()
+        stream.restoreGraphicsState()
+    }
+
+    private fun drawInk(
+        stream: PDPageContentStream,
+        mark: InkMark,
+        display: SizeF,
+    ) {
+        val shorterSide = min(display.width, display.height)
+        stream.saveGraphicsState()
+        stream.setStrokingColor(red(mark.color), green(mark.color), blue(mark.color))
+        stream.setLineWidth(max(0.4f, mark.widthRatio * shorterSide))
+        stream.setLineCapStyle(1)
+        stream.setLineJoinStyle(1)
+        for (stroke in mark.strokes) {
+            if (stroke.size < 2) continue
+            stroke.forEachIndexed { index, (x, y) ->
+                val px = x * display.width
+                val py = display.height * (1f - y)
+                if (index == 0) stream.moveTo(px, py) else stream.lineTo(px, py)
+            }
+            stream.stroke()
+        }
+        stream.restoreGraphicsState()
+    }
+
+    private fun drawText(
+        stream: PDPageContentStream,
+        mark: TextMark,
+        display: SizeF,
+    ) {
+        val font = if (mark.bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA
+        val lines = mark.text.split('\n')
+            .map { sanitizeForFont(it, font) }
+            .dropLastWhile { it.isEmpty() }
+        if (lines.isEmpty()) return
+
+        stream.saveGraphicsState()
+        stream.setNonStrokingColor(red(mark.color), green(mark.color), blue(mark.color))
+        stream.beginText()
+        stream.setFont(font, mark.fontSize)
+        val leading = mark.fontSize * 1.2f
+        stream.setLeading(leading)
+        // Drop the baseline below the anchor by roughly the cap height, so the text
+        // starts where the user put the top-left corner of the box.
+        stream.newLineAtOffset(
+            mark.left * display.width,
+            display.height * (1f - mark.top) - mark.fontSize * 0.82f,
+        )
+        lines.forEachIndexed { index, line ->
+            if (index > 0) stream.newLine()
+            if (line.isNotEmpty()) stream.showText(line)
+        }
+        stream.endText()
+        stream.restoreGraphicsState()
+    }
+
+    /**
      * Refits a page onto a standard sheet, centring what was visible on it.
      *
      * Unlike [scalePage], which changes a page's size but keeps its proportions,

@@ -25,27 +25,42 @@ Most of the work happens here. Pick pages, stack up as many changes as you like,
 watch the real rendered output update as you go, and write the file once at the
 end. Nothing touches disk until you save, and the original is never modified.
 
-| Editing | Drag to reorder | Visual crop |
+| Editing | Drag to reorder | Fold the tools away |
 |---|---|---|
-| ![Editor](docs/screenshots/editor.png) | ![Reorder](docs/screenshots/editor-reorder.png) | ![Crop](docs/screenshots/editor-crop.png) |
+| ![Editor](docs/screenshots/editor.png) | ![Reorder](docs/screenshots/editor-reorder.png) | ![Collapsed](docs/screenshots/editor-collapsed.png) |
 
-| Scale, previewed at true size | Multi-select | Watermark |
+| Cover it and retype it | Highlight and draw | Visual crop |
 |---|---|---|
-| ![Scale](docs/screenshots/editor-scale.png) | ![Select](docs/screenshots/editor-select.png) | ![Watermark](docs/screenshots/editor-watermark.png) |
+| ![Add text](docs/screenshots/editor-text.png) | ![Draw](docs/screenshots/editor-draw.png) | ![Crop](docs/screenshots/editor-crop.png) |
 
-Rotate, crop, scale, delete, restore, reverse, watermark and page numbers — each
-applied to **this page**, a **selection**, or **all pages**. Undo and redo the
-whole history.
+| Fit onto A4, Letter, … | Multi-select | Watermark |
+|---|---|---|
+| ![Paper size](docs/screenshots/editor-paper.png) | ![Select](docs/screenshots/editor-select.png) | ![Watermark](docs/screenshots/editor-watermark.png) |
 
+Rotate, crop, resize, delete, restore, reverse, add text, white-out, highlights,
+drawings, a watermark and page numbers — each applied to **this page**, a
+**selection**, or **all pages**. Undo and redo the whole history.
+
+- **Every tool lives here**, on four swipeable pages: *Pages*, *Content*,
+  *Whole file*, *Convert & lock*. The whole-file ones receive the document with
+  your pending edits already applied, so "delete three pages, then compress"
+  means what it looks like it means.
+- **The tool area is a drawer.** Drag its handle up for more room, or tap it to
+  fold everything away and read the page full-height.
+- **Edit the content, not just the pages.** Cover something with a white-out
+  block and type your own text on top, highlight a passage, or draw on the page
+  freehand. (A PDF's existing text cannot be rewritten in place without the
+  document's own embedded fonts — cover-and-retype is the honest way to change
+  it, and it is what the app does.)
 - **Reorder by dragging.** Long-press a thumbnail and drag it; a gap opens where
   it will land, and the strip auto-scrolls when you reach an edge.
 - **Multi-select by tapping.** Switch the scope to *Selected* and plain taps
   toggle pages, so picking several is one tap each.
 - **Options open in place**, under the preview rather than over it, so you can
   drag a slider and watch the page change.
-- **Pages are shown at their true relative size.** Scale a page to 50% and it
-  appears half as wide; a landscape page in a portrait document looks wider,
-  because it is.
+- **Size changes are shown, not re-fitted.** The preview is fitted to the page
+  as it arrived, so scaling to 50% draws it half as wide instead of quietly
+  filling the screen again.
 
 The preview is not an approximation. It is built by the same code that writes the
 final file, and a test renders both and asserts they match pixel for pixel.
@@ -114,8 +129,10 @@ advertising ID.
 - Or the system picker, if you would rather not grant file access
 
 **Editing** (all in one pass, with live preview)
-- Rotate, crop with draggable handles, scale, delete, restore
+- Rotate, crop with draggable handles, delete, restore
+- Resize: scale by percentage, or refit onto A3, A4, A5, Letter, Legal or Tabloid
 - Reorder page by page, or reverse the whole document
+- Add text; cover content with a white-out block; highlight; draw freehand
 - Text watermark: diagonal, centred, tiled, top or bottom
 - Page numbers with a format template, position, start number, and cover-skipping
 - Applied per page, to a selection, or to everything

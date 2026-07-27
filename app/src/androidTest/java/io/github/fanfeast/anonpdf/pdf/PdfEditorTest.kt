@@ -596,6 +596,277 @@ class PdfEditorTest {
         }
     }
 
+    // ------------------------------------------------- added page content
+
+    @Test
+    fun aWhiteOutBlockActuallyCoversWhatIsUnderIt(): Unit = runBlocking {
+        // This is the mechanism behind "changing" existing text: the original glyphs
+        // cannot be rewritten without the document's fonts, so they get covered.
+        val source = filledPdf(PDRectangle.A4.width, PDRectangle.A4.height)
+        val output = out("whiteout")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                AddMark(
+                    FillMark(
+                        id = 1L,
+                        sourceIndex = 0,
+                        rect = MarkRect(0.25f, 0.25f, 0.75f, 0.75f),
+                        color = 0xFFFFFFFF.toInt(),
+                        opacity = 1f,
+                    ),
+                ),
+            ),
+        )
+
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
+        val midX = rendered.width / 2
+        val midY = rendered.height / 2
+        assertTrue("middle should be covered", !isInk(rendered, midX, midY))
+        // Just outside the block the original fill must survive.
+        assertTrue(
+            "outside the block should be untouched",
+            isInk(rendered, (rendered.width * 0.1f).toInt(), midY),
+        )
+        rendered.recycle()
+    }
+
+    @Test
+    fun aHighlightLetsTheContentShowThrough(): Unit = runBlocking {
+        val source = textPdf(1, "Marked")
+        val output = out("highlight")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                AddMark(
+                    FillMark(
+                        id = 2L,
+                        sourceIndex = 0,
+                        rect = MarkRect(0.05f, 0.1f, 0.95f, 0.25f),
+                        color = 0xFFFFEB3B.toInt(),
+                        opacity = 0.4f,
+                    ),
+                ),
+            ),
+        )
+
+        // The text under the highlight is still extractable, and still drawn.
+        assertTrue(PdfOps.extractText(output).contains("Marked 1"))
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
+        assertTrue("highlight band has ink", isInk(rendered, rendered.width / 2, (rendered.height * 0.17f).toInt()))
+        rendered.recycle()
+    }
+
+    @Test
+    fun addedTextEndsUpInTheDocumentAsRealText(): Unit = runBlocking {
+        val source = textPdf(2, "Base")
+        val output = out("added-text")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                2,
+                AddMark(
+                    TextMark(
+                        id = 3L,
+                        sourceIndex = 1,
+                        text = "Added line one\nAdded line two",
+                        left = 0.1f,
+                        top = 0.2f,
+                        fontSize = 14f,
+                    ),
+                ),
+            ),
+        )
+
+        val text = PdfOps.extractText(output)
+        // Selectable and searchable, not a picture of text.
+        assertTrue("first line", text.contains("Added line one"))
+        assertTrue("second line", text.contains("Added line two"))
+        // And only on the page it was put on.
+        val stripper = com.tom_roush.pdfbox.text.PDFTextStripper()
+        PdfOps.load(output).use { document ->
+            stripper.startPage = 1
+            stripper.endPage = 1
+            assertTrue(
+                "page 1 must be untouched",
+                !stripper.getText(document).contains("Added line"),
+            )
+        }
+    }
+
+    @Test
+    fun addedTextSurvivesCharactersTheBuiltInFontsLack(): Unit = runBlocking {
+        val source = textPdf(1, "Uni")
+        val output = out("added-emoji")
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                AddMark(
+                    TextMark(id = 4L, sourceIndex = 0, text = "note 😀 here", left = 0.1f, top = 0.3f),
+                ),
+            ),
+        )
+        assertEquals(1, pageCountOf(output))
+        assertTrue(PdfOps.extractText(output).contains("note"))
+    }
+
+    @Test
+    fun inkIsDrawnOnThePage(): Unit = runBlocking {
+        val source = textPdf(1, "Ink")
+        val output = out("ink")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                AddMark(
+                    InkMark(
+                        id = 5L,
+                        sourceIndex = 0,
+                        strokes = listOf(
+                            // A thick horizontal line across an empty band of the page.
+                            (0..20).map { 0.1f + it * 0.04f to 0.55f },
+                        ),
+                        color = 0xFFD32F2F.toInt(),
+                        widthRatio = 0.02f,
+                    ),
+                ),
+            ),
+        )
+
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
+        assertTrue(
+            "the stroke should be visible where it was drawn",
+            isInk(rendered, rendered.width / 2, (rendered.height * 0.55f).toInt()),
+        )
+        rendered.recycle()
+    }
+
+    @Test
+    fun marksTravelWithTheirPageThroughAReorder(): Unit = runBlocking {
+        val source = textPdf(3, "Move")
+        val output = out("marks-reordered")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                3,
+                AddMark(
+                    TextMark(id = 6L, sourceIndex = 2, text = "STAMPED", left = 0.2f, top = 0.4f),
+                ),
+                ReversePages,
+            ),
+        )
+
+        // Source page 3 is now first, and must have brought its text with it.
+        val stripper = com.tom_roush.pdfbox.text.PDFTextStripper()
+        PdfOps.load(output).use { document ->
+            stripper.startPage = 1
+            stripper.endPage = 1
+            val first = stripper.getText(document)
+            assertTrue("page moved, got: $first", first.contains("Move 3"))
+            assertTrue("and its mark came along, got: $first", first.contains("STAMPED"))
+        }
+    }
+
+    @Test
+    fun marksLandCorrectlyOnARotatedPage(): Unit = runBlocking {
+        // Marks are placed against the page as displayed, so a quarter turn must not
+        // send them off the edge or onto the wrong side.
+        val source = filledPdf(PDRectangle.A4.width, PDRectangle.A4.height)
+        val output = out("marks-rotated")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                1,
+                RotatePages(90, setOf(0)),
+                AddMark(
+                    FillMark(
+                        id = 7L,
+                        sourceIndex = 0,
+                        // Top-left quarter of the page as the user sees it.
+                        rect = MarkRect(0.02f, 0.02f, 0.35f, 0.35f),
+                        color = 0xFFFFFFFF.toInt(),
+                    ),
+                ),
+            ),
+        )
+
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
+        assertTrue("renders landscape", rendered.width > rendered.height)
+        // The covered patch must be in the top-left of the rendered page.
+        assertTrue(
+            "top-left should be covered",
+            !isInk(rendered, (rendered.width * 0.15f).toInt(), (rendered.height * 0.15f).toInt()),
+        )
+        assertTrue(
+            "bottom-right should be untouched",
+            isInk(rendered, (rendered.width * 0.85f).toInt(), (rendered.height * 0.85f).toInt()),
+        )
+        rendered.recycle()
+    }
+
+    @Test
+    fun previewMatchesTheExportWithAddedContent(): Unit = runBlocking {
+        val source = textPdf(2, "Both")
+        val editPlan = plan(
+            2,
+            AddMark(TextMark(id = 8L, sourceIndex = 0, text = "hello", left = 0.15f, top = 0.3f)),
+            AddMark(
+                FillMark(
+                    id = 9L,
+                    sourceIndex = 0,
+                    rect = MarkRect(0.1f, 0.5f, 0.6f, 0.6f),
+                    color = 0xFF90CAF9.toInt(),
+                    opacity = 0.5f,
+                ),
+            ),
+            AddMark(
+                InkMark(
+                    id = 10L,
+                    sourceIndex = 1,
+                    strokes = listOf(listOf(0.2f to 0.2f, 0.5f to 0.4f, 0.8f to 0.25f)),
+                ),
+            ),
+        )
+        val output = out("marks-preview")
+        PdfEditor.applyPlan(source, output, editPlan)
+
+        PdfRasterizer.open(output).use { rasterizer ->
+            for (position in 0 until 2) {
+                val preview = PdfEditor.renderPreview(
+                    input = source,
+                    plan = editPlan,
+                    outputPosition = position,
+                    targetWidthPx = 380,
+                    workDir = workDir,
+                )
+                assertNotNull("preview $position", preview)
+                val exported = rasterizer.renderByWidth(position, 380)
+                assertTrue(
+                    "added content must preview exactly as exported, page $position",
+                    differingFraction(preview!!, exported) < 0.01f,
+                )
+                preview.recycle()
+                exported.recycle()
+            }
+        }
+    }
+
     @Test
     fun deletingEveryPageIsRefused(): Unit = runBlocking {
         val source = textPdf(2, "Gone")

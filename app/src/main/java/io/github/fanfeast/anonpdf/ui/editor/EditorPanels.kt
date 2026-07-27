@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -25,11 +26,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.pdf.CropInsets
+import io.github.fanfeast.anonpdf.pdf.MarkRect
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PageOrientation
 import io.github.fanfeast.anonpdf.pdf.PaperSize
 import io.github.fanfeast.anonpdf.pdf.ResizeTarget
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
+import io.github.fanfeast.anonpdf.pdf.TextMark
 import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
 import io.github.fanfeast.anonpdf.pdf.WatermarkOptions
 import io.github.fanfeast.anonpdf.ui.components.ChoiceChips
@@ -54,7 +57,11 @@ private fun PanelFrame(
     onRemove: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+    Column(
+        Modifier
+            .fillMaxHeight()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+    ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 title,
@@ -71,9 +78,11 @@ private fun PanelFrame(
             }
         }
         Spacer(Modifier.height(6.dp))
+        // Takes what is left and scrolls, so the Cancel/Apply row below stays put
+        // however far the drawer is pulled down.
         Column(
             Modifier
-                .heightIn(max = 210.dp)
+                .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState()),
         ) { content() }
         Spacer(Modifier.height(8.dp))
@@ -357,6 +366,203 @@ fun PageNumbersPanel(
         )
     }
 }
+
+@Composable
+fun TextPanel(
+    mark: TextMark,
+    placed: Boolean,
+    existingCount: Int,
+    onChange: (TextMark) -> Unit,
+    onClearPage: () -> Unit,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+) {
+    PanelFrame(
+        title = "Add text",
+        subtitle = "page ${mark.sourceIndex + 1}",
+        applyEnabled = placed && mark.text.isNotBlank(),
+        onCancel = onCancel,
+        onApply = onApply,
+        onRemove = if (existingCount > 0) onClearPage else null,
+    ) {
+        Text(
+            if (placed) {
+                "Drag the marker on the page to move the text."
+            } else {
+                "Tap the page above to choose where the text starts."
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = mark.text,
+            onValueChange = { onChange(mark.copy(text = it)) },
+            label = { Text("Text") },
+            minLines = 2,
+            maxLines = 4,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(10.dp))
+        LabeledSlider(
+            label = "Size",
+            value = mark.fontSize,
+            onValueChange = { onChange(mark.copy(fontSize = it)) },
+            valueRange = 6f..48f,
+            valueLabel = "${mark.fontSize.roundToInt()} pt",
+        )
+        ChoiceChips(
+            label = "Colour",
+            options = InkColours,
+            selected = InkColours.firstOrNull { it.second == mark.color } ?: InkColours.first(),
+            onSelect = { onChange(mark.copy(color = it.second)) },
+            optionLabel = { it.first },
+        )
+        Spacer(Modifier.height(8.dp))
+        ChoiceChips(
+            label = "Weight",
+            options = listOf(false, true),
+            selected = mark.bold,
+            onSelect = { onChange(mark.copy(bold = it)) },
+            optionLabel = { if (it) "Bold" else "Regular" },
+        )
+        if (existingCount > 0) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "$existingCount item${if (existingCount == 1) "" else "s"} already added " +
+                    "to this page. \"Remove\" clears them.",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+fun FillPanel(
+    highlight: Boolean,
+    rect: MarkRect?,
+    colour: Int,
+    pageNumber: Int,
+    existingCount: Int,
+    onColourChange: (Int) -> Unit,
+    onReset: () -> Unit,
+    onClearPage: () -> Unit,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+) {
+    PanelFrame(
+        title = if (highlight) "Highlight" else "White-out",
+        subtitle = "page $pageNumber",
+        applyEnabled = rect != null && !rect.tidied().isDegenerate,
+        onCancel = onCancel,
+        onApply = onApply,
+        onRemove = if (existingCount > 0) onClearPage else null,
+    ) {
+        Text(
+            if (highlight) {
+                "Drag over the text you want to highlight. Drag inside the box to " +
+                    "move it."
+            } else {
+                "Drag a box over what you want to cover. A PDF's existing text " +
+                    "cannot be rewritten in place, so covering it and adding your own " +
+                    "text on top is how it gets changed."
+            },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+        val palette = if (highlight) HighlightColours else WhiteoutColours
+        ChoiceChips(
+            label = "Colour",
+            options = palette,
+            selected = palette.firstOrNull { it.second == colour } ?: palette.first(),
+            onSelect = { onColourChange(it.second) },
+            optionLabel = { it.first },
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onReset) { Text("Start again") }
+        }
+    }
+}
+
+@Composable
+fun InkPanel(
+    strokeCount: Int,
+    colour: Int,
+    widthRatio: Float,
+    pageNumber: Int,
+    existingCount: Int,
+    onColourChange: (Int) -> Unit,
+    onWidthChange: (Float) -> Unit,
+    onUndoStroke: () -> Unit,
+    onClearStrokes: () -> Unit,
+    onClearPage: () -> Unit,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+) {
+    PanelFrame(
+        title = "Draw",
+        subtitle = "page $pageNumber",
+        applyEnabled = strokeCount > 0,
+        onCancel = onCancel,
+        onApply = onApply,
+        onRemove = if (existingCount > 0) onClearPage else null,
+    ) {
+        Text(
+            "Draw straight onto the page above.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        ChoiceChips(
+            label = "Colour",
+            options = InkColours,
+            selected = InkColours.firstOrNull { it.second == colour } ?: InkColours.first(),
+            onSelect = { onColourChange(it.second) },
+            optionLabel = { it.first },
+        )
+        Spacer(Modifier.height(8.dp))
+        LabeledSlider(
+            label = "Thickness",
+            value = widthRatio,
+            onValueChange = onWidthChange,
+            valueRange = 0.001f..0.02f,
+            valueLabel = "${(widthRatio * 1000).roundToInt()}",
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(onClick = onUndoStroke, enabled = strokeCount > 0) {
+                Text("Undo stroke")
+            }
+            OutlinedButton(onClick = onClearStrokes, enabled = strokeCount > 0) {
+                Text("Clear")
+            }
+        }
+    }
+}
+
+/** Small named palettes, so the pickers stay short enough to be useful. */
+val InkColours: List<Pair<String, Int>> = listOf(
+    "Black" to 0xFF1A1A1A.toInt(),
+    "Blue" to 0xFF1B5FC1.toInt(),
+    "Red" to 0xFFC62828.toInt(),
+    "Green" to 0xFF2E7D32.toInt(),
+    "White" to 0xFFFFFFFF.toInt(),
+)
+
+val HighlightColours: List<Pair<String, Int>> = listOf(
+    "Yellow" to 0xFFFFEB3B.toInt(),
+    "Green" to 0xFF8BC34A.toInt(),
+    "Blue" to 0xFF64B5F6.toInt(),
+    "Pink" to 0xFFF48FB1.toInt(),
+)
+
+val WhiteoutColours: List<Pair<String, Int>> = listOf(
+    "White" to 0xFFFFFFFF.toInt(),
+    "Black" to 0xFF000000.toInt(),
+    "Grey" to 0xFF9E9E9E.toInt(),
+)
 
 /** The running list of edits, so the user can see and unwind what they have done. */
 @Composable
