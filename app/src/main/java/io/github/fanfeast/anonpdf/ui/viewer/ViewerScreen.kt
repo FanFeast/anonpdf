@@ -28,15 +28,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Contrast
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,8 +74,6 @@ import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.ErrorNote
 import io.github.fanfeast.anonpdf.ui.components.PasswordDialog
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
-import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
-import io.github.fanfeast.anonpdf.ui.tools.ToolId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -115,7 +110,6 @@ fun ViewerScreen(
     uri: Uri,
     onBack: () -> Unit,
     onEdit: () -> Unit,
-    onOpenTool: (ToolId, Uri) -> Unit,
 ) {
     val context = LocalContext.current
     val view = LocalView.current
@@ -135,7 +129,6 @@ fun ViewerScreen(
     var zoom by remember { mutableStateOf(1f) }
     var invert by remember { mutableStateOf(false) }
     var showJump by remember { mutableStateOf(false) }
-    var showTools by remember { mutableStateOf(false) }
     var searchOpen by remember { mutableStateOf(false) }
     var currentPage by remember { mutableStateOf(0) }
 
@@ -227,38 +220,17 @@ fun ViewerScreen(
                 IconButton(onClick = { searchOpen = true }, enabled = document != null) {
                     Icon(Icons.Filled.Search, contentDescription = "Search text")
                 }
+                // One entry point for everything: the editor holds every tool,
+                // including the whole-file ones. A second "tools" menu here would
+                // just be the same list reached a different way.
                 IconButton(onClick = onEdit, enabled = document != null) {
-                    Icon(Icons.Filled.Edit, contentDescription = "Edit pages")
+                    Icon(Icons.Filled.Edit, contentDescription = "Edit")
                 }
                 IconButton(onClick = {
                     invert = !invert
                     scope.launch { preferences.setInvertPdfColors(invert) }
                 }) {
                     Icon(Icons.Filled.Contrast, contentDescription = "Invert colours")
-                }
-                Box {
-                    IconButton(onClick = { showTools = true }) {
-                        Icon(Icons.Filled.Build, contentDescription = "Tools")
-                    }
-                    DropdownMenu(
-                        expanded = showTools,
-                        onDismissRequest = { showTools = false },
-                    ) {
-                        ToolCatalog.all
-                            .filter { it.input != io.github.fanfeast.anonpdf.ui.tools.ToolInput.IMAGES }
-                            .forEach { spec ->
-                                DropdownMenuItem(
-                                    text = { Text(spec.title) },
-                                    leadingIcon = {
-                                        Icon(spec.icon, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        showTools = false
-                                        onOpenTool(spec.id, uri)
-                                    },
-                                )
-                            }
-                    }
                 }
             }
         },
