@@ -1,6 +1,8 @@
 package io.github.fanfeast.anonpdf.pdf
 
 import android.graphics.Bitmap
+import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
+import com.tom_roush.pdfbox.pdmodel.PDDocument
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -70,6 +72,26 @@ data class MovePage(val sourceIndex: Int, val offset: Int) : EditOp {
         "Move page ${sourceIndex + 1} ${if (offset < 0) "earlier" else "later"}"
 }
 
+/**
+ * Splices another document's pages into the plan, so they can be reordered,
+ * rotated, marked and deleted like any other page before anything is written.
+ *
+ * [startIndex] is the first *global* index of the inserted document's pages.
+ * The editor session owns the global index space — the original document holds
+ * 0 until its page count, and each inserted document is allocated the next run
+ * of indices in the order it arrived. [position] is where the run lands in the
+ * page list as it stands when the op is applied.
+ */
+data class InsertPages(
+    val startIndex: Int,
+    val count: Int,
+    val position: Int,
+    val label: String,
+) : EditOp {
+    override fun describe() =
+        "Insert \"$label\" ($count page${if (count == 1) "" else "s"})"
+}
+
 data object ReversePages : EditOp {
     override fun describe() = "Reverse page order"
 }
@@ -120,6 +142,13 @@ data class EditPlan(
     val pageNumbers: PageNumberOptions? = null,
     /** Content added on top of pages, in the order it was added. */
     val marks: List<PageMark> = emptyList(),
+    /**
+     * How many pages the plan started with. Defaults to the page count at
+     * construction, and survives every [copy], which is what lets [hasChanges]
+     * notice that an insert-at-the-end changed the document even though every
+     * page still sits at its own index, untouched.
+     */
+    val basePageCount: Int = pages.size,
 ) {
     val kept: List<PageState> get() = pages.filterNot { it.deleted }
 
@@ -127,6 +156,7 @@ data class EditPlan(
 
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || marks.isNotEmpty() ||
+            pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
             }
@@ -175,6 +205,15 @@ object EditPlanBuilder {
             }
         }
 
+        is InsertPages -> plan.copy(
+            pages = plan.pages.toMutableList().also { list ->
+                list.addAll(
+                    op.position.coerceIn(0, list.size),
+                    (0 until op.count).map { PageState(op.startIndex + it) },
+                )
+            },
+        )
+
         ReversePages -> plan.copy(pages = plan.pages.reversed())
 
         is SetWatermark -> plan.copy(watermark = op.options)
@@ -205,17 +244,61 @@ object EditPlanBuilder {
  */
 object PdfEditor {
 
+    /**
+     * One document contributing pages to a plan.
+     *
+     * [pageCount] is only consulted to work out which source owns a global page
+     * index; the export path never needs it because the combined document's page
+     * order *is* the global order.
+     */
+    data class PlanSource(
+        val file: File,
+        val password: String? = null,
+        val pageCount: Int = 0,
+    )
+
+    /** Single-document convenience: every index belongs to the one source. */
     suspend fun applyPlan(
         input: File,
         output: File,
         plan: EditPlan,
         password: String? = null,
         onProgress: Progress = {},
+    ) = applyPlan(
+        sources = listOf(PlanSource(input, password, Int.MAX_VALUE)),
+        output = output,
+        plan = plan,
+        onProgress = onProgress,
+    )
+
+    suspend fun applyPlan(
+        sources: List<PlanSource>,
+        output: File,
+        plan: EditPlan,
+        onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
         val kept = plan.kept
         require(kept.isNotEmpty()) { "Keep at least one page." }
+        require(sources.isNotEmpty()) { "No document to work on." }
 
-        PdfOps.load(input, password).use { document ->
+        val open = mutableListOf<PDDocument>()
+        try {
+            val document = PdfOps.load(sources[0].file, sources[0].password)
+                .also { open += it }
+
+            // Append every inserted document to the end, in the order they were
+            // registered. The combined page list then lines up exactly with the
+            // global index space the plan speaks in — page k of source n sits at
+            // (pages before n) + k — so no other mapping is needed. Sources are
+            // never skipped, even ones an undo left unreferenced: skipping would
+            // shift every index after them.
+            val merger = PDFMergerUtility()
+            sources.drop(1).forEachIndexed { index, source ->
+                val extra = PdfOps.load(source.file, source.password).also { open += it }
+                merger.appendDocument(document, extra)
+                onProgress(0.25f * (index + 1f) / (sources.size - 1f))
+            }
+
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             originals.forEach { PdfOps.pinInheritedAttributes(it) }
             // Detach everything, then re-attach only what the plan keeps, in order.
@@ -229,7 +312,7 @@ object PdfEditor {
                 // white-out lands exactly where the user drew it.
                 PdfDraw.drawMarks(document, page, plan.marksFor(state.sourceIndex))
                 document.addPage(page)
-                onProgress(0.6f * (position + 1f) / kept.size)
+                onProgress(0.25f + 0.5f * (position + 1f) / kept.size)
             }
 
             stampWatermark(document, plan)
@@ -239,15 +322,12 @@ object PdfEditor {
             with(PdfOps) { document.prepareForSave() }
             document.save(output)
             onProgress(1f)
+        } finally {
+            open.forEach { runCatching { it.close() } }
         }
     }
 
-    /**
-     * Renders exactly one output page, as the export would produce it.
-     *
-     * Built as a single-page document so preview cost does not grow with the size
-     * of the original — a 400-page file previews as fast as a 4-page one.
-     */
+    /** Single-document convenience: every index belongs to the one source. */
     suspend fun renderPreview(
         input: File,
         plan: EditPlan,
@@ -255,15 +335,51 @@ object PdfEditor {
         targetWidthPx: Int,
         workDir: File,
         password: String? = null,
+    ): Bitmap? = renderPreview(
+        sources = listOf(PlanSource(input, password, Int.MAX_VALUE)),
+        plan = plan,
+        outputPosition = outputPosition,
+        targetWidthPx = targetWidthPx,
+        workDir = workDir,
+    )
+
+    /**
+     * Renders exactly one output page, as the export would produce it.
+     *
+     * Built as a single-page document so preview cost does not grow with the size
+     * of the original — a 400-page file previews as fast as a 4-page one. Only
+     * the source that owns the page is opened, so inserting a large document
+     * does not slow down previews of the others' pages either.
+     */
+    suspend fun renderPreview(
+        sources: List<PlanSource>,
+        plan: EditPlan,
+        outputPosition: Int,
+        targetWidthPx: Int,
+        workDir: File,
     ): Bitmap? = withContext(Dispatchers.IO) {
         val kept = plan.kept
         val state = kept.getOrNull(outputPosition) ?: return@withContext null
 
+        // Walk the sources' index runs to find the one this page belongs to.
+        var owner: PlanSource? = null
+        var localIndex = state.sourceIndex
+        var firstIndex = 0
+        for (source in sources) {
+            if (state.sourceIndex < firstIndex + source.pageCount) {
+                owner = source
+                localIndex = state.sourceIndex - firstIndex
+                break
+            }
+            firstIndex += source.pageCount
+        }
+        val resolved = owner ?: return@withContext null
+
         val temp = File(workDir, "preview-${System.nanoTime()}.pdf")
         try {
-            PdfOps.load(input, password).use { document ->
+            PdfOps.load(resolved.file, resolved.password).use { document ->
                 val originals = (0 until document.numberOfPages).map { document.getPage(it) }
-                val page = originals.getOrNull(state.sourceIndex)
+                val page = originals.getOrNull(localIndex)
                     ?: return@withContext null
                 originals.forEach { PdfOps.pinInheritedAttributes(it) }
                 originals.forEach { document.pages.remove(it) }

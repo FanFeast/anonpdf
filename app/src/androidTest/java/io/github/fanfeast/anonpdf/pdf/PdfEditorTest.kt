@@ -936,4 +936,127 @@ class PdfEditorTest {
         assertNotNull("preview works on an encrypted source", preview)
         preview?.recycle()
     }
+
+    // ------------------------------------------------------------ merging
+
+    /**
+     * One page's text with all whitespace squashed out — PDFTextStripper breaks
+     * rotated text into fragments, and only the characters matter here.
+     */
+    private fun pageText(file: File, pageNumber: Int): String =
+        PdfOps.load(file).use { document ->
+            val stripper = com.tom_roush.pdfbox.text.PDFTextStripper()
+            stripper.startPage = pageNumber
+            stripper.endPage = pageNumber
+            stripper.getText(document)
+        }.replace(Regex("\\s+"), "")
+
+    @Test
+    fun mergedDocumentLandsAtTheChosenPosition(): Unit = runBlocking {
+        val first = textPdf(4, "Alpha")
+        val second = textPdf(3, "Beta")
+        // Insert the 3-page document after page 2: Alpha 1-2, Beta 1-3, Alpha 3-4.
+        val editPlan = plan(4, InsertPages(startIndex = 4, count = 3, position = 2, label = "b"))
+
+        val output = out("merged")
+        PdfEditor.applyPlan(
+            sources = listOf(
+                PdfEditor.PlanSource(first, pageCount = 4),
+                PdfEditor.PlanSource(second, pageCount = 3),
+            ),
+            output = output,
+            plan = editPlan,
+        )
+
+        assertEquals(7, pageCountOf(output))
+        assertTrue(pageText(output, 1).contains("Alpha1"))
+        assertTrue(pageText(output, 2).contains("Alpha2"))
+        assertTrue(pageText(output, 3).contains("Beta1"))
+        assertTrue(pageText(output, 5).contains("Beta3"))
+        assertTrue(pageText(output, 6).contains("Alpha3"))
+        assertTrue(pageText(output, 7).contains("Alpha4"))
+    }
+
+    @Test
+    fun mergedPagesTakeEveryKindOfEdit(): Unit = runBlocking {
+        val first = textPdf(2, "Alpha")
+        val second = textPdf(2, "Beta")
+        // Insert at the end, rotate the first Beta page, delete the second,
+        // move the rotated one to the front, and mark it.
+        val editPlan = plan(
+            2,
+            InsertPages(startIndex = 2, count = 2, position = 2, label = "b"),
+            RotatePages(90, setOf(2)),
+            DeletePages(setOf(3)),
+            MovePage(sourceIndex = 2, offset = -2),
+            AddMark(
+                TextMark(id = 1L, sourceIndex = 2, text = "Stamped", left = 0.1f, top = 0.1f),
+            ),
+        )
+
+        val output = out("merged-edited")
+        PdfEditor.applyPlan(
+            sources = listOf(
+                PdfEditor.PlanSource(first, pageCount = 2),
+                PdfEditor.PlanSource(second, pageCount = 2),
+            ),
+            output = output,
+            plan = editPlan,
+        )
+
+        assertEquals(3, pageCountOf(output))
+        val firstPage = pageText(output, 1)
+        assertTrue("moved Beta page leads", firstPage.contains("Beta1"))
+        assertTrue("mark landed on the merged page", firstPage.contains("Stamped"))
+        val whole = PdfOps.extractText(output).replace(Regex("\\s+"), "")
+        assertTrue("deleted Beta page is gone", !whole.contains("Beta2"))
+        PdfOps.load(output).use { document ->
+            assertEquals(90, document.getPage(0).rotation)
+        }
+    }
+
+    @Test
+    fun previewMatchesTheExportWithMergedPages(): Unit = runBlocking {
+        val first = textPdf(3, "Alpha")
+        val second = textPdf(2, "Beta")
+        val sources = listOf(
+            PdfEditor.PlanSource(first, pageCount = 3),
+            PdfEditor.PlanSource(second, pageCount = 2),
+        )
+        val editPlan = plan(
+            3,
+            InsertPages(startIndex = 3, count = 2, position = 1, label = "b"),
+            RotatePages(90, setOf(3)),
+            CropPages(CropInsets(0.05f, 0.05f, 0.05f, 0.05f), setOf(4)),
+            SetWatermark(WatermarkOptions(text = "DRAFT")),
+            SetPageNumbers(PageNumberOptions(format = "{n} of {total}")),
+        )
+
+        val output = out("merged-preview")
+        PdfEditor.applyPlan(sources = sources, output = output, plan = editPlan)
+        assertEquals(5, pageCountOf(output))
+
+        PdfRasterizer.open(output).use { rasterizer ->
+            for (position in 0 until editPlan.kept.size) {
+                val preview = PdfEditor.renderPreview(
+                    sources = sources,
+                    plan = editPlan,
+                    outputPosition = position,
+                    targetWidthPx = 420,
+                    workDir = workDir,
+                )
+                assertNotNull("preview $position rendered", preview)
+                val exported = rasterizer.renderByWidth(position, 420)
+                assertEquals(exported.width, preview!!.width)
+                assertEquals(exported.height, preview.height)
+                val difference = differingFraction(preview, exported)
+                assertTrue(
+                    "merged preview $position must match the export, differing=$difference",
+                    difference < 0.01f,
+                )
+                preview.recycle()
+                exported.recycle()
+            }
+        }
+    }
 }

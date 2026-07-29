@@ -29,13 +29,13 @@ end. Nothing touches disk until you save, and the original is never modified.
 |---|---|---|
 | ![Editor](docs/screenshots/editor.png) | ![Reorder](docs/screenshots/editor-reorder.png) | ![Collapsed](docs/screenshots/editor-collapsed.png) |
 
-| Cover it and retype it | Highlight and draw | Visual crop |
+| Cover it and retype it | Highlight and draw | Merge in, then keep editing |
 |---|---|---|
-| ![Add text](docs/screenshots/editor-text.png) | ![Draw](docs/screenshots/editor-draw.png) | ![Crop](docs/screenshots/editor-crop.png) |
+| ![Add text](docs/screenshots/editor-text.png) | ![Draw](docs/screenshots/editor-draw.png) | ![Merge](docs/screenshots/editor-merge.png) |
 
-| Fit onto A4, Letter, … | Multi-select | Watermark |
+| Visual crop | Fit onto A4, Letter, … | Watermark |
 |---|---|---|
-| ![Paper size](docs/screenshots/editor-paper.png) | ![Select](docs/screenshots/editor-select.png) | ![Watermark](docs/screenshots/editor-watermark.png) |
+| ![Crop](docs/screenshots/editor-crop.png) | ![Paper size](docs/screenshots/editor-paper.png) | ![Watermark](docs/screenshots/editor-watermark.png) |
 
 Rotate, crop, resize, delete, restore, reverse, add text, white-out, highlights,
 drawings, a watermark and page numbers — each applied to **this page**, a
@@ -45,6 +45,11 @@ drawings, a watermark and page numbers — each applied to **this page**, a
   *Whole file*, *Convert & lock*. The whole-file ones receive the document with
   your pending edits already applied, so "delete three pages, then compress"
   means what it looks like it means.
+- **Merge inserts, right where you say.** Pick another PDF (or several) and its
+  pages drop into the document — after the current page, at the start, or at
+  the end — as ordinary pages in the strip. Reorder, rotate, crop, mark or
+  delete them like any other, then save once. No separate merge screen, no
+  merge-then-reopen round trip.
 - **The tool area is a drawer.** Drag its handle up for more room, or tap it to
   fold everything away and read the page full-height.
 - **Edit the content, not just the pages.** Cover something with a white-out
@@ -132,6 +137,7 @@ advertising ID.
 - Rotate, crop with draggable handles, delete, restore
 - Resize: scale by percentage, or refit onto A3, A4, A5, Letter, Legal or Tabloid
 - Reorder page by page, or reverse the whole document
+- Merge other PDFs in at any position, then edit their pages like any other
 - Add text; cover content with a white-out block; highlight; draw freehand
 - Text watermark: diagonal, centred, tiled, top or bottom
 - Page numbers with a format template, position, start number, and cover-skipping

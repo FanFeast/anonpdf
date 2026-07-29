@@ -48,6 +48,21 @@ class EditorState(val pageCount: Int) {
     /** Ids only need to be unique within this editing session. */
     fun nextMarkId(): Long = ++markIds
 
+    /**
+     * Total pages across the original document and every inserted one — the top
+     * of the global index space. Grows only; an undone insert keeps its indices
+     * reserved so redo puts the same pages back.
+     */
+    var registeredPages = pageCount
+        private set
+
+    /** Allocates global indices for an inserted document; returns the first. */
+    fun registerInsert(count: Int): Int {
+        val start = registeredPages
+        registeredPages += count
+        return start
+    }
+
     private val planState = derivedStateOf { EditPlanBuilder.build(pageCount, ops) }
 
     val plan: EditPlan get() = planState.value
@@ -115,7 +130,7 @@ class EditorState(val pageCount: Int) {
     }
 
     fun selectAll() {
-        selection = (0 until pageCount).toSet()
+        selection = plan.pages.map { it.sourceIndex }.toSet()
         scope = ApplyScope.SELECTION
     }
 
@@ -133,17 +148,27 @@ class EditorState(val pageCount: Int) {
     fun targets(): Set<Int> = when (scope) {
         ApplyScope.PAGE -> setOfNotNull(currentSourceIndex)
         ApplyScope.SELECTION -> selection.ifEmpty { setOfNotNull(currentSourceIndex) }
-        ApplyScope.ALL -> (0 until pageCount).toSet()
+        // "All" means every page in the document as it now stands, inserted
+        // ones included — not every page the original file arrived with.
+        ApplyScope.ALL -> plan.pages.map { it.sourceIndex }.toSet()
     }
 
-    /** Human description of [targets], for button subtitles. */
+    /**
+     * Human description of [targets], for button subtitles.
+     *
+     * Spoken in *current* positions, not source indices: once pages have been
+     * inserted or reordered, "page 4" must mean the fourth page on screen.
+     */
     fun targetLabel(): String {
         val targets = targets()
+        val positions = targets.mapNotNull { target ->
+            plan.pages.indexOfFirst { it.sourceIndex == target }.takeIf { it >= 0 }
+        }.sorted()
         return when {
-            targets.isEmpty() -> "no pages"
-            targets.size == pageCount -> "all $pageCount pages"
-            targets.size == 1 -> "page ${targets.first() + 1}"
-            else -> "pages " + PageRanges.describe(targets.toList())
+            positions.isEmpty() -> "no pages"
+            positions.size == plan.pages.size -> "all ${positions.size} pages"
+            positions.size == 1 -> "page ${positions.first() + 1}"
+            else -> "pages " + PageRanges.describe(positions)
         }
     }
 

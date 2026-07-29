@@ -136,6 +136,7 @@ Every tool is in one place, on swipeable pages, in a drawer you can fold away to
 • Rotate, crop with draggable handles, delete, restore
 • Resize: scale by percentage, or refit onto A3, A4, A5, Letter, Legal or Tabloid
 • Reorder page by page, or reverse the document
+• Merge other PDFs in at any position — their pages become ordinary pages you can keep editing
 • Add text anywhere on a page, in the size and colour you choose
 • Cover something up with a white-out block, then type over it
 • Highlight a passage, or draw on the page freehand
@@ -201,6 +202,7 @@ The repo screenshots you can upload as-is:
 
 - `docs/screenshots/home.png` — the library and the privacy banner
 - `docs/screenshots/editor.png` — the editor with its page strip and tools
+- `docs/screenshots/editor-merge.png` — merging another PDF in at a chosen position
 - `docs/screenshots/editor-text.png` — covering existing text and retyping it
 - `docs/screenshots/editor-draw.png` — a highlight and freehand ink on a page
 - `docs/screenshots/editor-crop.png` — dragging the crop frame

@@ -271,6 +271,67 @@ class EditPlanBuilderTest {
     }
 
     @Test
+    fun `inserted pages land where asked, in order`() {
+        // A 4-page document, with a 3-page document (global indices 4..6)
+        // inserted after page 2.
+        val result = plan(4, InsertPages(startIndex = 4, count = 3, position = 2, label = "b.pdf"))
+        assertEquals(listOf(0, 1, 4, 5, 6, 2, 3), result.pages.map { it.sourceIndex })
+        assertTrue(result.hasChanges)
+    }
+
+    @Test
+    fun `insert at the end still counts as a change`() {
+        // Appended pages keep index == position, which the positional check
+        // alone would read as "nothing happened".
+        val result = plan(2, InsertPages(startIndex = 2, count = 2, position = 2, label = "b"))
+        assertEquals(listOf(0, 1, 2, 3), result.pages.map { it.sourceIndex })
+        assertTrue(result.hasChanges)
+    }
+
+    @Test
+    fun `an out-of-range insert position clamps instead of crashing`() {
+        val result = plan(2, InsertPages(startIndex = 2, count = 1, position = 99, label = "b"))
+        assertEquals(listOf(0, 1, 2), result.pages.map { it.sourceIndex })
+    }
+
+    @Test
+    fun `inserted pages take edits like any other page`() {
+        val result = plan(
+            2,
+            InsertPages(startIndex = 2, count = 2, position = 1, label = "b"),
+            RotatePages(90, setOf(2)),
+            DeletePages(setOf(3)),
+            MovePage(sourceIndex = 2, offset = -1),
+        )
+        // Order: inserted page 2 moved to the front, inserted page 3 deleted.
+        assertEquals(listOf(2, 0, 1), result.kept.map { it.sourceIndex })
+        assertEquals(90, result.kept.first().rotationDelta)
+    }
+
+    @Test
+    fun `marks stick to inserted pages through a reorder`() {
+        val result = plan(
+            2,
+            InsertPages(startIndex = 2, count = 1, position = 2, label = "b"),
+            AddMark(TextMark(id = 1L, sourceIndex = 2, text = "x", left = 0f, top = 0f)),
+            ReversePages,
+        )
+        assertEquals(listOf(2, 1, 0), result.pages.map { it.sourceIndex })
+        assertEquals(listOf(1L), result.marksFor(2).map { it.id })
+    }
+
+    @Test
+    fun `dropping the insert op removes its pages, as undo does`() {
+        val withInsert = listOf<EditOp>(
+            InsertPages(startIndex = 3, count = 2, position = 1, label = "b"),
+            RotatePages(90, setOf(0)),
+        )
+        val undone = EditPlanBuilder.build(3, withInsert.dropLast(2))
+        assertEquals(listOf(0, 1, 2), undone.pages.map { it.sourceIndex })
+        assertFalse(undone.hasChanges)
+    }
+
+    @Test
     fun `op descriptions read as history a person can scan`() {
         assertEquals("Rotate 90° · pages 1-2", RotatePages(90, setOf(0, 1)).describe())
         assertEquals("Delete · page 3", DeletePages(setOf(2)).describe())

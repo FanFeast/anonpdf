@@ -608,3 +608,56 @@ fun PendingEditsDialog(
 }
 
 private fun pct(value: Float) = "${(value * 100).roundToInt()}%"
+
+/** Where merged-in pages land, relative to the document as it now stands. */
+enum class InsertPosition(val label: String) {
+    AFTER("After this page"),
+    START("At the start"),
+    END("At the end"),
+}
+
+/**
+ * Confirms a merge. The pages do not become special: once inserted they are
+ * ordinary pages in the plan, open to every other tool, which is the whole
+ * point of merging here instead of in a one-shot tool.
+ */
+@Composable
+fun InsertPanel(
+    docs: List<Pair<String, Int>>,
+    where: InsertPosition,
+    onWhereChange: (InsertPosition) -> Unit,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+) {
+    val total = docs.sumOf { it.second }
+    PanelFrame(
+        title = "Merge",
+        subtitle = "$total page${if (total == 1) "" else "s"} to insert",
+        applyLabel = "Insert",
+        applyEnabled = docs.isNotEmpty(),
+        onCancel = onCancel,
+        onApply = onApply,
+    ) {
+        docs.forEach { (name, count) ->
+            Text(
+                "$name — $count page${if (count == 1) "" else "s"}",
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        ChoiceChips(
+            label = "Where",
+            options = InsertPosition.entries,
+            selected = where,
+            onSelect = onWhereChange,
+            optionLabel = { it.label },
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "They come in as ordinary pages — rotate, reorder, crop, mark or " +
+                "delete them like any other before you save.",
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}

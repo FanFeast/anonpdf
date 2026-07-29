@@ -66,6 +66,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -95,6 +96,7 @@ import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.EditPlan
 import io.github.fanfeast.anonpdf.pdf.FillMark
 import io.github.fanfeast.anonpdf.pdf.InkMark
+import io.github.fanfeast.anonpdf.pdf.InsertPages
 import io.github.fanfeast.anonpdf.pdf.MarkRect
 import io.github.fanfeast.anonpdf.pdf.MovePage
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
@@ -176,6 +178,7 @@ private sealed interface EditorMode {
         val colour: Int,
         val widthRatio: Float,
     ) : EditorMode
+    data class Inserting(val where: InsertPosition) : EditorMode
 
     /** True when the user works directly on the page, so page paging gets out of the way. */
     val interactsWithPage: Boolean
@@ -220,7 +223,25 @@ fun EditorScreen(
         }
     }
 
-    DisposableEffect(Unit) { onDispose { session?.close() } }
+    // Documents merged into this session, in the order they arrived. Their pages
+    // hold the global indices after the original document's, which is the order
+    // the export assembles them in — so the list must never be reordered.
+    val extraSources = remember { mutableStateListOf<DocumentSession>() }
+
+    // The merge pipeline: picked files waiting to be opened, then opened
+    // documents waiting for the user to say where they go.
+    var insertQueue by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var insertReady by remember { mutableStateOf<List<DocumentSession>>(emptyList()) }
+    var insertNeedsPassword by remember { mutableStateOf(false) }
+    var insertPasswordError by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            session?.close()
+            extraSources.forEach { it.close() }
+            insertReady.forEach { it.close() }
+        }
+    }
 
     fun load(uri: Uri, password: String?) {
         scope.launch {
@@ -230,6 +251,11 @@ fun EditorScreen(
             when (val outcome = openDocumentSession(store, uri, password, session?.sourceFile)) {
                 is OpenOutcome.Ready -> {
                     session?.close()
+                    extraSources.forEach { it.close() }
+                    extraSources.clear()
+                    insertReady.forEach { it.close() }
+                    insertReady = emptyList()
+                    insertQueue = emptyList()
                     thumbnails.evictAll()
                     session = outcome.session
                     editor = EditorState(outcome.session.pageCount)
@@ -252,9 +278,59 @@ fun EditorScreen(
         }
     }
 
+    /**
+     * Opens picked files one at a time. A protected file pauses the queue for a
+     * password; dismissing the dialog skips that file and carries on.
+     */
+    fun processInsertQueue(password: String? = null) {
+        scope.launch {
+            var candidate = password
+            while (insertQueue.isNotEmpty()) {
+                val uri = insertQueue.first()
+                when (val outcome = openDocumentSession(store, uri, candidate)) {
+                    is OpenOutcome.Ready -> {
+                        insertQueue = insertQueue.drop(1)
+                        insertReady = insertReady + outcome.session
+                        candidate = null
+                        insertNeedsPassword = false
+                        insertPasswordError = null
+                    }
+                    OpenOutcome.NeedsPassword -> {
+                        insertNeedsPassword = true
+                        insertPasswordError = null
+                        return@launch
+                    }
+                    is OpenOutcome.WrongPassword -> {
+                        insertNeedsPassword = true
+                        insertPasswordError = outcome.message
+                        return@launch
+                    }
+                    is OpenOutcome.Failed -> {
+                        insertQueue = insertQueue.drop(1)
+                        error = outcome.message
+                        candidate = null
+                    }
+                }
+            }
+            if (insertReady.isNotEmpty()) {
+                mode = EditorMode.Inserting(InsertPosition.AFTER)
+                if (drawerHeight < DRAWER_COMPACT) drawerHeight = DRAWER_COMPACT
+            }
+        }
+    }
+
     val pickPdf = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri -> if (uri != null) load(uri, null) }
+
+    val pickInsert = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            insertQueue = insertQueue + uris
+            processInsertQueue()
+        }
+    }
 
     LaunchedEffect(initialUri) {
         if (initialUri != null && session == null) load(initialUri, null)
@@ -285,6 +361,23 @@ fun EditorScreen(
 
     val plan = state.plan
     val currentSource = state.currentSourceIndex
+
+    /** The original document plus everything merged in, in global-index order. */
+    val allSources = listOf(document) + extraSources
+
+    /** Which document a global page index belongs to, and the page's index there. */
+    fun resolveSource(global: Int): Pair<DocumentSession, Int>? {
+        var first = 0
+        for (source in allSources) {
+            if (global < first + source.pageCount) return source to (global - first)
+            first += source.pageCount
+        }
+        return null
+    }
+
+    fun planSources() = allSources.map {
+        PdfEditor.PlanSource(it.sourceFile, it.password, it.pageCount)
+    }
 
     /**
      * The plan the preview renders: what is committed, plus the open tool's draft.
@@ -320,10 +413,12 @@ fun EditorScreen(
 
     val kept = previewPlan.kept
 
-    val effectiveSizes = remember(previewPlan, document) {
+    val effectiveSizes = remember(previewPlan, document, extraSources.size) {
         kept.map { pageState ->
             effectiveSize(
-                document.pageSizes.getOrNull(pageState.sourceIndex) ?: SizeF(595f, 842f),
+                resolveSource(pageState.sourceIndex)
+                    ?.let { (owner, local) -> owner.pageSizes.getOrNull(local) }
+                    ?: SizeF(595f, 842f),
                 pageState,
             )
         }
@@ -331,7 +426,7 @@ fun EditorScreen(
 
     var previewWidthPx by remember { mutableStateOf(600) }
 
-    LaunchedEffect(previewPlan, state.position, previewWidthPx, document) {
+    LaunchedEffect(previewPlan, state.position, previewWidthPx, document, extraSources.size) {
         if (kept.isEmpty()) {
             preview = null
             return@LaunchedEffect
@@ -339,12 +434,11 @@ fun EditorScreen(
         previewBusy = true
         delay(PREVIEW_DEBOUNCE_MS)
         preview = PdfEditor.renderPreview(
-            input = document.sourceFile,
+            sources = planSources(),
             plan = previewPlan,
             outputPosition = state.position,
             targetWidthPx = previewWidthPx,
             workDir = document.sourceFile.parentFile ?: context.cacheDir,
-            password = document.password,
         )
         previewBusy = false
     }
@@ -374,10 +468,9 @@ fun EditorScreen(
                     "pdf",
                 )
                 PdfEditor.applyPlan(
-                    input = document.sourceFile,
+                    sources = planSources(),
                     output = staged,
                     plan = plan,
-                    password = document.password,
                 ) { value -> progress = value }
                 onOpenTool(tool, "file://${staged.absolutePath}".toUri())
             } catch (t: Throwable) {
@@ -466,7 +559,10 @@ fun EditorScreen(
                 )
             }
 
-            EditorTool.MERGE -> handOff(ToolId.MERGE)
+            // Merge happens here rather than in the one-shot tool: the picked
+            // documents' pages join the plan, where the whole arsenal — reorder,
+            // rotate, crop, marks, delete — applies to them like any other page.
+            EditorTool.MERGE -> pickInsert.launch(arrayOf("application/pdf"))
             EditorTool.SPLIT -> handOff(ToolId.SPLIT)
             EditorTool.EXTRACT -> handOff(ToolId.EXTRACT)
             EditorTool.COMPRESS -> handOff(ToolId.COMPRESS)
@@ -488,10 +584,9 @@ fun EditorScreen(
                 val stem = DocumentStore.stem(document.name)
                 val output = store.newOutputFile("$stem-edited", "pdf")
                 PdfEditor.applyPlan(
-                    input = document.sourceFile,
+                    sources = planSources(),
                     output = output,
                     plan = plan,
-                    password = document.password,
                 ) { value -> progress = value }
                 result = ToolResult.One(
                     file = output,
@@ -507,6 +602,40 @@ fun EditorScreen(
                 busyMessage = null
             }
         }
+    }
+
+    /**
+     * Commits the opened documents into the plan. Pages go in as one run per
+     * document, in the order they were picked, at the chosen spot.
+     */
+    fun applyInsert(where: InsertPosition) {
+        val docs = insertReady
+        if (docs.isEmpty()) {
+            mode = EditorMode.Normal
+            return
+        }
+        var cursor = when (where) {
+            InsertPosition.START -> 0
+            InsertPosition.END -> plan.pages.size
+            InsertPosition.AFTER -> plan.pages
+                .indexOfFirst { it.sourceIndex == currentSource }
+                .let { if (it < 0) plan.pages.size else it + 1 }
+        }
+        docs.forEach { doc ->
+            val start = state.registerInsert(doc.pageCount)
+            extraSources.add(doc)
+            state.apply(InsertPages(start, doc.pageCount, cursor, doc.name))
+            cursor += doc.pageCount
+        }
+        insertReady = emptyList()
+        mode = EditorMode.Normal
+    }
+
+    fun cancelInsert() {
+        insertReady.forEach { it.close() }
+        insertReady = emptyList()
+        insertQueue = emptyList()
+        mode = EditorMode.Normal
     }
 
     Scaffold(
@@ -542,10 +671,12 @@ fun EditorScreen(
                     empty = kept.isEmpty(),
                     shownSize = effectiveSizes.getOrNull(state.position),
                     referenceSize = referenceSize(
-                        document,
-                        kept,
-                        state.position,
-                        effectiveSizes.getOrNull(state.position),
+                        state = kept.getOrNull(state.position),
+                        base = kept.getOrNull(state.position)?.let { current ->
+                            resolveSource(current.sourceIndex)
+                                ?.let { (owner, local) -> owner.pageSizes.getOrNull(local) }
+                        },
+                        shown = effectiveSizes.getOrNull(state.position),
                     ),
                     mode = mode,
                     onModeChange = { mode = it },
@@ -591,14 +722,20 @@ fun EditorScreen(
                                     plan = plan,
                                     mode = mode,
                                     toolPager = toolPager,
-                                    document = document,
+                                    resolveSource = { global -> resolveSource(global) },
                                     thumbnails = thumbnails,
                                     currentSource = currentSource,
+                                    insertDocs = insertReady.map { it.name to it.pageCount },
                                     onModeChange = { mode = it },
                                     onExitMode = { mode = EditorMode.Normal },
                                     onPickTool = ::pick,
                                     onShowPending = { showPending = true },
                                     onSave = ::save,
+                                    onInsertApply = {
+                                        (mode as? EditorMode.Inserting)
+                                            ?.let { applyInsert(it.where) }
+                                    },
+                                    onInsertCancel = ::cancelInsert,
                                     resultingSize = describeResult(
                                         effectiveSizes.getOrNull(state.position),
                                     ),
@@ -640,6 +777,21 @@ fun EditorScreen(
                 state.reset()
                 showPending = false
             },
+        )
+    }
+
+    if (insertNeedsPassword) {
+        PasswordDialog(
+            message = "A PDF you picked is protected. Enter its password to merge it, " +
+                "or cancel to skip that file.",
+            error = insertPasswordError,
+            onDismiss = {
+                insertNeedsPassword = false
+                insertPasswordError = null
+                insertQueue = insertQueue.drop(1)
+                processInsertQueue()
+            },
+            onConfirm = { candidate -> processInsertQueue(candidate) },
         )
     }
 }
@@ -852,14 +1004,17 @@ private fun DrawerBody(
     plan: EditPlan,
     mode: EditorMode,
     toolPager: PagerState,
-    document: DocumentSession,
+    resolveSource: (Int) -> Pair<DocumentSession, Int>?,
     thumbnails: LruCache<Int, Bitmap>,
     currentSource: Int?,
+    insertDocs: List<Pair<String, Int>>,
     onModeChange: (EditorMode) -> Unit,
     onExitMode: () -> Unit,
     onPickTool: (EditorTool) -> Unit,
     onShowPending: () -> Unit,
     onSave: () -> Unit,
+    onInsertApply: () -> Unit,
+    onInsertCancel: () -> Unit,
     resultingSize: String,
 ) {
     val markCount = currentSource?.let { plan.marksFor(it).size } ?: 0
@@ -879,7 +1034,7 @@ private fun DrawerBody(
             ) {
                 PageStrip(
                     plan = plan,
-                    session = document,
+                    resolveSource = resolveSource,
                     cache = thumbnails,
                     selection = state.selection,
                     currentSourceIndex = currentSource,
@@ -914,6 +1069,14 @@ private fun DrawerBody(
             // Pinned, so "Save as…" is reachable however far the drawer is pulled down.
             SaveRow(state, plan, onShowPending, onSave)
         }
+
+        is EditorMode.Inserting -> InsertPanel(
+            docs = insertDocs,
+            where = current.where,
+            onWhereChange = { onModeChange(current.copy(where = it)) },
+            onCancel = onInsertCancel,
+            onApply = onInsertApply,
+        )
 
         is EditorMode.Cropping -> CropPanel(
             insets = current.insets,
@@ -1136,15 +1299,11 @@ private fun SaveRow(
  * than what the edits have made of it, so an enlarged page is not clipped.
  */
 private fun referenceSize(
-    document: DocumentSession,
-    kept: List<PageState>,
-    position: Int,
+    state: PageState?,
+    base: SizeF?,
     shown: SizeF?,
 ): SizeF {
-    val state = kept.getOrNull(position)
-    val base = state?.let { document.pageSizes.getOrNull(it.sourceIndex) }
-        ?: SizeF(595f, 842f)
-    val turned = turnedBy(base, state?.rotationDelta ?: 0)
+    val turned = turnedBy(base ?: SizeF(595f, 842f), state?.rotationDelta ?: 0)
     return if (shown == null) {
         turned
     } else {
@@ -1236,7 +1395,7 @@ private fun EmptyEditor(
 @Composable
 private fun PageStrip(
     plan: EditPlan,
-    session: DocumentSession,
+    resolveSource: (Int) -> Pair<DocumentSession, Int>?,
     cache: LruCache<Int, Bitmap>,
     selection: Set<Int>,
     currentSourceIndex: Int?,
@@ -1348,7 +1507,7 @@ private fun PageStrip(
                     } else {
                         plan.kept.indexOfFirst { it.sourceIndex == page.sourceIndex } + 1
                     },
-                    session = session,
+                    resolveSource = resolveSource,
                     cache = cache,
                     selected = page.sourceIndex in selection,
                     current = page.sourceIndex == currentSourceIndex,
@@ -1403,7 +1562,7 @@ private fun PageStrip(
 private fun Thumbnail(
     page: PageState,
     position: Int?,
-    session: DocumentSession,
+    resolveSource: (Int) -> Pair<DocumentSession, Int>?,
     cache: LruCache<Int, Bitmap>,
     selected: Boolean,
     current: Boolean,
@@ -1416,9 +1575,11 @@ private fun Thumbnail(
 
     LaunchedEffect(page.sourceIndex) {
         if (bitmap != null) return@LaunchedEffect
-        val rendered = runCatching {
-            session.rasterizer.renderByWidth(page.sourceIndex, THUMBNAIL_WIDTH_PX)
-        }.getOrNull()
+        val rendered = resolveSource(page.sourceIndex)?.let { (owner, local) ->
+            runCatching {
+                owner.rasterizer.renderByWidth(local, THUMBNAIL_WIDTH_PX)
+            }.getOrNull()
+        }
         if (rendered != null) {
             cache.put(page.sourceIndex, rendered)
             bitmap = rendered
@@ -1446,7 +1607,7 @@ private fun Thumbnail(
             bitmap?.let {
                 Image(
                     bitmap = it.asImageBitmap(),
-                    contentDescription = "Page ${page.sourceIndex + 1}",
+                    contentDescription = position?.let { "Page $it" } ?: "Deleted page",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
