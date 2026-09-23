@@ -12,6 +12,7 @@ import java.io.Closeable
 import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 /**
  * Turns PDF pages into bitmaps using the renderer built into Android.
@@ -58,7 +59,7 @@ class PdfRasterizer private constructor(
     /** Renders [index] at a physical resolution, used by the export tools. */
     suspend fun renderAtDpi(index: Int, dpi: Int): Bitmap = mutex.withLock {
         renderer.openPage(index).use { page ->
-            val scale = dpi / POINTS_PER_INCH
+            val scale = cappedScale(page.width, page.height, dpi / POINTS_PER_INCH)
             val width = max(1, (page.width * scale).roundToInt())
             val height = max(1, (page.height * scale).roundToInt())
             drawPage(page, width, height)
@@ -81,6 +82,23 @@ class PdfRasterizer private constructor(
 
     companion object {
         private const val POINTS_PER_INCH = 72f
+
+        /**
+         * The most pixels one rendered page may have: 40 MP, about 160 MB as
+         * ARGB_8888. A4 at 400 dpi is ~15 MP and fits untouched; an A0 drawing at
+         * 400 dpi would be ~250 MP (~1 GB) and run the app out of memory.
+         */
+        const val MAX_RENDER_PIXELS = 40_000_000L
+
+        /**
+         * [requested] scale, reduced just enough that a [widthPt] x [heightPt]
+         * page stays within [MAX_RENDER_PIXELS].
+         */
+        fun cappedScale(widthPt: Int, heightPt: Int, requested: Float): Float {
+            val pixels = widthPt.toDouble() * heightPt * requested * requested
+            if (pixels <= MAX_RENDER_PIXELS) return requested
+            return (requested * sqrt(MAX_RENDER_PIXELS / pixels)).toFloat()
+        }
 
         /**
          * @throws java.io.IOException if the file is not a PDF, or is encrypted with

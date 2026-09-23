@@ -125,6 +125,7 @@ import io.github.fanfeast.anonpdf.ui.components.ResultCard
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
 import io.github.fanfeast.anonpdf.ui.tools.ToolId
 import io.github.fanfeast.anonpdf.ui.tools.ToolResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -473,6 +474,8 @@ fun EditorScreen(
                     plan = plan,
                 ) { value -> progress = value }
                 onOpenTool(tool, "file://${staged.absolutePath}".toUri())
+            } catch (e: CancellationException) {
+                throw e
             } catch (t: Throwable) {
                 error = t.friendlyMessage("Could not prepare the document.")
             } finally {
@@ -596,6 +599,8 @@ fun EditorScreen(
                         ", ${state.ops.size} edit" +
                         (if (state.ops.size == 1) "" else "s") + " applied.",
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (t: Throwable) {
                 error = t.friendlyMessage("Could not save the document.")
             } finally {

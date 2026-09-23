@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.core.content.IntentCompat
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.ui.AnonPdfApp
 import io.github.fanfeast.anonpdf.ui.theme.AnonPdfTheme
@@ -54,10 +55,8 @@ class MainActivity : ComponentActivity() {
     /** Pulls a PDF out of a VIEW or SEND intent from another app. */
     private fun incomingPdf(intent: Intent?): Uri? = when (intent?.action) {
         Intent.ACTION_VIEW -> intent.data
-        Intent.ACTION_SEND -> {
-            @Suppress("DEPRECATION")
-            intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-        }
+        Intent.ACTION_SEND ->
+            IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
         else -> null
     }
 }

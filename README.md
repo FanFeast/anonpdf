@@ -193,8 +193,8 @@ sdk.dir=/path/to/Android/Sdk
 ### Tests
 
 ```bash
-./gradlew testDebugUnitTest          # 27 JVM tests: page ranges, edit-plan folding
-./gradlew connectedDebugAndroidTest  # 44 device tests; needs a device or emulator
+./gradlew testDebugUnitTest          # 48 JVM tests: page ranges, edit-plan folding, render cap
+./gradlew connectedDebugAndroidTest  # 67 device tests; needs a device or emulator
 ```
 
 The instrumented suite is where the real coverage lives. It builds PDFs, runs
@@ -206,6 +206,11 @@ because a weaker version passed while the code was wrong: scaling is checked by
 re-rendering and comparing the whole layout, not just the page dimensions, and
 cropping is checked on a rotated page. It also asserts the privacy contract,
 including that a socket connection and a DNS lookup both fail.
+
+[`AppSmokeTest`](app/src/androidTest/java/io/github/fanfeast/anonpdf/ui/AppSmokeTest.kt)
+drives the real UI: it launches the app, taps through Home, Settings, About,
+Browse and the editor, and hands the app a PDF the way another app would,
+checking it renders in the viewer and opens in the editor.
 
 ### Release builds
 

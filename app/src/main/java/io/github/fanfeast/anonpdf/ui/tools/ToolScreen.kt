@@ -69,6 +69,7 @@ import io.github.fanfeast.anonpdf.ui.components.ResultCard
 import io.github.fanfeast.anonpdf.ui.components.SectionLabel
 import io.github.fanfeast.anonpdf.ui.components.formatBytes
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -129,6 +130,8 @@ fun ToolScreen(
                     passwordIndex = docs.lastIndex
                     passwordError = null
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (t: Throwable) {
                 error = t.friendlyMessage("That file could not be opened as a PDF.")
             } finally {
@@ -294,6 +297,8 @@ fun ToolScreen(
                                         imageUris = imageUris,
                                         options = options,
                                     ) { value -> progress = value }
+                                } catch (e: CancellationException) {
+                                    throw e
                                 } catch (t: Throwable) {
                                     error = t.friendlyMessage("That did not work.")
                                 } finally {
@@ -349,6 +354,8 @@ fun ToolScreen(
                             passwordError = null
                         } catch (t: PdfWrongPasswordException) {
                             passwordError = "That password did not work."
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (t: Throwable) {
                             passwordError = t.friendlyMessage("Could not open the file.")
                         }

@@ -82,6 +82,7 @@ import io.github.fanfeast.anonpdf.ui.components.ResultCard
 import io.github.fanfeast.anonpdf.ui.components.SectionLabel
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
 import io.github.fanfeast.anonpdf.ui.tools.ToolResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -341,6 +342,8 @@ fun SignScreen(
                                             suggestedName = "$stem-signed.pdf",
                                             note = "Signature placed on page ${pageIndex + 1}.",
                                         )
+                                    } catch (e: CancellationException) {
+                                        throw e
                                     } catch (t: Throwable) {
                                         error = t.friendlyMessage("Could not sign the document.")
                                     } finally {
