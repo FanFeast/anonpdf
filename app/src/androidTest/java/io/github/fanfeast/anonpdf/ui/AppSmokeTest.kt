@@ -6,13 +6,18 @@ import android.net.Uri
 import android.os.StrictMode
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -22,6 +27,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import io.github.fanfeast.anonpdf.MainActivity
+import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -108,6 +114,47 @@ class AppSmokeTest {
     }
 
     @Test
+    fun editorPromoOpensEditor() {
+        launchHome()
+        scrollHomeTo("Edit a PDF")
+        compose.onNodeWithText("Edit a PDF").performClick()
+        compose.onNodeWithText("Choose a PDF").assertIsDisplayed()
+    }
+
+    /**
+     * Every entry in the tool catalogue has a row on Home that leads to its own
+     * screen and back. A tool added to the catalogue is covered automatically.
+     */
+    @Test
+    fun everyToolOpensFromHomeAndReturns() {
+        launchHome()
+        ToolCatalog.all.forEach { spec ->
+            scrollHomeTo(spec.title)
+            compose.onNodeWithText(spec.title).performClick()
+            // Home has no Back button, so seeing one proves we left it.
+            compose.onNodeWithContentDescription("Back").assertIsDisplayed()
+            compose.onAllNodesWithText(spec.title).onFirst().assertIsDisplayed()
+            compose.onNodeWithContentDescription("Back").performClick()
+            scrollHomeTo("Open a PDF")
+            compose.onNodeWithText("Open a PDF").assertIsDisplayed()
+        }
+    }
+
+    @Test
+    fun pdfSharedFromAnotherAppOpensInViewer() {
+        val pdf = samplePdf(pages = 2)
+        StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
+        val intent = Intent(context, MainActivity::class.java)
+            .setAction(Intent.ACTION_SEND)
+            .setType("application/pdf")
+            .putExtra(Intent.EXTRA_STREAM, Uri.fromFile(pdf))
+        scenario = ActivityScenario.launch(intent)
+
+        compose.waitFor { onAllNodesWithText("1 / 2") }
+        compose.waitFor { onAllNodesWithContentDescription("Page 1") }
+    }
+
+    @Test
     fun pdfFromAnotherAppOpensInViewerThenEditor() {
         val pdf = samplePdf(pages = 3)
         // The platform refuses file:// URIs in intents by default. A real sender
@@ -124,6 +171,11 @@ class AppSmokeTest {
 
         compose.onNodeWithContentDescription("Edit").performClick()
         compose.waitFor { onAllNodesWithContentDescription("Undo") }
+    }
+
+    /** Home is one long list; rows further down are not composed until scrolled to. */
+    private fun scrollHomeTo(text: String) {
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText(text))
     }
 
     private fun ComposeTestRule.waitFor(

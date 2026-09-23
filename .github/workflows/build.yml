@@ -36,11 +36,20 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew assembleDebug
 
+      # Unsigned, but otherwise exactly what ships: R8 shrinking, resource
+      # shrinking and the release manifest. Catches a keep rule or manifest
+      # regression on the PR instead of at tag time.
+      - name: Assemble release bundle and APK
+        run: ./gradlew bundleRelease assembleRelease
+
       - name: Check the declared permissions against the reviewed list
         run: |
           set -euo pipefail
-          APK=app/build/outputs/apk/debug/app-debug.apk
           AAPT=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort | tail -1)
+          for APK in app/build/outputs/apk/debug/app-debug.apk \
+                     app/build/outputs/apk/release/app-release-unsigned.apk; do
+          echo "Checking $APK"
+          test -f "$APK" || { echo "Missing $APK"; exit 1; }
           # The app is allowed exactly two entries: storage access for the file
           # browser, and AndroidX's signature-level self-receiver guard. Anything
           # else is a regression in the promise that documents cannot leave the
@@ -64,6 +73,7 @@ jobs:
             exit 1
           fi
           echo "Permissions are as reviewed, and no network access. Good."
+          done
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4

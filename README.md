@@ -194,7 +194,7 @@ sdk.dir=/path/to/Android/Sdk
 
 ```bash
 ./gradlew testDebugUnitTest          # 48 JVM tests: page ranges, edit-plan folding, render cap
-./gradlew connectedDebugAndroidTest  # 67 device tests; needs a device or emulator
+./gradlew connectedDebugAndroidTest  # 77 device tests; needs a device or emulator
 ```
 
 The instrumented suite is where the real coverage lives. It builds PDFs, runs
@@ -208,9 +208,16 @@ cropping is checked on a rotated page. It also asserts the privacy contract,
 including that a socket connection and a DNS lookup both fail.
 
 [`AppSmokeTest`](app/src/androidTest/java/io/github/fanfeast/anonpdf/ui/AppSmokeTest.kt)
-drives the real UI: it launches the app, taps through Home, Settings, About,
-Browse and the editor, and hands the app a PDF the way another app would,
-checking it renders in the viewer and opens in the editor.
+drives the real UI: it launches the app, opens every screen reachable from Home
+(including every tool in the catalogue) and comes back, and hands the app a PDF
+through both "Open with" and "Share", checking it renders in the viewer and
+opens in the editor.
+[`ManifestContractTest`](app/src/androidTest/java/io/github/fanfeast/anonpdf/ManifestContractTest.kt)
+pins the entry points other apps rely on: the launcher, "Open with" and "Share"
+for PDFs, the private share-out provider, that nothing else is exported, and
+that backup stays off. CI also builds the minified release bundle on every pull
+request and checks its permissions, so a shrinker or manifest regression shows
+up before a release is tagged.
 
 ### Release builds
 
