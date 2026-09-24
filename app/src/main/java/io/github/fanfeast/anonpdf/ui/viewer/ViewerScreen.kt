@@ -104,7 +104,14 @@ private class OpenedDocument(
     /** The file PDFBox should read for text search — decrypted if it had to be. */
     val textSource: File,
     val password: String?,
-)
+    /** The unlocked scratch copy the renderer reads, if the file was encrypted. */
+    private val decryptedCopy: File?,
+) {
+    fun close() {
+        rasterizer.close()
+        decryptedCopy?.delete()
+    }
+}
 
 @Composable
 fun ViewerScreen(
@@ -151,7 +158,10 @@ fun ViewerScreen(
 
     DisposableEffect(Unit) {
         onDispose {
-            opened?.rasterizer?.close()
+            // Leave nothing of this document behind in the cache, above all not
+            // a decrypted copy of a password-protected file.
+            opened?.close()
+            localFile?.delete()
             view.keepScreenOn = false
         }
     }
@@ -185,22 +195,31 @@ fun ViewerScreen(
                 }
             }
 
-            val rasterizer = withContext(Dispatchers.IO) { PdfRasterizer.open(readable) }
-            // Measure before handing it over, and close it if that is interrupted
-            // (the user left the screen), so a half-opened renderer never leaks.
+            val decrypted = readable.takeIf { it != file }
+            // Measure before handing it over, and clean up if opening fails or is
+            // interrupted (the user left the screen), so neither a half-opened
+            // renderer nor a decrypted copy outlives this call.
+            val rasterizer: PdfRasterizer
             val pageSizes = try {
-                rasterizer.pageSizes()
+                rasterizer = withContext(Dispatchers.IO) { PdfRasterizer.open(readable) }
+                try {
+                    rasterizer.pageSizes()
+                } catch (t: Throwable) {
+                    rasterizer.close()
+                    throw t
+                }
             } catch (t: Throwable) {
-                rasterizer.close()
+                decrypted?.delete()
                 throw t
             }
-            opened?.rasterizer?.close()
+            opened?.close()
             bitmapCache.evictAll()
             opened = OpenedDocument(
                 rasterizer = rasterizer,
                 pageSizes = pageSizes,
                 textSource = file,
                 password = password,
+                decryptedCopy = decrypted,
             )
             preferences.tryPersistAccess(uri)
             preferences.addRecent(uri, name)

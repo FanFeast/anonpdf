@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -24,10 +25,14 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
+import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import io.github.fanfeast.anonpdf.MainActivity
 import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
 import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -172,6 +177,33 @@ class AppSmokeTest {
         compose.waitFor { onAllNodesWithContentDescription("Undo") }
     }
 
+    @Test
+    fun lockedPdfLeavesNoDecryptedCopyBehindAfterClosing() {
+        val pdf = samplePdf(pages = 2, password = "secret")
+        StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
+        val intent = Intent(context, MainActivity::class.java)
+            .setAction(Intent.ACTION_VIEW)
+            .setDataAndType(Uri.fromFile(pdf), "application/pdf")
+        scenario = ActivityScenario.launch(intent)
+
+        compose.waitFor { onAllNodesWithText("Unlock") }
+        compose.onNodeWithText("Password").performTextInput("secret")
+        compose.onNodeWithText("Unlock").performClick()
+        compose.waitFor { onAllNodesWithText("1 / 2") }
+
+        // While it is open, the renderer reads an unlocked copy in the cache.
+        assertTrue("expected a decrypted copy while open", workFiles().any { it.startsWith("open-") })
+
+        scenario?.close()
+        scenario = null
+
+        // Closing the document takes the decrypted copy and the private copy with it.
+        assertEquals(emptyList<String>(), workFiles())
+    }
+
+    private fun workFiles(): List<String> =
+        File(context.cacheDir, "work").list()?.sorted().orEmpty()
+
     /** Home is one long list; rows further down are not composed until scrolled to. */
     private fun scrollHomeTo(text: String) {
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText(text))
@@ -181,7 +213,7 @@ class AppSmokeTest {
         nodes: ComposeTestRule.() -> SemanticsNodeInteractionCollection,
     ) = waitUntil(TIMEOUT_MS) { nodes().fetchSemanticsNodes().isNotEmpty() }
 
-    private fun samplePdf(pages: Int): File {
+    private fun samplePdf(pages: Int, password: String? = null): File {
         val file = File(fixtureDir, "uitest-sample.pdf")
         PDDocument().use { document ->
             repeat(pages) { index ->
@@ -194,6 +226,9 @@ class AppSmokeTest {
                     stream.showText("Smoke test page ${index + 1}")
                     stream.endText()
                 }
+            }
+            if (password != null) {
+                document.protect(StandardProtectionPolicy(password, password, AccessPermission()))
             }
             document.save(file)
         }
