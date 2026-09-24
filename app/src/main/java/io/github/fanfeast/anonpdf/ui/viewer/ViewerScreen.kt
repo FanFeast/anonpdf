@@ -74,6 +74,7 @@ import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.ErrorNote
 import io.github.fanfeast.anonpdf.ui.components.PasswordDialog
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -185,11 +186,19 @@ fun ViewerScreen(
             }
 
             val rasterizer = withContext(Dispatchers.IO) { PdfRasterizer.open(readable) }
+            // Measure before handing it over, and close it if that is interrupted
+            // (the user left the screen), so a half-opened renderer never leaks.
+            val pageSizes = try {
+                rasterizer.pageSizes()
+            } catch (t: Throwable) {
+                rasterizer.close()
+                throw t
+            }
             opened?.rasterizer?.close()
             bitmapCache.evictAll()
             opened = OpenedDocument(
                 rasterizer = rasterizer,
-                pageSizes = rasterizer.pageSizes(),
+                pageSizes = pageSizes,
                 textSource = file,
                 password = password,
             )
@@ -199,6 +208,8 @@ fun ViewerScreen(
         } catch (t: PdfWrongPasswordException) {
             passwordError = "That password did not work."
             askPassword = true
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
             error = t.friendlyMessage("This file could not be opened as a PDF.")
         } finally {
@@ -537,6 +548,8 @@ private fun SearchDialog(
                         try {
                             val text = PdfOps.extractText(source, password)
                             hits = findHits(text, query, pageCount)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (t: Throwable) {
                             message = t.friendlyMessage("Could not read the text.")
                         } finally {

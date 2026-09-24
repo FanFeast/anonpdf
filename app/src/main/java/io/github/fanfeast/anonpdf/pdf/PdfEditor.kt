@@ -3,6 +3,7 @@ package io.github.fanfeast.anonpdf.pdf
 import android.graphics.Bitmap
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -402,6 +403,8 @@ object PdfEditor {
                 document.save(temp)
             }
             PdfRasterizer.open(temp).use { it.renderByWidth(0, targetWidthPx) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
             null
         } finally {

@@ -6,6 +6,7 @@ import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.PdfRasterizer
 import io.github.fanfeast.anonpdf.pdf.PdfWrongPasswordException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.Closeable
@@ -76,13 +77,21 @@ suspend fun openDocumentSession(
         val rasterizer = withContext(Dispatchers.IO) {
             PdfRasterizer.open(decrypted ?: source)
         }
+        // If measuring is interrupted, close the renderer rather than leak it.
+        val pageSizes = try {
+            rasterizer.pageSizes()
+        } catch (t: Throwable) {
+            rasterizer.close()
+            decrypted?.delete()
+            throw t
+        }
         OpenOutcome.Ready(
             DocumentSession(
                 uri = uri,
                 name = name,
                 sourceFile = source,
                 rasterizer = rasterizer,
-                pageSizes = rasterizer.pageSizes(),
+                pageSizes = pageSizes,
                 password = password,
                 decryptedCopy = decrypted,
             ),
@@ -90,6 +99,8 @@ suspend fun openDocumentSession(
     }
 } catch (t: PdfWrongPasswordException) {
     OpenOutcome.WrongPassword("That password did not work.")
+} catch (e: CancellationException) {
+    throw e
 } catch (t: Throwable) {
     OpenOutcome.Failed(
         t.message?.takeIf { it.isNotBlank() && it.length < 240 }

@@ -10,10 +10,10 @@ import java.io.File
 /**
  * Moves bytes between the Storage Access Framework and our private cache.
  *
- * Everything we touch lives in [Context.getCacheDir], which is app-private and
- * wiped by [clearWorkspace] when the user leaves a document. We never ask for a
- * storage permission and never hold a path outside our own sandbox, so the only
- * files AnonPDF can read are the ones the user explicitly handed us.
+ * Everything we write lives in [Context.getCacheDir], which is app-private and
+ * wiped by [clearWorkspace] at each launch. Inputs arrive as URIs the user
+ * picked (or, with all-files access, a file they tapped in the browser) and are
+ * copied here; results only leave through a destination the user chose.
  */
 class DocumentStore(private val context: Context) {
 
@@ -90,15 +90,30 @@ class DocumentStore(private val context: Context) {
         }.getOrNull() ?: -1L
     }
 
-    /** Drops every scratch file. Called when a document is closed. */
+    /**
+     * Drops every scratch file. Called at launch and from Settings.
+     *
+     * Callers are on the main thread, and deleting a large cache there can freeze
+     * the app long enough to count as an ANR. So the folders are renamed aside,
+     * which is instant, and deleted on a background thread. A fresh document
+     * opened right after this lands in the new empty folders, never the old ones.
+     */
     fun clearWorkspace() {
-        workDir.deleteRecursively()
-        outDir.deleteRecursively()
+        val trash = File(context.cacheDir, "$TRASH_PREFIX${System.nanoTime()}").apply { mkdirs() }
+        workDir.renameTo(File(trash, "work"))
+        outDir.renameTo(File(trash, "out"))
         workDir.mkdirs()
         outDir.mkdirs()
+        Thread({
+            // Also sweeps trash left behind if the process died mid-delete.
+            context.cacheDir.listFiles { file -> file.name.startsWith(TRASH_PREFIX) }
+                ?.forEach { it.deleteRecursively() }
+        }, "anonpdf-clear-cache").start()
     }
 
     companion object {
+        private const val TRASH_PREFIX = "trash-"
+
         fun sanitize(name: String): String =
             name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(80).ifEmpty { "document" }
 
