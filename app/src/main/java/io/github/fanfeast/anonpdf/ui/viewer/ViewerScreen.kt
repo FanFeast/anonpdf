@@ -221,7 +221,6 @@ fun ViewerScreen(
                 password = password,
                 decryptedCopy = decrypted,
             )
-            preferences.tryPersistAccess(uri)
             preferences.addRecent(uri, name)
             askPassword = false
         } catch (t: PdfWrongPasswordException) {

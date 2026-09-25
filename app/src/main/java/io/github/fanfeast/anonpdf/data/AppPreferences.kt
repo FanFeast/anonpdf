@@ -1,6 +1,7 @@
 package io.github.fanfeast.anonpdf.data
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -31,6 +32,11 @@ private val Context.preferencesStore: DataStore<Preferences> by preferencesDataS
  * The recents list holds SAF URIs and file names, stays in app-private storage,
  * is excluded from cloud backup, and can be switched off entirely — see
  * [setRememberRecents]. There is no identifier of any kind in here.
+ *
+ * Read access to a picked document is kept across restarts only while that
+ * document is on the recents list. Every change to the list gives back any
+ * persisted grant the list no longer holds, so forgetting a file also forgets
+ * the right to read it.
  */
 class AppPreferences(private val context: Context) {
 
@@ -49,11 +55,12 @@ class AppPreferences(private val context: Context) {
     }
 
     suspend fun setRememberRecents(enabled: Boolean) {
-        context.preferencesStore.edit { preferences ->
+        val saved = context.preferencesStore.edit { preferences ->
             preferences[KEY_REMEMBER_RECENTS] = enabled
             // Turning the feature off should also destroy what it already collected.
             if (!enabled) preferences.remove(KEY_RECENTS)
         }
+        keepGrantsOnlyFor(saved)
     }
 
     suspend fun setInvertPdfColors(enabled: Boolean) {
@@ -64,40 +71,73 @@ class AppPreferences(private val context: Context) {
         context.preferencesStore.edit { it[KEY_KEEP_SCREEN_ON] = enabled }
     }
 
+    /**
+     * Puts [uri] at the top of the recents list and keeps read access to it, so it
+     * can be reopened after a restart. Does neither when recents are switched off.
+     */
     suspend fun addRecent(uri: Uri, name: String) {
-        context.preferencesStore.edit { preferences ->
+        val saved = context.preferencesStore.edit { preferences ->
             if (preferences[KEY_REMEMBER_RECENTS] == false) return@edit
             val existing = decode(preferences[KEY_RECENTS]).filterNot { it.uri == uri }
             val updated = (listOf(RecentDocument(uri, name, System.currentTimeMillis())) + existing)
                 .take(MAX_RECENTS)
             preferences[KEY_RECENTS] = encode(updated)
         }
+        if (decode(saved[KEY_RECENTS]).any { it.uri == uri }) takeGrant(uri)
+        // Also gives back the grant of whatever just fell off the end of the list.
+        keepGrantsOnlyFor(saved)
     }
 
     suspend fun removeRecent(uri: Uri) {
-        context.preferencesStore.edit { preferences ->
+        val saved = context.preferencesStore.edit { preferences ->
             val updated = decode(preferences[KEY_RECENTS]).filterNot { it.uri == uri }
             preferences[KEY_RECENTS] = encode(updated)
         }
+        keepGrantsOnlyFor(saved)
     }
 
     suspend fun clearRecents() {
-        context.preferencesStore.edit { it.remove(KEY_RECENTS) }
+        val saved = context.preferencesStore.edit { it.remove(KEY_RECENTS) }
+        keepGrantsOnlyFor(saved)
     }
 
     /**
-     * Keeps read access to a document across restarts.
-     *
      * Only works for URIs that came from the document picker; a URI handed to us
      * by another app's share sheet is not persistable, hence the runCatching.
      */
-    fun tryPersistAccess(uri: Uri) {
+    private fun takeGrant(uri: Uri) {
         runCatching {
             context.contentResolver.takePersistableUriPermission(
                 uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
             )
         }
+    }
+
+    /**
+     * Releases every persisted grant for a document not on the saved recents list.
+     *
+     * Works from the grants the system actually holds rather than from what was
+     * just removed, so grants taken by older versions of the app, which persisted
+     * access for every picked file, are cleaned up too.
+     */
+    private fun keepGrantsOnlyFor(saved: Preferences) {
+        val kept = if (saved[KEY_REMEMBER_RECENTS] == false) {
+            emptySet()
+        } else {
+            decode(saved[KEY_RECENTS]).map { it.uri }.toSet()
+        }
+        val resolver = context.contentResolver
+        runCatching { resolver.persistedUriPermissions }.getOrDefault(emptyList())
+            .filter { it.uri !in kept }
+            .forEach { grant ->
+                runCatching {
+                    resolver.releasePersistableUriPermission(
+                        grant.uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                    )
+                }
+            }
     }
 
     private fun encode(documents: List<RecentDocument>): String {
