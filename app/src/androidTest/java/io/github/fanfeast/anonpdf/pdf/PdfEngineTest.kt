@@ -12,6 +12,9 @@ import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
+import android.os.Looper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -767,5 +770,46 @@ class PdfEngineTest {
             PdfOps.organize(source, out("empty"), emptyList())
         }.exceptionOrNull()
         assertTrue(failure is IllegalArgumentException)
+    }
+
+    @Test
+    fun renderingLeavesTheMainThreadFree() = runBlocking(Dispatchers.Main) {
+        // Callers are composables on the main thread. If the render ran there, the
+        // main thread could do nothing else until it finished; off it, other main
+        // thread work gets in while the page is still drawing.
+        val source = imageHeavyPdf()
+        PdfRasterizer.open(source).use { rasterizer ->
+            assertTrue(Looper.getMainLooper().isCurrentThread)
+            val render = async { rasterizer.renderAtDpi(0, 300) }
+            val mainRanDuringRender = async { !render.isCompleted }
+            assertTrue("main thread was blocked by the render", mainRanDuringRender.await())
+            render.await().recycle()
+        }
+    }
+
+    @Test
+    fun closingMidRenderIsSafeAndLaterRendersFail() = runBlocking {
+        val source = imageHeavyPdf()
+        val rasterizer = PdfRasterizer.open(source)
+        // Several renders queued behind the lock, then a close while they run.
+        val renders = (0 until 4).map {
+            async(Dispatchers.Default) {
+                runCatching { rasterizer.renderAtDpi(0, 300) }
+            }
+        }
+        rasterizer.close()
+        val outcomes = renders.map { it.await() }
+        outcomes.forEach { outcome ->
+            outcome.getOrNull()?.recycle()
+            outcome.exceptionOrNull()?.let {
+                assertTrue("unexpected failure: $it", it is IllegalStateException)
+            }
+        }
+
+        val afterClose = runCatching { rasterizer.renderByWidth(0, 200) }
+        assertTrue(afterClose.exceptionOrNull() is IllegalStateException)
+        // A second close is a no-op, not a crash.
+        rasterizer.close()
+        assertFalse(afterClose.isSuccess)
     }
 }
