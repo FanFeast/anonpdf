@@ -56,7 +56,10 @@ drawings, a watermark and page numbers — each applied to **this page**, a
   block and type your own text on top, highlight a passage, or draw on the page
   freehand. (A PDF's existing text cannot be rewritten in place without the
   document's own embedded fonts — cover-and-retype is the honest way to change
-  it, and it is what the app does.)
+  it, and it is what the app does.) A white-out genuinely removes what it
+  covers: the page is flattened into an image under the box, so the hidden text
+  cannot be copied, searched or extracted afterwards. The trade-off is that the
+  rest of that page's text stops being selectable too.
 - **Reorder by dragging.** Long-press a thumbnail and drag it; a gap opens where
   it will land, and the strip auto-scrolls when you reach an edge.
 - **Multi-select by tapping.** Switch the scope to *Selected* and plain taps
@@ -138,7 +141,7 @@ advertising ID.
 - Resize: scale by percentage, or refit onto A3, A4, A5, Letter, Legal or Tabloid
 - Reorder page by page, or reverse the whole document
 - Merge other PDFs in at any position, then edit their pages like any other
-- Add text; cover content with a white-out block; highlight; draw freehand
+- Add text; remove content with a white-out block (the page is flattened, so it is really gone); highlight; draw freehand
 - Text watermark: diagonal, centred, tiled, top or bottom
 - Page numbers with a format template, position, start number, and cover-skipping
 - Applied per page, to a selection, or to everything

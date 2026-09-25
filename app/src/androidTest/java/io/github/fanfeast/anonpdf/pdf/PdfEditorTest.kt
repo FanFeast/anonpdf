@@ -346,8 +346,18 @@ class PdfEditorTest {
         return file
     }
 
-    private fun isInk(bitmap: Bitmap, x: Int, y: Int): Boolean =
-        bitmap.getPixel(x, y) != android.graphics.Color.WHITE
+    /**
+     * Visibly not paper. A white-out flattens its page to a JPEG, whose white can
+     * come back a shade or two off, so near-white still counts as blank.
+     */
+    private fun isInk(bitmap: Bitmap, x: Int, y: Int): Boolean {
+        val pixel = bitmap.getPixel(x, y)
+        return minOf(
+            android.graphics.Color.red(pixel),
+            android.graphics.Color.green(pixel),
+            android.graphics.Color.blue(pixel),
+        ) < 235
+    }
 
     @Test
     fun resizingProducesASheetOfExactlyTheRequestedSize(): Unit = runBlocking {
@@ -632,6 +642,102 @@ class PdfEditorTest {
             isInk(rendered, (rendered.width * 0.1f).toInt(), midY),
         )
         rendered.recycle()
+    }
+
+    /** Covers the "<marker> 1" line [textPdf] draws near the top of the page. */
+    private fun coverTopLine(id: Long, sourceIndex: Int) = FillMark(
+        id = id,
+        sourceIndex = sourceIndex,
+        rect = MarkRect(0.02f, 0.1f, 0.98f, 0.25f),
+        color = 0xFF000000.toInt(),
+        opacity = 1f,
+    )
+
+    @Test
+    fun aWhiteOutRemovesTheTextItCoversFromTheFile(): Unit = runBlocking {
+        // Covering is not enough: a box drawn over text leaves the text in the
+        // content stream, where copy, search and extractors still find it.
+        val source = textPdf(2, "Secret")
+        val output = out("redacted")
+
+        PdfEditor.applyPlan(
+            source,
+            output,
+            plan(
+                2,
+                AddMark(coverTopLine(id = 20L, sourceIndex = 0)),
+                // Added after the white-out, so it stays real, selectable text.
+                AddMark(
+                    TextMark(id = 21L, sourceIndex = 0, text = "Replacement", left = 0.1f, top = 0.4f),
+                ),
+            ),
+        )
+
+        val first = pageText(output, 1)
+        assertTrue("covered text must be gone, got: $first", !first.contains("Secret"))
+        assertTrue("text added after the white-out survives, got: $first", first.contains("Replacement"))
+        assertTrue("a page without a white-out keeps its text", pageText(output, 2).contains("Secret2"))
+
+        // The page still looks like the page: the band below the box is still drawn.
+        val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
+        assertTrue(
+            "content outside the box survives flattening",
+            isInk(rendered, rendered.width / 3, (rendered.height * (1f - 230f / 842f)).toInt()),
+        )
+        rendered.recycle()
+    }
+
+    @Test
+    fun aFlattenedPagePreviewsExactlyAsExported(): Unit = runBlocking {
+        val source = textPdf(1, "Hidden")
+        val editPlan = plan(
+            1,
+            RotatePages(90, setOf(0)),
+            AddMark(coverTopLine(id = 22L, sourceIndex = 0)),
+            AddMark(TextMark(id = 23L, sourceIndex = 0, text = "on top", left = 0.2f, top = 0.5f)),
+        )
+        val output = out("redacted-preview")
+        PdfEditor.applyPlan(source, output, editPlan)
+
+        val preview = PdfEditor.renderPreview(
+            input = source,
+            plan = editPlan,
+            outputPosition = 0,
+            targetWidthPx = 380,
+            workDir = workDir,
+        )
+        assertNotNull("preview of a flattened page", preview)
+        val exported = PdfRasterizer.open(output).use { it.renderByWidth(0, 380) }
+        assertTrue("a rotated page stays landscape once flattened", exported.width > exported.height)
+        assertTrue(
+            "flattened page must preview exactly as exported",
+            differingFraction(preview!!, exported) < 0.01f,
+        )
+        preview.recycle()
+        exported.recycle()
+        // Nothing left behind in the scratch folder.
+        assertTrue(workDir.listFiles().orEmpty().none { it.name.startsWith("flatten-") })
+    }
+
+    @Test
+    fun aWhiteOutOnAnEncryptedDocumentStillRemovesTheText(): Unit = runBlocking {
+        val source = textPdf(1, "Locked")
+        val locked = out("locked-redact")
+        PdfOps.protect(
+            source,
+            locked,
+            ProtectOptions(userPassword = "pw", ownerPassword = "pw", allowCopying = true),
+        )
+        val output = out("locked-redacted")
+
+        PdfEditor.applyPlan(
+            input = locked,
+            output = output,
+            plan = plan(1, AddMark(coverTopLine(id = 24L, sourceIndex = 0))),
+            password = "pw",
+        )
+
+        assertTrue("covered text must be gone", !pageText(output, 1).contains("Locked"))
     }
 
     @Test

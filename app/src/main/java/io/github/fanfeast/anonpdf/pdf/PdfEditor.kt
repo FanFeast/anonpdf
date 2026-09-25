@@ -1,8 +1,16 @@
 package io.github.fanfeast.anonpdf.pdf
 
 import android.graphics.Bitmap
+import com.tom_roush.pdfbox.cos.COSDictionary
+import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.multipdf.PDFCloneUtility
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
+import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.PDResources
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -305,15 +313,26 @@ object PdfEditor {
             // Detach everything, then re-attach only what the plan keeps, in order.
             originals.forEach { document.pages.remove(it) }
 
+            val scratchDir = sources[0].file.parentFile ?: output.parentFile
+            var flattenedAny = false
             kept.forEachIndexed { position, state ->
                 val page = originals.getOrNull(state.sourceIndex)
                     ?: error("Page ${state.sourceIndex + 1} is not in this document.")
                 applyPageState(document, page, state)
                 // Marks go on after the page geometry is settled, so an opaque
                 // white-out lands exactly where the user drew it.
-                PdfDraw.drawMarks(document, page, plan.marksFor(state.sourceIndex))
+                if (drawMarks(document, page, plan.marksFor(state.sourceIndex), scratchDir)) {
+                    flattenedAny = true
+                }
                 document.addPage(page)
                 onProgress(0.25f + 0.5f * (position + 1f) / kept.size)
+            }
+            if (flattenedAny) {
+                // A tagged PDF's structure tree can repeat a page's text as
+                // /ActualText or /Alt. Once a page is flattened those entries would
+                // be the only surviving copy of what the white-out removed.
+                document.documentCatalog.cosObject.removeItem(COSName.STRUCT_TREE_ROOT)
+                document.documentCatalog.cosObject.removeItem(COSName.MARK_INFO)
             }
 
             stampWatermark(document, plan)
@@ -386,7 +405,7 @@ object PdfEditor {
                 originals.forEach { document.pages.remove(it) }
 
                 applyPageState(document, page, state)
-                PdfDraw.drawMarks(document, page, plan.marksFor(state.sourceIndex))
+                drawMarks(document, page, plan.marksFor(state.sourceIndex), workDir)
                 document.addPage(page)
 
                 stampWatermark(document, plan)
@@ -432,6 +451,107 @@ object PdfEditor {
             PdfDraw.scalePage(document, page, state.scale)
         }
     }
+
+    /**
+     * Draws [marks] onto [page], flattening it if any of them is an opaque fill.
+     *
+     * An opaque white-out only *looks* like it removes what is under it: the
+     * original text stays in the content stream, where copy, search and any text
+     * extractor still find it. So everything up to and including the last opaque
+     * fill is burned into a picture of the page, and only the marks added after it
+     * are drawn on top as real content. Drawing order, and so what the page looks
+     * like, is exactly what the user built.
+     *
+     * Shared by export and preview, so the preview shows the flattened page too.
+     *
+     * @return true if the page was flattened.
+     */
+    private suspend fun drawMarks(
+        document: PDDocument,
+        page: PDPage,
+        marks: List<PageMark>,
+        scratchDir: File,
+    ): Boolean {
+        val lastOpaque = marks.indexOfLast { it is FillMark && !it.isHighlight }
+        if (lastOpaque < 0) {
+            PdfDraw.drawMarks(document, page, marks)
+            return false
+        }
+        PdfDraw.drawMarks(document, page, marks.subList(0, lastOpaque + 1))
+        flattenPage(document, page, scratchDir)
+        PdfDraw.drawMarks(document, page, marks.subList(lastOpaque + 1, marks.size))
+        return true
+    }
+
+    /**
+     * Replaces [page]'s content with a single image of how it currently looks.
+     *
+     * The page ends up upright (rotation 0) with its boxes set to the displayed
+     * size, so marks drawn on it afterwards still land where the user put them.
+     * Everything that could still carry the old content goes: content streams,
+     * resources, annotations, the embedded thumbnail and per-page metadata.
+     */
+    private suspend fun flattenPage(document: PDDocument, page: PDPage, scratchDir: File) {
+        val box = page.cropBox
+        val quarterTurned = PdfOps.normalizeRotation(page.rotation).let { it == 90 || it == 270 }
+        val width = if (quarterTurned) box.height else box.width
+        val height = if (quarterTurned) box.width else box.height
+
+        // Annotations are dropped, not rendered: they can hold text of their own,
+        // and their /P back-reference would drag the whole page tree into the copy.
+        page.cosObject.removeItem(COSName.ANNOTS)
+
+        // The platform renderer needs a file, so copy just this page into one.
+        val temp = File(scratchDir, "flatten-${System.nanoTime()}.pdf")
+        val bitmap = try {
+            PDDocument().use { single ->
+                val cloner = PDFCloneUtility(single)
+                val copy = COSDictionary()
+                for ((key, value) in page.cosObject.entrySet()) {
+                    if (key != COSName.PARENT) copy.setItem(key, cloner.cloneForNewDocument(value))
+                }
+                single.addPage(PDPage(copy))
+                single.save(temp)
+            }
+            PdfRasterizer.open(temp).use { it.renderAtDpi(0, FLATTEN_DPI) }
+        } finally {
+            temp.delete()
+        }
+
+        try {
+            // Rendered onto white, so there is no transparency to keep.
+            bitmap.setHasAlpha(false)
+            val image = JPEGFactory.createFromImage(document, bitmap, FLATTEN_JPEG_QUALITY)
+            for (name in FLATTEN_DROPPED_KEYS) page.cosObject.removeItem(name)
+            page.resources = PDResources()
+            page.rotation = 0
+            val sheet = PDRectangle(0f, 0f, width, height)
+            page.mediaBox = sheet
+            page.cropBox = sheet
+            PDPageContentStream(
+                document,
+                page,
+                PDPageContentStream.AppendMode.OVERWRITE,
+                true,
+            ).use { stream -> stream.drawImage(image, 0f, 0f, width, height) }
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /** Sharp enough to read small print, small enough to keep files sensible. */
+    private const val FLATTEN_DPI = 200
+    private const val FLATTEN_JPEG_QUALITY = 0.9f
+
+    private val FLATTEN_DROPPED_KEYS = listOf(
+        COSName.THUMB,
+        COSName.getPDFName("PieceInfo"),
+        COSName.METADATA,
+        COSName.STRUCT_PARENTS,
+        COSName.TRIM_BOX,
+        COSName.BLEED_BOX,
+        COSName.ART_BOX,
+    )
 
     private fun stampWatermark(
         document: com.tom_roush.pdfbox.pdmodel.PDDocument,
