@@ -138,7 +138,7 @@ Every tool is in one place, on swipeable pages, in a drawer you can fold away to
 • Reorder page by page, or reverse the document
 • Merge other PDFs in at any position — their pages become ordinary pages you can keep editing
 • Add text anywhere on a page, in the size and colour you choose
-• Cover something up with a white-out block, then type over it
+• Remove something with a white-out block — the page is flattened, so the hidden text is really gone — then type over it
 • Highlight a passage, or draw on the page freehand
 • Add a text watermark — diagonal, centred, tiled, top or bottom
 • Add page numbers, with your own format, and skip a cover page
@@ -183,7 +183,7 @@ The complete source code is public, so the privacy claims above can be checked r
 https://github.com/FanFeast/anonpdf
 
 WHAT IT DOES NOT DO
-Being straight about the edges: there is no Word, Excel or PowerPoint conversion, and no OCR for reading text out of scanned pages. Both need either a very large bundled engine or a server, and this app is built around having neither. A PDF's existing text cannot be retyped in place — that needs the document's own embedded fonts and would reflow the layout — so changing it means covering it with a white-out block and adding your own text on top, which the editor does in two taps. "Sign PDF" places a picture of your signature on the page — it is ink on paper, not a cryptographic certificate.
+Being straight about the edges: there is no Word, Excel or PowerPoint conversion, and no OCR for reading text out of scanned pages. Both need either a very large bundled engine or a server, and this app is built around having neither. A PDF's existing text cannot be retyped in place — that needs the document's own embedded fonts and would reflow the layout — so changing it means covering it with a white-out block and adding your own text on top, which the editor does in two taps. The white-out removes what it covers for real: that page is flattened into an image, so its old text can no longer be selected or copied. "Sign PDF" places a picture of your signature on the page — it is ink on paper, not a cryptographic certificate.
 
 Requires Android 12 or newer.
 ```

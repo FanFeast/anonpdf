@@ -464,9 +464,10 @@ fun FillPanel(
                 "Drag over the text you want to highlight. Drag inside the box to " +
                     "move it."
             } else {
-                "Drag a box over what you want to cover. A PDF's existing text " +
-                    "cannot be rewritten in place, so covering it and adding your own " +
-                    "text on top is how it gets changed."
+                "Drag a box over what you want to remove. What it covers is " +
+                    "permanently deleted: this page is saved as an image, so its text " +
+                    "can no longer be selected or searched. To change wording, cover " +
+                    "it and add your own text on top."
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
