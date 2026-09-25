@@ -54,8 +54,14 @@ data class PageNumberOptions(
 )
 
 data class ProtectOptions(
+    /** Opens the document. Readers who know only this get the permissions below. */
     val userPassword: String,
-    val ownerPassword: String,
+    /**
+     * Grants full rights regardless of the permissions below. Empty means a random
+     * one nobody knows, which is what makes the permissions actually hold: a reader
+     * who opens the file with [userPassword] gets exactly what is allowed here.
+     */
+    val ownerPassword: String = "",
     val allowPrinting: Boolean = true,
     val allowCopying: Boolean = false,
     val allowModifying: Boolean = false,

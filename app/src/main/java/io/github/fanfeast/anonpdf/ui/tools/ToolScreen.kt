@@ -540,7 +540,9 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
             Spacer(Modifier.height(12.dp))
             InfoNote(
                 "AES-256 encryption, done on this device. AnonPDF never stores or " +
-                    "transmits the password — if you lose it the file cannot be opened.",
+                    "transmits the password — if you lose it the file cannot be opened. " +
+                    "The print, copy and edit limits are honoured by standard PDF " +
+                    "readers, but anyone with the password can use a tool to lift them.",
             )
         }
 

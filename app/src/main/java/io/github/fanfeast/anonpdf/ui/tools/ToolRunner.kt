@@ -234,7 +234,6 @@ class ToolRunner(
             output = output,
             options = ProtectOptions(
                 userPassword = options.protectPassword,
-                ownerPassword = options.protectPassword,
                 allowPrinting = options.allowPrinting,
                 allowCopying = options.allowCopying,
                 allowModifying = options.allowModifying,
