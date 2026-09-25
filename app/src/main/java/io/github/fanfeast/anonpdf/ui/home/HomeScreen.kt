@@ -73,10 +73,8 @@ fun HomeScreen(
     val pickPdf = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
-        if (uri != null) {
-            preferences.tryPersistAccess(uri)
-            onOpenDocument(uri)
-        }
+        // Access is kept across restarts only once the viewer adds it to recents.
+        if (uri != null) onOpenDocument(uri)
     }
 
     Scaffold(

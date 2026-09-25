@@ -202,7 +202,6 @@ fun ViewerScreen(
                 textSource = file,
                 password = password,
             )
-            preferences.tryPersistAccess(uri)
             preferences.addRecent(uri, name)
             askPassword = false
         } catch (t: PdfWrongPasswordException) {
