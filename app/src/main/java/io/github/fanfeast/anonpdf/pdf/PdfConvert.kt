@@ -55,6 +55,7 @@ object PdfConvert {
         PdfOps.load(input, password).use { doc ->
             if (doc.isEncrypted) doc.isAllSecurityToBeRemoved = true
             val visited = mutableSetOf<COSBase>()
+            val shrunk = mutableMapOf<COSBase, PDImageXObject?>()
             val total = max(1, doc.numberOfPages)
             for (index in 0 until doc.numberOfPages) {
                 recompressResources(
@@ -64,6 +65,7 @@ object PdfConvert {
                     maxImageDimension = maxImageDimension,
                     depth = 0,
                     visited = visited,
+                    shrunk = shrunk,
                 )
                 onProgress(0.9f * (index + 1f) / total)
             }
@@ -84,6 +86,7 @@ object PdfConvert {
         maxImageDimension: Int,
         depth: Int,
         visited: MutableSet<COSBase>,
+        shrunk: MutableMap<COSBase, PDImageXObject?>,
     ) {
         // Form XObjects can nest, and a malformed file can even make them cyclic.
         if (resources == null || depth > MAX_FORM_DEPTH) return
@@ -92,9 +95,21 @@ object PdfConvert {
             val xobject = runCatching { resources.getXObject(name) }.getOrNull() ?: continue
             when (xobject) {
                 is PDImageXObject -> {
-                    val replacement = runCatching {
-                        shrinkImage(doc, xobject, jpegQuality, maxImageDimension)
-                    }.getOrNull()
+                    // One image is often drawn on every page — a logo, a letterhead.
+                    // Each page's resources point at the same stream, so decide once
+                    // per stream and hand every page the same replacement. Shrinking
+                    // it per page would write a separate copy for each one, and the
+                    // "compressed" file would come out bigger than the original.
+                    // Not getOrPut: it treats a stored null ("leave this one alone")
+                    // as missing and would decode the image again on every page.
+                    val key = xobject.cosObject
+                    val replacement = if (key in shrunk) {
+                        shrunk[key]
+                    } else {
+                        runCatching {
+                            shrinkImage(doc, xobject, jpegQuality, maxImageDimension)
+                        }.getOrNull().also { shrunk[key] = it }
+                    }
                     if (replacement != null) resources.put(name, replacement)
                 }
 
@@ -102,7 +117,7 @@ object PdfConvert {
                     if (visited.add(xobject.cosObject)) {
                         recompressResources(
                             doc, xobject.resources, jpegQuality,
-                            maxImageDimension, depth + 1, visited,
+                            maxImageDimension, depth + 1, visited, shrunk,
                         )
                     }
                 }

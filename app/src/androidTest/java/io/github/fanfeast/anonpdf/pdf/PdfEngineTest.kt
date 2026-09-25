@@ -485,6 +485,57 @@ class PdfEngineTest {
     }
 
     @Test
+    fun smartCompressionShrinksAnImageSharedAcrossPagesOnce() = runBlocking {
+        // A letterhead or logo: one image, drawn on every page. Recompressing it
+        // per page used to write twelve copies, which outgrew the original, so the
+        // never-grow guard handed back the input and nothing was saved at all.
+        val pages = 12
+        val source = File(workDir, "shared-${System.nanoTime()}.pdf")
+        val bitmap = noiseBitmap(1400, 1000)
+        PDDocument().use { document ->
+            val image = LosslessFactory.createFromImage(document, bitmap)
+            repeat(pages) {
+                val page = PDPage(PDRectangle.A4)
+                document.addPage(page)
+                PDPageContentStream(document, page).use { stream ->
+                    stream.drawImage(image, 20f, 20f, 555f, 400f)
+                }
+            }
+            document.save(source)
+        }
+        bitmap.recycle()
+        val output = out("compressed-shared")
+
+        val result = PdfConvert.compressSmart(source, output, 0.6f, 1200)
+
+        assertTrue(
+            "expected under half the size, was ${result.compressedBytes} vs ${result.originalBytes}",
+            result.compressedBytes * 2 < result.originalBytes,
+        )
+        PdfOps.load(output).use { document ->
+            assertEquals(pages, document.numberOfPages)
+            val images = (0 until document.numberOfPages).map { index ->
+                val resources = document.getPage(index).resources
+                val image = resources.getXObject(resources.xObjectNames.first())
+                assertTrue(
+                    "page ${index + 1} still has its image",
+                    image is com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject,
+                )
+                image!!.cosObject
+            }
+            assertEquals("every page shares one replacement", 1, images.toSet().size)
+        }
+        // The shared replacement still draws: the image band of the last page is
+        // not blank paper.
+        val last = PdfRasterizer.open(output).use { it.renderByWidth(pages - 1, 300) }
+        val inked = (0 until last.height step 4).sumOf { y ->
+            (0 until last.width step 4).count { x -> last.getPixel(x, y) != Color.WHITE }
+        }
+        last.recycle()
+        assertTrue("last page shows its image, $inked inked samples", inked > 500)
+    }
+
+    @Test
     fun smartCompressionLeavesTransparentImagesUntouched() = runBlocking {
         // An image with a soft mask cannot become a JPEG without losing its
         // transparency, so the compressor must decline rather than corrupt it.
