@@ -86,8 +86,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 private const val PREVIEW_WIDTH_PX = 900
@@ -118,7 +116,8 @@ fun SignScreen(
     var progress by remember { mutableStateOf(0f) }
     var result by remember { mutableStateOf<ToolResult?>(null) }
 
-    // Strokes are stored in 0..1 space so the drawing survives a size change.
+    // Strokes are stored in pad units (fractions of the pad's width on both axes),
+    // so the drawing survives a size change and keeps its proportions.
     var strokes by remember { mutableStateOf<List<List<Offset>>>(emptyList()) }
     var activeStroke by remember { mutableStateOf<List<Offset>>(emptyList()) }
     var ink by remember { mutableStateOf(InkColor.BLACK) }
@@ -225,7 +224,7 @@ fun SignScreen(
                         onStrokeStart = { activeStroke = listOf(it) },
                         onStrokeMove = { activeStroke = activeStroke + it },
                         onStrokeEnd = {
-                            if (activeStroke.size > 1) strokes = strokes + listOf(activeStroke)
+                            if (activeStroke.isNotEmpty()) strokes = strokes + listOf(activeStroke)
                             activeStroke = emptyList()
                         },
                     )
@@ -410,26 +409,29 @@ private fun SignaturePad(
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
             .pointerInput(Unit) {
                 detectDragGestures(
-                    onDragStart = { offset -> onStrokeStart(offset.normalizedIn(size)) },
-                    onDrag = { change, _ -> onStrokeMove(change.position.normalizedIn(size)) },
+                    onDragStart = { offset -> onStrokeStart(offset.inPadUnits(size)) },
+                    onDrag = { change, _ -> onStrokeMove(change.position.inPadUnits(size)) },
                     onDragEnd = { onStrokeEnd() },
                     onDragCancel = { onStrokeEnd() },
                 )
+            }
+            // A tap is a dot: the one over an "i", a full stop after an initial.
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    onStrokeStart(offset.inPadUnits(size))
+                    onStrokeEnd()
+                }
             },
     ) {
+        // Pad units are fractions of the width on both axes.
+        val unit = this.size.width
         val all = if (activeStroke.isEmpty()) strokes else strokes + listOf(activeStroke)
         all.forEach { stroke ->
             for (index in 1 until stroke.size) {
                 drawLine(
                     color = ink,
-                    start = Offset(
-                        stroke[index - 1].x * this.size.width,
-                        stroke[index - 1].y * this.size.height,
-                    ),
-                    end = Offset(
-                        stroke[index].x * this.size.width,
-                        stroke[index].y * this.size.height,
-                    ),
+                    start = Offset(stroke[index - 1].x * unit, stroke[index - 1].y * unit),
+                    end = Offset(stroke[index].x * unit, stroke[index].y * unit),
                     strokeWidth = 4.dp.toPx(),
                     cap = StrokeCap.Round,
                 )
@@ -438,10 +440,7 @@ private fun SignaturePad(
                 drawCircle(
                     color = ink,
                     radius = 2.dp.toPx(),
-                    center = Offset(
-                        stroke[0].x * this.size.width,
-                        stroke[0].y * this.size.height,
-                    ),
+                    center = Offset(stroke[0].x * unit, stroke[0].y * unit),
                 )
             }
         }
@@ -531,6 +530,9 @@ private fun PagePlacement(
     }
 }
 
+private fun Offset.inPadUnits(size: androidx.compose.ui.unit.IntSize): Offset =
+    SignatureFrame.padPoint(x, y, size.width, size.height).let { (px, py) -> Offset(px, py) }
+
 private fun Offset.normalizedIn(size: androidx.compose.ui.unit.IntSize): Offset = Offset(
     if (size.width > 0) (x / size.width).coerceIn(0f, 1f) else 0f,
     if (size.height > 0) (y / size.height).coerceIn(0f, 1f) else 0f,
@@ -538,36 +540,15 @@ private fun Offset.normalizedIn(size: androidx.compose.ui.unit.IntSize): Offset 
 
 /**
  * Rasterises the drawn strokes onto a transparent bitmap, cropped to the ink's
- * bounding box so placement on the page is predictable.
+ * bounding box so placement on the page is predictable. Strokes are in pad units,
+ * so the bitmap keeps the proportions the signature was drawn with.
  */
 private fun renderSignature(strokes: List<List<Offset>>, colorArgb: Int): Bitmap? {
-    val points = strokes.flatten()
-    if (points.size < 2) return null
-
-    var minX = 1f
-    var minY = 1f
-    var maxX = 0f
-    var maxY = 0f
-    points.forEach { point ->
-        minX = min(minX, point.x)
-        minY = min(minY, point.y)
-        maxX = max(maxX, point.x)
-        maxY = max(maxY, point.y)
-    }
-    // Pad so round stroke caps are not clipped at the edges.
-    val pad = 0.04f
-    minX = (minX - pad).coerceAtLeast(0f)
-    minY = (minY - pad).coerceAtLeast(0f)
-    maxX = (maxX + pad).coerceAtMost(1f)
-    maxY = (maxY + pad).coerceAtMost(1f)
-
-    val spanX = max(0.02f, maxX - minX)
-    val spanY = max(0.02f, maxY - minY)
-
+    val frame = SignatureFrame.of(strokes.flatten().map { it.x to it.y }) ?: return null
     val targetWidth = 1200
-    val targetHeight = max(80, (targetWidth * (spanY / spanX)).roundToInt())
+    val (width, height) = frame.bitmapSize(targetWidth)
 
-    val bitmap = createBitmap(targetWidth, targetHeight)
+    val bitmap = createBitmap(width, height)
     val canvas = android.graphics.Canvas(bitmap)
     val paint = Paint().apply {
         isAntiAlias = true
@@ -577,14 +558,19 @@ private fun renderSignature(strokes: List<List<Offset>>, colorArgb: Int): Bitmap
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
+    val dotPaint = Paint(paint).apply { style = Paint.Style.FILL }
 
     strokes.forEach { stroke ->
-        if (stroke.size < 2) return@forEach
+        val x0 = frame.mapX(stroke.firstOrNull()?.x ?: return@forEach, targetWidth)
+        val y0 = frame.mapY(stroke.first().y, targetWidth)
+        if (stroke.size == 1) {
+            canvas.drawCircle(x0, y0, paint.strokeWidth / 2f, dotPaint)
+            return@forEach
+        }
         val path = Path()
-        stroke.forEachIndexed { index, point ->
-            val x = (point.x - minX) / spanX * targetWidth
-            val y = (point.y - minY) / spanY * targetHeight
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        path.moveTo(x0, y0)
+        stroke.drop(1).forEach { point ->
+            path.lineTo(frame.mapX(point.x, targetWidth), frame.mapY(point.y, targetWidth))
         }
         canvas.drawPath(path, paint)
     }
