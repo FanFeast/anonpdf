@@ -19,6 +19,7 @@ import com.tom_roush.pdfbox.util.Matrix
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.security.SecureRandom
 import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
@@ -346,7 +347,10 @@ object PdfOps {
                 setCanFillInForm(options.allowAnnotations)
             }
             val policy = StandardProtectionPolicy(
-                options.ownerPassword.ifEmpty { options.userPassword },
+                // Never fall back to the user password: whoever opens a file with
+                // the owner password gets every permission, so the switches above
+                // would mean nothing.
+                options.ownerPassword.ifEmpty { randomOwnerPassword() },
                 options.userPassword,
                 permissions,
             ).apply {
@@ -378,6 +382,12 @@ object PdfOps {
             doc.save(output)
             onProgress(1f)
         }
+    }
+
+    /** 256 random bits, used once and never shown or stored. */
+    private fun randomOwnerPassword(): String {
+        val bytes = ByteArray(32).also { SecureRandom().nextBytes(it) }
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 
     // ------------------------------------------------------------------ text

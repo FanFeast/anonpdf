@@ -14,6 +14,7 @@ import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -410,6 +411,58 @@ class PdfEngineTest {
 
         assertTrue("protection removed", !PdfOps.isPasswordProtected(unlocked))
         assertTrue(PdfOps.extractText(unlocked).contains("Secret page 1"))
+    }
+
+    @Test
+    fun restrictionsHoldForAReaderWithTheOpenPassword() = runBlocking {
+        val source = textPdf(1, "Restricted")
+        val locked = out("locked-restricted")
+        // No owner password, as the Protect tool calls it.
+        PdfOps.protect(
+            source,
+            locked,
+            ProtectOptions(
+                userPassword = "open",
+                allowPrinting = false,
+                allowCopying = false,
+                allowModifying = false,
+            ),
+        )
+
+        PdfOps.load(locked, "open").use { doc ->
+            val permission = doc.currentAccessPermission
+            assertFalse("open password must not grant owner rights", permission.isOwnerPermission)
+            assertFalse(permission.canPrint())
+            assertFalse(permission.canExtractContent())
+            assertFalse(permission.canModify())
+        }
+        val refused = runCatching { PdfOps.extractText(locked, "open") }.exceptionOrNull()
+        assertTrue("copying is refused, was $refused", refused != null)
+
+        // Unlock still works with only the open password.
+        val unlocked = out("unlocked-restricted")
+        PdfOps.unlock(locked, unlocked, "open")
+        assertTrue(!PdfOps.isPasswordProtected(unlocked))
+        assertTrue(PdfOps.extractText(unlocked).contains("Restricted page 1"))
+    }
+
+    @Test
+    fun allowedPermissionsAreGrantedToTheOpenPassword() = runBlocking {
+        val source = textPdf(1, "Open")
+        val locked = out("locked-permissive")
+        PdfOps.protect(
+            source,
+            locked,
+            ProtectOptions(userPassword = "open", allowPrinting = true, allowCopying = true),
+        )
+
+        PdfOps.load(locked, "open").use { doc ->
+            val permission = doc.currentAccessPermission
+            assertFalse(permission.isOwnerPermission)
+            assertTrue(permission.canPrint())
+            assertTrue(permission.canExtractContent())
+        }
+        assertTrue(PdfOps.extractText(locked, "open").contains("Open page 1"))
     }
 
     @Test
