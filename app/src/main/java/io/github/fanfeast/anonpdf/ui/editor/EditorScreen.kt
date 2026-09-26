@@ -63,10 +63,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -88,6 +86,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.fanfeast.anonpdf.pdf.AddMark
 import io.github.fanfeast.anonpdf.pdf.CropInsets
 import io.github.fanfeast.anonpdf.pdf.CropPages
@@ -198,8 +197,12 @@ fun EditorScreen(
     val store = remember { DocumentStore(context) }
     val snackbarHost = remember { SnackbarHostState() }
 
-    var session by remember { mutableStateOf<DocumentSession?>(null) }
-    var editor by remember { mutableStateOf<EditorState?>(null) }
+    // The document and its edits live in the holder, not in remember: opening a
+    // one-shot tool takes the editor out of composition, and remembered state
+    // would be gone — with every pending edit — when the user came back.
+    val holder: EditorHolder = viewModel()
+    var session by holder::session
+    var editor by holder::editor
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var pendingUri by remember { mutableStateOf<Uri?>(null) }
@@ -224,25 +227,11 @@ fun EditorScreen(
         }
     }
 
-    // Documents merged into this session, in the order they arrived. Their pages
-    // hold the global indices after the original document's, which is the order
-    // the export assembles them in — so the list must never be reordered.
-    val extraSources = remember { mutableStateListOf<DocumentSession>() }
-
-    // The merge pipeline: picked files waiting to be opened, then opened
-    // documents waiting for the user to say where they go.
-    var insertQueue by remember { mutableStateOf<List<Uri>>(emptyList()) }
-    var insertReady by remember { mutableStateOf<List<DocumentSession>>(emptyList()) }
+    val extraSources = holder.extraSources
+    var insertQueue by holder::insertQueue
+    var insertReady by holder::insertReady
     var insertNeedsPassword by remember { mutableStateOf(false) }
     var insertPasswordError by remember { mutableStateOf<String?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            session?.close()
-            extraSources.forEach { it.close() }
-            insertReady.forEach { it.close() }
-        }
-    }
 
     fun load(uri: Uri, password: String?) {
         scope.launch {
