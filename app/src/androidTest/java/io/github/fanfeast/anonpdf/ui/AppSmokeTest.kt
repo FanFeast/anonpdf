@@ -4,8 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.StrictMode
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
@@ -16,7 +19,10 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -178,6 +184,44 @@ class AppSmokeTest {
     }
 
     @Test
+    fun editsSurviveAToolAndBack() {
+        val pdf = samplePdf(pages = 3)
+        StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
+        val intent = Intent(context, MainActivity::class.java)
+            .setAction(Intent.ACTION_VIEW)
+            .setDataAndType(Uri.fromFile(pdf), "application/pdf")
+        scenario = ActivityScenario.launch(intent)
+
+        compose.waitFor { onAllNodesWithText("1 / 3") }
+        compose.onNodeWithContentDescription("Edit").performClick()
+        compose.waitFor { onAllNodesWithContentDescription("Undo") }
+        compose.onNodeWithText("Right").performClick()
+        compose.onNodeWithContentDescription("Undo").assertIsEnabled()
+
+        // Hand the edited document to a one-shot tool. Its tile is on a later
+        // page of the tool drawer, so swipe the drawer until the tile exists.
+        val compressTile = hasText("Compress") and hasClickAction()
+        repeat(TOOL_PAGES_TO_SWIPE) {
+            if (compose.onAllNodes(compressTile).fetchSemanticsNodes().isEmpty()) {
+                compose.onAllNodes(hasText("Crop") or hasText("Split") or hasText("Watermark"))
+                    .onFirst()
+                    .performTouchInput { swipeLeft() }
+                compose.waitForIdle()
+            }
+        }
+        compose.onAllNodes(compressTile).onFirst()
+            .performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitUntil(TIMEOUT_MS) {
+            compose.onAllNodesWithContentDescription("Undo").fetchSemanticsNodes().isEmpty()
+        }
+
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitFor { onAllNodesWithContentDescription("Undo") }
+        // Back in the editor, the rotation is still pending and can be undone.
+        compose.onNodeWithContentDescription("Undo").assertIsEnabled()
+    }
+
+    @Test
     fun lockedPdfLeavesNoDecryptedCopyBehindAfterClosing() {
         val pdf = samplePdf(pages = 2, password = "secret")
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
@@ -236,6 +280,7 @@ class AppSmokeTest {
     }
 
     private companion object {
+        const val TOOL_PAGES_TO_SWIPE = 4
         const val TIMEOUT_MS = 15_000L
     }
 }
