@@ -14,6 +14,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.gestures.scrollBy
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
@@ -47,6 +49,8 @@ import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.ZoomIn
+import androidx.compose.material.icons.filled.ZoomOut
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -71,6 +75,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
@@ -80,6 +86,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -157,7 +164,7 @@ private val DRAWER_CONTENT_THRESHOLD = 90.dp
  * so what the user is adjusting is what they see before anything is committed to
  * the edit history.
  */
-private sealed interface EditorMode {
+internal sealed interface EditorMode {
     data object Normal : EditorMode
     data class Cropping(val insets: CropInsets) : EditorMode
     data class Resizing(
@@ -661,6 +668,7 @@ fun EditorScreen(
             ) {
                 PreviewArea(
                     bitmap = preview,
+                    pageKey = currentSource,
                     busy = previewBusy,
                     empty = kept.isEmpty(),
                     shownSize = effectiveSizes.getOrNull(state.position),
@@ -801,8 +809,9 @@ fun EditorScreen(
  * it, for the same reason.
  */
 @Composable
-private fun PreviewArea(
+internal fun PreviewArea(
     bitmap: Bitmap?,
+    pageKey: Int? = 0,
     busy: Boolean,
     empty: Boolean,
     shownSize: SizeF?,
@@ -814,6 +823,9 @@ private fun PreviewArea(
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
+    var zoom by remember(pageKey) { mutableStateOf(1f) }
+    var pan by remember(pageKey) { mutableStateOf(Offset.Zero) }
+    var moving by remember(pageKey, mode.interactsWithPage) { mutableStateOf(false) }
 
     Column(
         modifier
@@ -823,7 +835,9 @@ private fun PreviewArea(
         BoxWithConstraints(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .clipToBounds()
+                .testTag("Editor viewport"),
             contentAlignment = Alignment.Center,
         ) {
             val dpPerPoint = minOf(
@@ -833,7 +847,18 @@ private fun PreviewArea(
             val drawn = shownSize ?: referenceSize
             val pageWidth = (drawn.width * dpPerPoint).dp
             val pageHeight = (drawn.height * dpPerPoint).dp
-            onWidthChange(with(density) { bucket(pageWidth.toPx().roundToInt()) })
+            val pageWidthPx = with(density) { pageWidth.toPx() }
+            val pageHeightPx = with(density) { pageHeight.toPx() }
+            val viewportWidth = with(density) { maxWidth.toPx() }
+            val viewportHeight = with(density) { maxHeight.toPx() }
+            fun boundedPan(value: Offset, scale: Float): Offset {
+                val x = ((pageWidthPx * scale - viewportWidth) / 2f).coerceAtLeast(0f)
+                val y = ((pageHeightPx * scale - viewportHeight) / 2f).coerceAtLeast(0f)
+                return Offset(value.x.coerceIn(-x, x), value.y.coerceIn(-y, y))
+            }
+            val shownPan = boundedPan(pan, zoom)
+            LaunchedEffect(shownPan) { pan = shownPan }
+            onWidthChange(bucket((pageWidthPx * zoom).roundToInt()))
 
             when {
                 empty -> Text(
@@ -844,8 +869,13 @@ private fun PreviewArea(
 
                 bitmap != null -> Box(
                     Modifier
-                        .width(pageWidth)
-                        .height(pageHeight),
+                        .requiredSize(pageWidth, pageHeight)
+                        .graphicsLayer {
+                            scaleX = zoom
+                            scaleY = zoom
+                            translationX = shownPan.x
+                            translationY = shownPan.y
+                        },
                 ) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
@@ -866,6 +896,26 @@ private fun PreviewArea(
                 else -> CircularProgressIndicator()
             }
 
+            // This sibling captures navigation gestures without sending them to
+            // the editing overlays. Their draft marks remain visible underneath.
+            if (bitmap != null && !empty && (moving || !mode.interactsWithPage)) {
+                Box(
+                    Modifier.fillMaxSize().pointerInput(pageWidthPx, pageHeightPx, viewportWidth, viewportHeight) {
+                        detectTransformGestures { centroid, delta, factor, _ ->
+                            val nextZoom = (zoom * factor).coerceIn(1f, 5f)
+                            val center = Offset(viewportWidth / 2f, viewportHeight / 2f)
+                            val oldPan = boundedPan(pan, zoom)
+                            pan = boundedPan(
+                                (oldPan - (centroid - center)) * (nextZoom / zoom) +
+                                    (centroid - center) + delta,
+                                nextZoom,
+                            )
+                            zoom = nextZoom
+                        }
+                    },
+                )
+            }
+
             if (busy && bitmap != null) {
                 Box(
                     Modifier
@@ -876,6 +926,32 @@ private fun PreviewArea(
             }
         }
 
+        if (bitmap != null && !empty) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(
+                    onClick = { zoom = (zoom - 0.5f).coerceAtLeast(1f) },
+                    enabled = zoom > 1f,
+                ) { Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom out") }
+                TextButton(onClick = { zoom = 1f; pan = Offset.Zero }) {
+                    Text("${(zoom * 100).roundToInt()}%")
+                }
+                IconButton(
+                    onClick = { zoom = (zoom + 0.5f).coerceAtMost(5f) },
+                    enabled = zoom < 5f,
+                ) { Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom in") }
+                if (mode.interactsWithPage) {
+                    FilterChip(
+                        selected = moving,
+                        onClick = { moving = !moving },
+                        label = { Text(if (moving) "Resume editing" else "Move page") },
+                    )
+                }
+            }
+        }
         if (stepper != null) {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { stepper() }
         }
