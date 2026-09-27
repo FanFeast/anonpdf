@@ -5,11 +5,15 @@ import android.graphics.Bitmap
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.core.graphics.scale
 import androidx.test.platform.app.InstrumentationRegistry
+import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
+import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -652,6 +656,54 @@ class PdfEditorTest {
         color = 0xFF000000.toInt(),
         opacity = 1f,
     )
+
+    /** Two pages, each with a filled-in text field whose value is [valuePrefix]N. */
+    private fun formPdf(valuePrefix: String): File {
+        val file = File(workDir, "form-${System.nanoTime()}.pdf")
+        PDDocument().use { document ->
+            val form = PDAcroForm(document)
+            document.documentCatalog.acroForm = form
+            form.defaultResources = PDResources().apply {
+                put(COSName.getPDFName("Helv"), PDType1Font.HELVETICA)
+            }
+            form.defaultAppearance = "/Helv 12 Tf 0 g"
+            repeat(2) { index ->
+                val page = PDPage(PDRectangle.A4)
+                document.addPage(page)
+                val field = PDTextField(form).apply { partialName = "field${index + 1}" }
+                val widget = field.widgets.first().apply {
+                    rectangle = PDRectangle(60f, 700f, 300f, 24f)
+                    this.page = page
+                }
+                page.annotations.add(widget)
+                form.fields.add(field)
+                field.value = "$valuePrefix${index + 1}"
+            }
+            document.save(file)
+        }
+        return file
+    }
+
+    @Test
+    fun aWhiteOutAlsoRemovesTheFormFieldsOnThatPage(): Unit = runBlocking {
+        // A field's typed value lives in the form, not on the page. Flattening the
+        // page drops its widget, but the value would survive in the form unless
+        // the field goes too.
+        val source = formPdf("SecretValue")
+        val output = out("form-redacted")
+
+        PdfEditor.applyPlan(source, output, plan(2, AddMark(coverTopLine(id = 30L, sourceIndex = 0))))
+
+        val raw = String(output.readBytes(), Charsets.ISO_8859_1)
+        assertTrue("the covered field's value must not be in the file", !raw.contains("SecretValue1"))
+        PdfOps.load(output).use { document ->
+            val names = document.documentCatalog.acroForm?.fieldTree?.map { it.fullyQualifiedName }.orEmpty()
+            assertTrue("the covered field is gone, got $names", "field1" !in names)
+            assertTrue("a field on an untouched page stays, got $names", "field2" in names)
+            val kept = document.documentCatalog.acroForm.getField("field2")
+            assertEquals("SecretValue2", kept.valueAsString)
+        }
+    }
 
     @Test
     fun aWhiteOutRemovesTheTextItCoversFromTheFile(): Unit = runBlocking {

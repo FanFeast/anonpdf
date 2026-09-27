@@ -1,8 +1,11 @@
 package io.github.fanfeast.anonpdf.pdf
 
 import android.graphics.Bitmap
+import com.tom_roush.pdfbox.cos.COSArray
+import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
 import com.tom_roush.pdfbox.cos.COSName
+import com.tom_roush.pdfbox.cos.COSObject
 import com.tom_roush.pdfbox.multipdf.PDFCloneUtility
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -315,13 +318,15 @@ object PdfEditor {
 
             val scratchDir = sources[0].file.parentFile ?: output.parentFile
             var flattenedAny = false
+            val droppedAnnotations = mutableSetOf<COSBase>()
             kept.forEachIndexed { position, state ->
                 val page = originals.getOrNull(state.sourceIndex)
                     ?: error("Page ${state.sourceIndex + 1} is not in this document.")
                 applyPageState(document, page, state)
                 // Marks go on after the page geometry is settled, so an opaque
                 // white-out lands exactly where the user drew it.
-                if (drawMarks(document, page, plan.marksFor(state.sourceIndex), scratchDir)) {
+                val marks = plan.marksFor(state.sourceIndex)
+                if (drawMarks(document, page, marks, scratchDir, droppedAnnotations)) {
                     flattenedAny = true
                 }
                 document.addPage(page)
@@ -333,6 +338,7 @@ object PdfEditor {
                 // be the only surviving copy of what the white-out removed.
                 document.documentCatalog.cosObject.removeItem(COSName.STRUCT_TREE_ROOT)
                 document.documentCatalog.cosObject.removeItem(COSName.MARK_INFO)
+                dropFormFields(document, droppedAnnotations)
             }
 
             stampWatermark(document, plan)
@@ -405,7 +411,10 @@ object PdfEditor {
                 originals.forEach { document.pages.remove(it) }
 
                 applyPageState(document, page, state)
-                drawMarks(document, page, plan.marksFor(state.sourceIndex), workDir)
+                drawMarks(
+                    document, page, plan.marksFor(state.sourceIndex), workDir,
+                    droppedAnnotations = mutableSetOf(),
+                )
                 document.addPage(page)
 
                 stampWatermark(document, plan)
@@ -464,6 +473,8 @@ object PdfEditor {
      *
      * Shared by export and preview, so the preview shows the flattened page too.
      *
+     * @param droppedAnnotations collects the annotations a flattened page loses,
+     * so their form fields can be removed from the document too.
      * @return true if the page was flattened.
      */
     private suspend fun drawMarks(
@@ -471,6 +482,7 @@ object PdfEditor {
         page: PDPage,
         marks: List<PageMark>,
         scratchDir: File,
+        droppedAnnotations: MutableSet<COSBase>,
     ): Boolean {
         val lastOpaque = marks.indexOfLast { it is FillMark && !it.isHighlight }
         if (lastOpaque < 0) {
@@ -478,7 +490,7 @@ object PdfEditor {
             return false
         }
         PdfDraw.drawMarks(document, page, marks.subList(0, lastOpaque + 1))
-        flattenPage(document, page, scratchDir)
+        flattenPage(document, page, scratchDir, droppedAnnotations)
         PdfDraw.drawMarks(document, page, marks.subList(lastOpaque + 1, marks.size))
         return true
     }
@@ -491,7 +503,12 @@ object PdfEditor {
      * Everything that could still carry the old content goes: content streams,
      * resources, annotations, the embedded thumbnail and per-page metadata.
      */
-    private suspend fun flattenPage(document: PDDocument, page: PDPage, scratchDir: File) {
+    private suspend fun flattenPage(
+        document: PDDocument,
+        page: PDPage,
+        scratchDir: File,
+        droppedAnnotations: MutableSet<COSBase>,
+    ) {
         val box = page.cropBox
         val quarterTurned = PdfOps.normalizeRotation(page.rotation).let { it == 90 || it == 270 }
         val width = if (quarterTurned) box.height else box.width
@@ -499,6 +516,10 @@ object PdfEditor {
 
         // Annotations are dropped, not rendered: they can hold text of their own,
         // and their /P back-reference would drag the whole page tree into the copy.
+        page.cosObject.getCOSArray(COSName.ANNOTS)?.forEach { entry ->
+            (entry as? COSObject)?.`object`?.let(droppedAnnotations::add)
+                ?: droppedAnnotations.add(entry)
+        }
         page.cosObject.removeItem(COSName.ANNOTS)
 
         // The platform renderer needs a file, so copy just this page into one.
@@ -537,6 +558,54 @@ object PdfEditor {
         } finally {
             bitmap.recycle()
         }
+    }
+
+    /**
+     * Removes form fields whose widgets were on a flattened page.
+     *
+     * Dropping a page's annotations takes the widgets off the page, but the form
+     * itself still lists each field, and a field's value — whatever was typed into
+     * it — lives on the field, not the page. Left in place, a name or account
+     * number typed into a field the user whited out would still be in the file.
+     *
+     * Walks the field tree removing every widget in [droppedAnnotations], then any
+     * field left with no widgets and no child fields. XFA data duplicates field
+     * values in XML, so it goes too whenever a field is removed.
+     */
+    private fun dropFormFields(document: PDDocument, droppedAnnotations: Set<COSBase>) {
+        if (droppedAnnotations.isEmpty()) return
+        val form = document.documentCatalog.cosObject
+            .getCOSDictionary(COSName.ACRO_FORM) ?: return
+        val fields = form.getCOSArray(COSName.FIELDS) ?: return
+        if (pruneFields(fields, droppedAnnotations)) {
+            form.removeItem(COSName.XFA)
+        }
+    }
+
+    /** @return true if anything was removed from [fields]. */
+    private fun pruneFields(fields: COSArray, dropped: Set<COSBase>): Boolean {
+        var removed = false
+        for (index in fields.size() - 1 downTo 0) {
+            val raw = fields.get(index)
+            val field = ((raw as? COSObject)?.`object` ?: raw) as? COSDictionary ?: continue
+            val remove = if (field in dropped) {
+                // A widget, or a field merged with its only widget.
+                true
+            } else {
+                val kids = field.getCOSArray(COSName.KIDS)
+                if (kids == null) {
+                    false
+                } else {
+                    if (pruneFields(kids, dropped)) removed = true
+                    kids.size() == 0
+                }
+            }
+            if (remove) {
+                fields.remove(index)
+                removed = true
+            }
+        }
+        return removed
     }
 
     /** Sharp enough to read small print, small enough to keep files sensible. */
