@@ -8,6 +8,7 @@ import android.util.LruCache
 import android.util.SizeF
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,6 +68,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,12 +77,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -109,6 +112,7 @@ import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.PageState
 import io.github.fanfeast.anonpdf.pdf.PaperSize
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
+import io.github.fanfeast.anonpdf.pdf.PreviewPage
 import io.github.fanfeast.anonpdf.pdf.RemoveMark
 import io.github.fanfeast.anonpdf.pdf.ResizePages
 import io.github.fanfeast.anonpdf.pdf.ResizeTarget
@@ -136,6 +140,8 @@ import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -145,6 +151,16 @@ private const val THUMBNAIL_SPACING_DP = 8
 private const val PREVIEW_BUCKET_PX = 200
 private const val PREVIEW_MAX_PX = 1400
 private const val PREVIEW_DEBOUNCE_MS = 170L
+
+/**
+ * Stops the zoom buttons step through. Pinching goes anywhere in between, up to
+ * the last one: past about 20x the screen shows part of a single letter.
+ */
+private val ZOOM_STEPS = listOf(1f, 1.5f, 2f, 3f, 4f, 6f, 8f, 12f, 16f, 20f)
+private val MAX_ZOOM = ZOOM_STEPS.last()
+
+/** How long the view must hold still before the sharp detail is redrawn. */
+private const val DETAIL_DEBOUNCE_MS = 120L
 
 private const val AUTO_SCROLL_EDGE_PX = 110f
 private const val AUTO_SCROLL_STEP_PX = 14f
@@ -217,6 +233,9 @@ fun EditorScreen(
     var passwordError by remember { mutableStateOf<String?>(null) }
 
     var preview by remember { mutableStateOf<Bitmap?>(null) }
+    // The page [preview] was rendered from, kept open to draw zoomed-in detail.
+    var previewPage by remember { mutableStateOf<PreviewPage?>(null) }
+    DisposableEffect(Unit) { onDispose { previewPage?.close() } }
     var previewBusy by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf<EditorMode>(EditorMode.Normal) }
     var showPending by remember { mutableStateOf(false) }
@@ -257,6 +276,8 @@ fun EditorScreen(
                     session = outcome.session
                     editor = EditorState(outcome.session.pageCount)
                     preview = null
+                    previewPage?.close()
+                    previewPage = null
                     mode = EditorMode.Normal
                     askPassword = false
                     passwordError = null
@@ -426,17 +447,31 @@ fun EditorScreen(
     LaunchedEffect(previewPlan, state.position, previewWidthPx, document, extraSources.size) {
         if (kept.isEmpty()) {
             preview = null
+            previewPage?.close()
+            previewPage = null
             return@LaunchedEffect
         }
         previewBusy = true
         delay(PREVIEW_DEBOUNCE_MS)
-        preview = PdfEditor.renderPreview(
+        val built = PdfEditor.openPreview(
             sources = planSources(),
             plan = previewPlan,
             outputPosition = state.position,
-            targetWidthPx = previewWidthPx,
             workDir = document.sourceFile.parentFile ?: context.cacheDir,
         )
+        val bitmap = try {
+            built?.render(previewWidthPx)
+        } catch (e: CancellationException) {
+            built?.close()
+            throw e
+        } catch (t: Throwable) {
+            null
+        }
+        // Swap both together, so zoomed-in detail is never drawn from another page.
+        previewPage?.close()
+        previewPage = built?.takeIf { bitmap != null }
+        if (bitmap == null) built?.close()
+        preview = bitmap
         previewBusy = false
     }
 
@@ -668,6 +703,9 @@ fun EditorScreen(
             ) {
                 PreviewArea(
                     bitmap = preview,
+                    detail = remember(previewPage) {
+                        previewPage?.let { page -> DetailRenderer(page::renderRegion) }
+                    },
                     pageKey = currentSource,
                     busy = previewBusy,
                     empty = kept.isEmpty(),
@@ -811,6 +849,7 @@ fun EditorScreen(
 @Composable
 internal fun PreviewArea(
     bitmap: Bitmap?,
+    detail: DetailRenderer? = null,
     pageKey: Int? = 0,
     busy: Boolean,
     empty: Boolean,
@@ -858,7 +897,42 @@ internal fun PreviewArea(
             }
             val shownPan = boundedPan(pan, zoom)
             LaunchedEffect(shownPan) { pan = shownPan }
-            onWidthChange(bucket((pageWidthPx * zoom).roundToInt()))
+            onWidthChange(bucket(pageWidthPx.roundToInt()))
+
+            // Zoomed in, [bitmap] is stretched and soft. Once the view holds still,
+            // redraw just the part on screen at screen resolution and lay it over
+            // the top; the soft page stays underneath for whatever pans into view.
+            var tile by remember(pageKey, detail) { mutableStateOf<DetailTile?>(null) }
+            val fullWidthPx = (pageWidthPx * zoom).roundToInt()
+            val fitsBitmap = bitmap != null && pageWidthPx > 0f && pageHeightPx > 0f &&
+                abs(bitmap.width / bitmap.height.toFloat() - pageWidthPx / pageHeightPx) <
+                0.01f * (pageWidthPx / pageHeightPx)
+            val wantsDetail = detail != null && fitsBitmap && fullWidthPx > bitmap!!.width * 1.1f
+            LaunchedEffect(detail, wantsDetail, fullWidthPx, shownPan, viewportWidth, viewportHeight) {
+                if (!wantsDetail || detail == null) {
+                    tile = null
+                    return@LaunchedEffect
+                }
+                delay(DETAIL_DEBOUNCE_MS)
+                val scaledWidth = pageWidthPx * zoom
+                val scaledHeight = pageHeightPx * zoom
+                val pageLeft = viewportWidth / 2f + shownPan.x - scaledWidth / 2f
+                val pageTop = viewportHeight / 2f + shownPan.y - scaledHeight / 2f
+                val left = floor((-pageLeft).coerceAtLeast(0f)).toInt()
+                val top = floor((-pageTop).coerceAtLeast(0f)).toInt()
+                val right = ceil((viewportWidth - pageLeft).coerceAtMost(scaledWidth)).toInt()
+                val bottom = ceil((viewportHeight - pageTop).coerceAtMost(scaledHeight)).toInt()
+                if (right <= left || bottom <= top) return@LaunchedEffect
+                val rendered = try {
+                    detail.render(fullWidthPx, left, top, right - left, bottom - top)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (t: Throwable) {
+                    // The page was replaced or closed mid-render; the soft one stands in.
+                    return@LaunchedEffect
+                }
+                tile = DetailTile(rendered, fullWidthPx, left, top)
+            }
 
             when {
                 empty -> Text(
@@ -885,6 +959,19 @@ internal fun PreviewArea(
                             .fillMaxSize()
                             .background(Color.White),
                     )
+                    tile?.takeIf { fitsBitmap }?.let { shown ->
+                        val image = remember(shown) { shown.bitmap.asImageBitmap() }
+                        Canvas(Modifier.fillMaxSize()) {
+                            // Placed in unzoomed page pixels, with fractions kept: at
+                            // 20x one layout pixel is twenty on screen. The layer's
+                            // zoom then brings it back to one bitmap pixel per screen pixel.
+                            val toPage = size.width / shown.fullWidthPx
+                            withTransform({
+                                translate(shown.left * toPage, shown.top * toPage)
+                                scale(toPage, toPage, pivot = Offset.Zero)
+                            }) { drawImage(image) }
+                        }
+                    }
                     PageOverlays(
                         mode = mode,
                         pageHeightPoints = drawn.height,
@@ -902,7 +989,7 @@ internal fun PreviewArea(
                 Box(
                     Modifier.fillMaxSize().pointerInput(pageWidthPx, pageHeightPx, viewportWidth, viewportHeight) {
                         detectTransformGestures { centroid, delta, factor, _ ->
-                            val nextZoom = (zoom * factor).coerceIn(1f, 5f)
+                            val nextZoom = (zoom * factor).coerceIn(1f, MAX_ZOOM)
                             val center = Offset(viewportWidth / 2f, viewportHeight / 2f)
                             val oldPan = boundedPan(pan, zoom)
                             pan = boundedPan(
@@ -933,15 +1020,15 @@ internal fun PreviewArea(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(
-                    onClick = { zoom = (zoom - 0.5f).coerceAtLeast(1f) },
+                    onClick = { zoom = ZOOM_STEPS.lastOrNull { it < zoom - 0.01f } ?: 1f },
                     enabled = zoom > 1f,
                 ) { Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom out") }
                 TextButton(onClick = { zoom = 1f; pan = Offset.Zero }) {
                     Text("${(zoom * 100).roundToInt()}%")
                 }
                 IconButton(
-                    onClick = { zoom = (zoom + 0.5f).coerceAtMost(5f) },
-                    enabled = zoom < 5f,
+                    onClick = { zoom = ZOOM_STEPS.firstOrNull { it > zoom + 0.01f } ?: MAX_ZOOM },
+                    enabled = zoom < MAX_ZOOM,
                 ) { Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom in") }
                 if (mode.interactsWithPage) {
                     FilterChip(
@@ -957,6 +1044,14 @@ internal fun PreviewArea(
         }
     }
 }
+
+/** Draws one window of the shown page sharply; see [PreviewPage.renderRegion]. */
+internal fun interface DetailRenderer {
+    suspend fun render(fullWidthPx: Int, left: Int, top: Int, width: Int, height: Int): Bitmap
+}
+
+/** A sharp window of the page, as [DetailRenderer] drew it for a [fullWidthPx]-wide page. */
+private class DetailTile(val bitmap: Bitmap, val fullWidthPx: Int, val left: Int, val top: Int)
 
 /** The grab bar. Drag it to resize the drawer, tap it to get it out of the way. */
 @Composable

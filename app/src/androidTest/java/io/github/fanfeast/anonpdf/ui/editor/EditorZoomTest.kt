@@ -27,6 +27,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @RunWith(AndroidJUnit4::class)
 class EditorZoomTest {
@@ -35,6 +37,8 @@ class EditorZoomTest {
     private val mode = mutableStateOf<EditorMode>(EditorMode.Inking(emptyList(), 0xff000000.toInt(), 0.005f))
     private val page = mutableStateOf(0)
     private var renderWidth = 0
+    /** fullWidthPx, left, top, width, height of the last sharp window asked for. */
+    @Volatile private var detailRequest: List<Int>? = null
 
     @Before fun openPreview() {
         val bitmap = Bitmap.createBitmap(300, 300, Bitmap.Config.ARGB_8888)
@@ -44,7 +48,12 @@ class EditorZoomTest {
             activity.setContent {
                 MaterialTheme {
                     PreviewArea(
-                        bitmap = bitmap, pageKey = page.value, busy = false, empty = false,
+                        bitmap = bitmap,
+                        detail = { fullWidthPx, left, top, width, height ->
+                            detailRequest = listOf(fullWidthPx, left, top, width, height)
+                            Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        },
+                        pageKey = page.value, busy = false, empty = false,
                         shownSize = SizeF(300f, 300f), referenceSize = SizeF(300f, 300f),
                         mode = mode.value, onModeChange = { mode.value = it },
                         onWidthChange = { renderWidth = it }, stepper = null,
@@ -63,7 +72,18 @@ class EditorZoomTest {
         val originalRenderWidth = renderWidth
         repeat(2) { compose.onNodeWithContentDescription("Zoom in").performClick() }
         compose.onNodeWithText("200%").assertExists()
-        compose.runOnIdle { assertTrue(renderWidth > originalRenderWidth) }
+        // The whole-page preview stays the same size; only the window on screen
+        // is redrawn, at the zoomed-in resolution.
+        compose.waitUntil(5_000) {
+            detailRequest?.let { abs(it.first() - (originalPage.width * 2f).roundToInt()) <= 1 } == true
+        }
+        val viewportBounds = compose.onNodeWithTag("Editor viewport").fetchSemanticsNode().boundsInRoot
+        compose.runOnIdle {
+            assertEquals(originalRenderWidth, renderWidth)
+            val (fullWidth, left, top, width, height) = detailRequest!!
+            assertTrue(left >= 0 && top >= 0 && left + width <= fullWidth)
+            assertTrue(width <= viewportBounds.width + 1 && height <= viewportBounds.height + 1)
+        }
         compose.onNodeWithText("Move page").performClick()
         val viewport = compose.onNodeWithTag("Editor viewport")
         viewport.performTouchInput {
