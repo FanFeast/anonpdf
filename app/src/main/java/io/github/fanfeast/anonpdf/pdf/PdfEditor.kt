@@ -17,6 +17,7 @@ import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.Closeable
 import java.io.File
 
 /**
@@ -372,10 +373,8 @@ object PdfEditor {
     /**
      * Renders exactly one output page, as the export would produce it.
      *
-     * Built as a single-page document so preview cost does not grow with the size
-     * of the original — a 400-page file previews as fast as a 4-page one. Only
-     * the source that owns the page is opened, so inserting a large document
-     * does not slow down previews of the others' pages either.
+     * One-shot form of [openPreview]: builds the page, renders it [targetWidthPx]
+     * wide and throws the rest away. Null if the page could not be built.
      */
     suspend fun renderPreview(
         sources: List<PlanSource>,
@@ -383,9 +382,63 @@ object PdfEditor {
         outputPosition: Int,
         targetWidthPx: Int,
         workDir: File,
-    ): Bitmap? = withContext(Dispatchers.IO) {
+    ): Bitmap? = openPreview(sources, plan, outputPosition, workDir)?.use { page ->
+        try {
+            page.render(targetWidthPx)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            null
+        }
+    }
+
+    /**
+     * Builds exactly one output page, as the export would produce it, and keeps
+     * it open so it can be rendered again: whole, or one zoomed-in window at a time.
+     *
+     * Built as a single-page document so preview cost does not grow with the size
+     * of the original — a 400-page file previews as fast as a 4-page one. Only
+     * the source that owns the page is opened, so inserting a large document
+     * does not slow down previews of the others' pages either.
+     *
+     * The caller owns the result and must [PreviewPage.close] it. Null if the
+     * page could not be built.
+     */
+    suspend fun openPreview(
+        sources: List<PlanSource>,
+        plan: EditPlan,
+        outputPosition: Int,
+        workDir: File,
+    ): PreviewPage? {
+        val temp = File(workDir, "preview-${System.nanoTime()}.pdf")
+        val built = try {
+            withContext(Dispatchers.IO) { buildPreview(sources, plan, outputPosition, workDir, temp) }
+        } catch (e: CancellationException) {
+            temp.delete()
+            throw e
+        } catch (t: Throwable) {
+            false
+        }
+        // Nothing suspends from here on, so a cancellation cannot drop an open page.
+        return try {
+            if (built) PreviewPage(temp, PdfRasterizer.open(temp)) else null
+        } catch (t: Throwable) {
+            null
+        } finally {
+            if (!built) temp.delete()
+        }
+    }
+
+    /** Writes the one-page document for [openPreview] to [output]; false if there is no such page. */
+    private suspend fun buildPreview(
+        sources: List<PlanSource>,
+        plan: EditPlan,
+        outputPosition: Int,
+        workDir: File,
+        output: File,
+    ): Boolean {
         val kept = plan.kept
-        val state = kept.getOrNull(outputPosition) ?: return@withContext null
+        val state = kept.getOrNull(outputPosition) ?: return false
 
         // Walk the sources' index runs to find the one this page belongs to.
         var owner: PlanSource? = null
@@ -399,45 +452,35 @@ object PdfEditor {
             }
             firstIndex += source.pageCount
         }
-        val resolved = owner ?: return@withContext null
+        val resolved = owner ?: return false
 
-        val temp = File(workDir, "preview-${System.nanoTime()}.pdf")
-        try {
-            PdfOps.load(resolved.file, resolved.password).use { document ->
-                val originals = (0 until document.numberOfPages).map { document.getPage(it) }
-                val page = originals.getOrNull(localIndex)
-                    ?: return@withContext null
-                originals.forEach { PdfOps.pinInheritedAttributes(it) }
-                originals.forEach { document.pages.remove(it) }
+        PdfOps.load(resolved.file, resolved.password).use { document ->
+            val originals = (0 until document.numberOfPages).map { document.getPage(it) }
+            val page = originals.getOrNull(localIndex) ?: return false
+            originals.forEach { PdfOps.pinInheritedAttributes(it) }
+            originals.forEach { document.pages.remove(it) }
 
-                applyPageState(document, page, state)
-                drawMarks(
-                    document, page, plan.marksFor(state.sourceIndex), workDir,
-                    droppedAnnotations = mutableSetOf(),
-                )
-                document.addPage(page)
+            applyPageState(document, page, state)
+            drawMarks(
+                document, page, plan.marksFor(state.sourceIndex), workDir,
+                droppedAnnotations = mutableSetOf(),
+            )
+            document.addPage(page)
 
-                stampWatermark(document, plan)
-                // Tell the stamper where this page sits in the finished document so
-                // the number shown is the number that will be printed.
-                stampPageNumbers(
-                    document = document,
-                    plan = plan,
-                    firstOutputPosition = outputPosition,
-                    totalOutputPages = kept.size,
-                )
+            stampWatermark(document, plan)
+            // Tell the stamper where this page sits in the finished document so
+            // the number shown is the number that will be printed.
+            stampPageNumbers(
+                document = document,
+                plan = plan,
+                firstOutputPosition = outputPosition,
+                totalOutputPages = kept.size,
+            )
 
-                with(PdfOps) { document.prepareForSave() }
-                document.save(temp)
-            }
-            PdfRasterizer.open(temp).use { it.renderByWidth(0, targetWidthPx) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (t: Throwable) {
-            null
-        } finally {
-            temp.delete()
+            with(PdfOps) { document.prepareForSave() }
+            document.save(output)
         }
+        return true
     }
 
     private fun applyPageState(
@@ -663,5 +706,29 @@ object PdfEditor {
             )
             PdfDraw.labelPage(document, document.getPage(index), label, options, font)
         }
+    }
+}
+
+/**
+ * One built preview page from [PdfEditor.openPreview], ready to render.
+ *
+ * Holds a small temporary PDF open; [close] releases it and deletes the file.
+ * Safe to close while a render is in flight: that render fails instead.
+ */
+class PreviewPage internal constructor(
+    private val file: File,
+    private val rasterizer: PdfRasterizer,
+) : Closeable {
+
+    /** The whole page, [widthPx] wide. */
+    suspend fun render(widthPx: Int): Bitmap = rasterizer.renderByWidth(0, widthPx)
+
+    /** One window of the page as it looks [fullWidthPx] wide; see [PdfRasterizer.renderRegion]. */
+    suspend fun renderRegion(fullWidthPx: Int, left: Int, top: Int, width: Int, height: Int): Bitmap =
+        rasterizer.renderRegion(0, fullWidthPx, left, top, width, height)
+
+    override fun close() {
+        rasterizer.close()
+        file.delete()
     }
 }

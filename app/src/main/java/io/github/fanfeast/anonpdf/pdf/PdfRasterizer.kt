@@ -2,6 +2,7 @@ package io.github.fanfeast.anonpdf.pdf
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.SizeF
@@ -67,6 +68,34 @@ class PdfRasterizer private constructor(
             val scale = targetWidthPx.toFloat() / page.width.toFloat()
             val height = max(1, (page.height * scale).roundToInt())
             drawPage(page, max(1, targetWidthPx), height)
+        }
+    }
+
+    /**
+     * Renders one [width] x [height] window of [index], as it would appear in a
+     * rendering of the whole page [fullWidthPx] wide, with [left], [top] its corner.
+     *
+     * The cost follows the window, not the page, so a zoomed-in view stays sharp
+     * at any magnification without holding a giant bitmap of the whole page.
+     */
+    suspend fun renderRegion(
+        index: Int,
+        fullWidthPx: Int,
+        left: Int,
+        top: Int,
+        width: Int,
+        height: Int,
+    ): Bitmap = locked {
+        renderer.openPage(index).use { page ->
+            val scale = fullWidthPx.toFloat() / page.width.toFloat()
+            val bitmap = createBitmap(max(1, width), max(1, height))
+            bitmap.eraseColor(Color.WHITE)
+            val transform = Matrix().apply {
+                setScale(scale, scale)
+                postTranslate(-left.toFloat(), -top.toFloat())
+            }
+            page.render(bitmap, null, transform, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+            bitmap
         }
     }
 

@@ -512,7 +512,7 @@ fun InkPanel(
         onRemove = if (existingCount > 0) onClearPage else null,
     ) {
         Text(
-            "Draw straight onto the page above.",
+            "Zoom with + or choose Move page to pinch and pan. Resume editing to draw.",
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
