@@ -99,3 +99,5 @@ jobs:
         with:
           files: app/build/outputs/apk/release/app-release.apk
           generate_release_notes: true
+          # v1.0.0-rc.1 and the like are candidates, not the latest release.
+          prerelease: ${{ contains(github.ref_name, '-') }}
