@@ -111,7 +111,7 @@ fun AnonPdfApp(initialUri: Uri?) {
 
         composable(route = Routes.EDITOR, arguments = optionalUriArg()) { entry ->
             EditorScreen(
-                initialUri = entry.arguments?.getString("uri")?.toUri(),
+                initialDocument = entry.arguments?.getString("uri")?.toUri(),
                 onBack = { navController.popBackStack() },
                 onOpenTool = { id, toolUri -> openTool(id, toolUri) },
             )

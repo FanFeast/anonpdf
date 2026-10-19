@@ -37,8 +37,21 @@ class EditorToolPagesTest {
 
     @Test
     fun `page count constant matches the pages built`() {
-        assertEquals(TOOL_PAGE_COUNT, toolPages(currentPageDeleted = false).size)
-        assertEquals(TOOL_PAGE_COUNT, toolPages(currentPageDeleted = true).size)
+        assertEquals(toolPageCount(), toolPages(currentPageDeleted = false).size)
+        assertEquals(toolPageCount(), toolPages(currentPageDeleted = true).size)
+        assertEquals(
+            toolPageCount(includeHandOffs = false),
+            toolPages(currentPageDeleted = true, includeHandOffs = false).size,
+        )
+    }
+
+    @Test
+    fun `without one-shot tools every in-editor tool is still reachable`() {
+        val placed = toolPages(currentPageDeleted = false, includeHandOffs = false).flatMap { it.tools }
+        val expected = EditorTool.entries.filterNot { it.handsOff } - EditorTool.RESTORE
+
+        assertEquals(expected.toSet(), placed.toSet())
+        assertTrue(placed.none { it.handsOff })
     }
 
     @Test

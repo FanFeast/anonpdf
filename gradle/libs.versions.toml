@@ -19,6 +19,10 @@ pdfboxDesktop = "2.0.37"
 # 1.11 line the Android app uses, so the screens both build against the same API.
 composeMultiplatform = "1.11.1"
 composeMaterial3Desktop = "1.9.0"
+# The last release of the extended icon set, as on Android (Compose BOM: 1.7.8).
+composeIconsDesktop = "1.7.3"
+# JetBrains' desktop build of androidx.lifecycle, the line Compose 1.11 uses.
+lifecycleDesktop = "2.9.6"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
 espresso = "3.7.0"
@@ -47,6 +51,8 @@ androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-te
 pdfbox-android = { group = "com.tom-roush", name = "pdfbox-android", version.ref = "pdfbox" }
 pdfbox-desktop = { group = "org.apache.pdfbox", name = "pdfbox", version.ref = "pdfboxDesktop" }
 compose-desktop-material3 = { group = "org.jetbrains.compose.material3", name = "material3", version.ref = "composeMaterial3Desktop" }
+compose-desktop-icons-extended = { group = "org.jetbrains.compose.material", name = "material-icons-extended", version.ref = "composeIconsDesktop" }
+lifecycle-viewmodel-compose-desktop = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleDesktop" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }

@@ -7,6 +7,7 @@
 // keep in sync by hand. Only what differs per platform (how a page becomes an
 // image, which image type that is) lives here, in src/main.
 plugins {
+    `java-library`
     alias(libs.plugins.kotlin.jvm)
 }
 
@@ -34,7 +35,8 @@ sourceSets {
 }
 
 dependencies {
-    implementation(libs.pdfbox.desktop)
+    // api: the engine's functions hand out PDFBox types, so its users compile against them.
+    api(libs.pdfbox.desktop)
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
 }

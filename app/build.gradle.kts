@@ -78,6 +78,9 @@ android {
     // same source (see desktop-engine/). This module still builds it directly.
     sourceSets {
         getByName("main").kotlin.srcDir("../shared-engine/src/main/kotlin")
+        // The screens shared with the desktop app, likewise.
+        getByName("main").kotlin.srcDir("../shared-ui/src/main/kotlin")
+        getByName("test").kotlin.srcDir("../shared-ui/src/test/kotlin")
         getByName("test").kotlin.srcDir("../shared-engine/src/test/kotlin")
         // Engine tests that need a real renderer run on a device here.
         getByName("androidTest").kotlin.srcDir("../shared-engine/src/deviceTest/kotlin")

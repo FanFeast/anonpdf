@@ -1,11 +1,11 @@
 package io.github.fanfeast.anonpdf.ui.editor
 
-import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
 
 /**
@@ -34,7 +34,7 @@ class EditorHolder : ViewModel() {
      * The merge pipeline: picked files waiting to be opened, then opened documents
      * waiting for the user to say where they go.
      */
-    var insertQueue by mutableStateOf<List<Uri>>(emptyList())
+    var insertQueue by mutableStateOf<List<DocumentRef>>(emptyList())
     var insertReady by mutableStateOf<List<DocumentSession>>(emptyList())
 
     override fun onCleared() {

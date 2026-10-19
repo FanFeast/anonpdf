@@ -23,23 +23,6 @@ data class InputDoc(
     val isReady: Boolean get() = localFile != null && !needsPassword && error == null
 }
 
-sealed interface ToolResult {
-    val note: String?
-
-    data class One(
-        val file: File,
-        val suggestedName: String,
-        val isText: Boolean = false,
-        override val note: String? = null,
-    ) : ToolResult
-
-    data class Many(
-        val files: List<File>,
-        val isText: Boolean = false,
-        override val note: String? = null,
-    ) : ToolResult
-}
-
 enum class CompressMode(val label: String, val explanation: String) {
     SMART(
         "Keep text",
