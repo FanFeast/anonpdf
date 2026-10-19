@@ -49,8 +49,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-/** Everything the editor can do, in the order the pages present them. */
-enum class EditorTool(val label: String, val icon: ImageVector) {
+/**
+ * Everything the editor can do, in the order the pages present them.
+ *
+ * [handsOff] tools open a separate one-shot screen with the document, rather than
+ * changing the pending plan; a platform without those screens leaves them out.
+ */
+enum class EditorTool(val label: String, val icon: ImageVector, val handsOff: Boolean = false) {
     ROTATE_LEFT("Left", Icons.AutoMirrored.Filled.RotateLeft),
     ROTATE_RIGHT("Right", Icons.AutoMirrored.Filled.RotateRight),
     CROP("Crop", Icons.Filled.Crop),
@@ -67,16 +72,16 @@ enum class EditorTool(val label: String, val icon: ImageVector) {
     PAGE_NUMBERS("Numbers", Icons.Filled.Numbers),
 
     MERGE("Merge", Icons.AutoMirrored.Filled.MergeType),
-    SPLIT("Split", Icons.Filled.ContentCut),
-    EXTRACT("Extract", Icons.Filled.FilterNone),
-    COMPRESS("Compress", Icons.Filled.Compress),
+    SPLIT("Split", Icons.Filled.ContentCut, handsOff = true),
+    EXTRACT("Extract", Icons.Filled.FilterNone, handsOff = true),
+    COMPRESS("Compress", Icons.Filled.Compress, handsOff = true),
 
-    TO_IMAGES("To images", Icons.Filled.Image),
-    FROM_IMAGES("From images", Icons.Filled.PictureAsPdf),
-    EXTRACT_TEXT("Get text", Icons.AutoMirrored.Filled.Article),
-    SIGN("Sign", Icons.Filled.Draw),
-    PROTECT("Protect", Icons.Filled.Lock),
-    UNLOCK("Unlock", Icons.Filled.LockOpen),
+    TO_IMAGES("To images", Icons.Filled.Image, handsOff = true),
+    FROM_IMAGES("From images", Icons.Filled.PictureAsPdf, handsOff = true),
+    EXTRACT_TEXT("Get text", Icons.AutoMirrored.Filled.Article, handsOff = true),
+    SIGN("Sign", Icons.Filled.Draw, handsOff = true),
+    PROTECT("Protect", Icons.Filled.Lock, handsOff = true),
+    UNLOCK("Unlock", Icons.Filled.LockOpen, handsOff = true),
 }
 
 /**
@@ -92,7 +97,14 @@ data class ToolPage(val title: String, val tools: List<EditorTool>)
  * ones act on the document with those pending changes already applied, so
  * "compress" after "delete three pages" means what it looks like it means.
  */
-fun toolPages(currentPageDeleted: Boolean): List<ToolPage> = listOf(
+fun toolPages(
+    currentPageDeleted: Boolean,
+    includeHandOffs: Boolean = true,
+): List<ToolPage> = allToolPages(currentPageDeleted)
+    .map { page -> if (includeHandOffs) page else page.copy(tools = page.tools.filterNot { it.handsOff }) }
+    .filter { it.tools.isNotEmpty() }
+
+private fun allToolPages(currentPageDeleted: Boolean): List<ToolPage> = listOf(
     ToolPage(
         "Pages",
         listOf(
@@ -138,7 +150,8 @@ fun toolPages(currentPageDeleted: Boolean): List<ToolPage> = listOf(
 )
 
 /** How many pages [toolPages] returns, for hoisting the pager's state. */
-const val TOOL_PAGE_COUNT = 4
+fun toolPageCount(includeHandOffs: Boolean = true): Int =
+    toolPages(currentPageDeleted = false, includeHandOffs = includeHandOffs).size
 
 /** Two rows of [ToolCell]s: icon + label + padding, twice. */
 private val TOOL_GRID_HEIGHT = 136.dp

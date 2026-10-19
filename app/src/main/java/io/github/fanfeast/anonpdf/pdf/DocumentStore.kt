@@ -18,6 +18,9 @@ import java.io.File
 class DocumentStore(private val context: Context) {
 
     private val workDir: File = File(context.cacheDir, "work").apply { mkdirs() }
+
+    /** Private scratch space for previews and other short-lived files. */
+    val scratchDir: File get() = context.cacheDir
     private val outDir: File = File(context.cacheDir, "out").apply { mkdirs() }
 
     /**

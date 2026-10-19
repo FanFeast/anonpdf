@@ -1,11 +1,10 @@
 package io.github.fanfeast.anonpdf.ui.common
 
-import android.net.Uri
-import android.util.SizeF
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.PdfRasterizer
 import io.github.fanfeast.anonpdf.pdf.PdfWrongPasswordException
+import io.github.fanfeast.anonpdf.pdf.SizeF
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -19,7 +18,7 @@ import java.io.File
  * copy-to-cache, unlock-if-needed, open-renderer dance lives in one place.
  */
 class DocumentSession(
-    val uri: Uri,
+    val uri: DocumentRef,
     val name: String,
     /** The original file, still encrypted if it arrived that way. */
     val sourceFile: File,
@@ -50,7 +49,7 @@ sealed interface OpenOutcome {
  */
 suspend fun openDocumentSession(
     store: DocumentStore,
-    uri: Uri,
+    uri: DocumentRef,
     password: String? = null,
     existingFile: File? = null,
 ): OpenOutcome = try {

@@ -253,8 +253,9 @@ artifact.
 ## How it is put together
 
 Kotlin, Jetpack Compose, no dependency-injection framework and no architecture
-ceremony beyond what the size justifies. The PDF engine is shared with a desktop
-build that is in progress; the Android app is the only one that ships today.
+ceremony beyond what the size justifies. The PDF engine and the editor screens
+are shared with a desktop app that is in progress; the Android app is the only
+one that ships today.
 
 ```
 shared-engine/src/     The engine, shared by Android and desktop. File in, file out.
@@ -273,12 +274,17 @@ app/src/main/java/io/github/fanfeast/anonpdf/
 │   ├── PdfRasterizer.kt Wraps android.graphics.pdf.PdfRenderer
 │   ├── PdfConvert.kt    Compression, page export, images → PDF
 │   └── DocumentStore.kt Moves bytes between SAF and the private cache
+├── ui/common/Platform.kt  What the shared screens' file types and pickers are here
 ├── storage/      Optional all-files access and the PDF scanner
 ├── data/         Recent files and preferences (DataStore)
 └── ui/           Compose screens: viewer, editor, browser, tools
 
+shared-ui/src/main/.../ui/   Screens shared with the desktop app: the editor,
+                             its panels and overlays, theme, common components
+
 desktop-engine/   The engine compiled for Windows and Linux (see below)
-desktop/          The desktop app (in progress): a native window, no browser
+desktop/          The desktop app (in progress): a native window, no browser,
+                  running the shared editor
 ```
 
 Four decisions worth explaining:
@@ -304,6 +310,12 @@ generated at build time with the upstream package name (`org.apache.pdfbox`) put
 back. What genuinely differs per platform — the image type, and how a page is
 rasterised (Android's built-in renderer; PDFBox's own on desktop) — is a small
 file on each side. The same editor tests run against both.
+
+The editor screens are shared the same way, without the rename: Compose
+Multiplatform uses Jetpack Compose's own `androidx.compose` packages. Each side
+has a small `Platform.kt` saying what a document reference is (a content URI on
+Android, a file on desktop) and how the user picks one, plus its own result card
+for saving.
 
 **Page edits happen in place.** Reordering or deleting pins each page's inherited
 attributes, detaches every page from the page tree, then re-attaches them in the

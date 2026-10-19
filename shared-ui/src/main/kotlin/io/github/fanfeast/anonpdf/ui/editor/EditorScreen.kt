@@ -2,12 +2,7 @@
 
 package io.github.fanfeast.anonpdf.ui.editor
 
-import android.graphics.Bitmap
-import android.net.Uri
-import android.util.LruCache
-import android.util.SizeF
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.collection.LruCache
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -75,6 +70,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -82,12 +78,10 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -95,7 +89,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.fanfeast.anonpdf.pdf.AddMark
 import io.github.fanfeast.anonpdf.pdf.CropInsets
@@ -111,6 +104,8 @@ import io.github.fanfeast.anonpdf.pdf.MovePage
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.PageState
 import io.github.fanfeast.anonpdf.pdf.PaperSize
+import io.github.fanfeast.anonpdf.pdf.PageImage
+import io.github.fanfeast.anonpdf.pdf.SizeF
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.PreviewPage
 import io.github.fanfeast.anonpdf.pdf.RemoveMark
@@ -124,7 +119,14 @@ import io.github.fanfeast.anonpdf.pdf.SetPageNumbers
 import io.github.fanfeast.anonpdf.pdf.SetWatermark
 import io.github.fanfeast.anonpdf.pdf.TextMark
 import io.github.fanfeast.anonpdf.pdf.WatermarkOptions
+import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
+import io.github.fanfeast.anonpdf.ui.common.documentRefOf
+import io.github.fanfeast.anonpdf.ui.common.memoryBytes
+import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdf
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdfs
+import io.github.fanfeast.anonpdf.ui.common.toImageBitmap
 import io.github.fanfeast.anonpdf.ui.common.OpenOutcome
 import io.github.fanfeast.anonpdf.ui.common.openDocumentSession
 import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
@@ -136,7 +138,6 @@ import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
 import io.github.fanfeast.anonpdf.ui.tools.ToolId
 import io.github.fanfeast.anonpdf.ui.tools.ToolResult
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.android.awaitFrame
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -210,14 +211,14 @@ internal sealed interface EditorMode {
 
 @Composable
 fun EditorScreen(
-    initialUri: Uri?,
+    initialDocument: DocumentRef?,
     onBack: () -> Unit,
-    onOpenTool: (ToolId, Uri) -> Unit,
+    /** Opens a one-shot tool on the document; null where the platform has none yet. */
+    onOpenTool: ((ToolId, DocumentRef) -> Unit)?,
 ) {
-    val context = LocalContext.current
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
-    val store = remember { DocumentStore(context) }
+    val store = rememberDocumentStore()
     val snackbarHost = remember { SnackbarHostState() }
 
     // The document and its edits live in the holder, not in remember: opening a
@@ -228,11 +229,11 @@ fun EditorScreen(
     var editor by holder::editor
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var pendingUri by remember { mutableStateOf<Uri?>(null) }
+    var pendingUri by remember { mutableStateOf<DocumentRef?>(null) }
     var askPassword by remember { mutableStateOf(false) }
     var passwordError by remember { mutableStateOf<String?>(null) }
 
-    var preview by remember { mutableStateOf<Bitmap?>(null) }
+    var preview by remember { mutableStateOf<PageImage?>(null) }
     // The page [preview] was rendered from, kept open to draw zoomed-in detail.
     var previewPage by remember { mutableStateOf<PreviewPage?>(null) }
     DisposableEffect(Unit) { onDispose { previewPage?.close() } }
@@ -241,15 +242,15 @@ fun EditorScreen(
     var showPending by remember { mutableStateOf(false) }
     var drawerHeight by remember { mutableStateOf(DRAWER_COMPACT) }
     // Hoisted so the group the user swiped to survives opening and closing a tool.
-    val toolPager = rememberPagerState(pageCount = { TOOL_PAGE_COUNT })
+    val toolPager = rememberPagerState(pageCount = { toolPageCount(includeHandOffs = onOpenTool != null) })
 
     var busyMessage by remember { mutableStateOf<String?>(null) }
     var progress by remember { mutableStateOf(0f) }
     var result by remember { mutableStateOf<ToolResult?>(null) }
 
     val thumbnails = remember {
-        object : LruCache<Int, Bitmap>(20 * 1024) {
-            override fun sizeOf(key: Int, value: Bitmap): Int = value.byteCount / 1024
+        object : LruCache<Int, PageImage>(20 * 1024) {
+            override fun sizeOf(key: Int, value: PageImage): Int = value.memoryBytes / 1024
         }
     }
 
@@ -259,7 +260,7 @@ fun EditorScreen(
     var insertNeedsPassword by remember { mutableStateOf(false) }
     var insertPasswordError by remember { mutableStateOf<String?>(null) }
 
-    fun load(uri: Uri, password: String?) {
+    fun load(uri: DocumentRef, password: String?) {
         scope.launch {
             loading = true
             error = null
@@ -337,21 +338,17 @@ fun EditorScreen(
         }
     }
 
-    val pickPdf = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri -> if (uri != null) load(uri, null) }
+    val pickPdf = rememberOpenPdf { uri -> load(uri, null) }
 
-    val pickInsert = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris ->
+    val pickInsert = rememberOpenPdfs { uris ->
         if (uris.isNotEmpty()) {
             insertQueue = insertQueue + uris
             processInsertQueue()
         }
     }
 
-    LaunchedEffect(initialUri) {
-        if (initialUri != null && session == null) load(initialUri, null)
+    LaunchedEffect(initialDocument) {
+        if (initialDocument != null && session == null) load(initialDocument, null)
     }
 
     val document = session
@@ -361,7 +358,7 @@ fun EditorScreen(
         EmptyEditor(
             loading = loading,
             error = error,
-            onPick = { pickPdf.launch(arrayOf("application/pdf")) },
+            onPick = pickPdf,
             onBack = onBack,
         )
         if (askPassword) {
@@ -457,7 +454,7 @@ fun EditorScreen(
             sources = planSources(),
             plan = previewPlan,
             outputPosition = state.position,
-            workDir = document.sourceFile.parentFile ?: context.cacheDir,
+            workDir = document.sourceFile.parentFile ?: store.scratchDir,
         )
         val bitmap = try {
             built?.render(previewWidthPx)
@@ -486,10 +483,11 @@ fun EditorScreen(
      * so "delete three pages, then compress" compresses what you are looking at.
      */
     fun handOff(tool: ToolId) {
+        val openTool = onOpenTool ?: return
         scope.launch {
             error = null
             if (!plan.hasChanges) {
-                onOpenTool(tool, document.uri)
+                openTool(tool, document.uri)
                 return@launch
             }
             busyMessage = "Applying your edits first…"
@@ -504,7 +502,7 @@ fun EditorScreen(
                     output = staged,
                     plan = plan,
                 ) { value -> progress = value }
-                onOpenTool(tool, "file://${staged.absolutePath}".toUri())
+                openTool(tool, documentRefOf(staged))
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
@@ -596,7 +594,7 @@ fun EditorScreen(
             // Merge happens here rather than in the one-shot tool: the picked
             // documents' pages join the plan, where the whole arsenal — reorder,
             // rotate, crop, marks, delete — applies to them like any other page.
-            EditorTool.MERGE -> pickInsert.launch(arrayOf("application/pdf"))
+            EditorTool.MERGE -> pickInsert()
             EditorTool.SPLIT -> handOff(ToolId.SPLIT)
             EditorTool.EXTRACT -> handOff(ToolId.EXTRACT)
             EditorTool.COMPRESS -> handOff(ToolId.COMPRESS)
@@ -762,6 +760,7 @@ fun EditorScreen(
                                     plan = plan,
                                     mode = mode,
                                     toolPager = toolPager,
+                                    includeHandOffs = onOpenTool != null,
                                     resolveSource = { global -> resolveSource(global) },
                                     thumbnails = thumbnails,
                                     currentSource = currentSource,
@@ -848,7 +847,7 @@ fun EditorScreen(
  */
 @Composable
 internal fun PreviewArea(
-    bitmap: Bitmap?,
+    bitmap: PageImage?,
     detail: DetailRenderer? = null,
     pageKey: Int? = 0,
     busy: Boolean,
@@ -952,7 +951,7 @@ internal fun PreviewArea(
                         },
                 ) {
                     Image(
-                        bitmap = bitmap.asImageBitmap(),
+                        bitmap = bitmap.toImageBitmap(),
                         contentDescription = "Page preview",
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
@@ -960,7 +959,7 @@ internal fun PreviewArea(
                             .background(Color.White),
                     )
                     tile?.takeIf { fitsBitmap }?.let { shown ->
-                        val image = remember(shown) { shown.bitmap.asImageBitmap() }
+                        val image = remember(shown) { shown.bitmap.toImageBitmap() }
                         Canvas(Modifier.fillMaxSize()) {
                             // Placed in unzoomed page pixels, with fractions kept: at
                             // 20x one layout pixel is twenty on screen. The layer's
@@ -1047,11 +1046,11 @@ internal fun PreviewArea(
 
 /** Draws one window of the shown page sharply; see [PreviewPage.renderRegion]. */
 internal fun interface DetailRenderer {
-    suspend fun render(fullWidthPx: Int, left: Int, top: Int, width: Int, height: Int): Bitmap
+    suspend fun render(fullWidthPx: Int, left: Int, top: Int, width: Int, height: Int): PageImage
 }
 
 /** A sharp window of the page, as [DetailRenderer] drew it for a [fullWidthPx]-wide page. */
-private class DetailTile(val bitmap: Bitmap, val fullWidthPx: Int, val left: Int, val top: Int)
+private class DetailTile(val bitmap: PageImage, val fullWidthPx: Int, val left: Int, val top: Int)
 
 /** The grab bar. Drag it to resize the drawer, tap it to get it out of the way. */
 @Composable
@@ -1169,8 +1168,10 @@ private fun DrawerBody(
     plan: EditPlan,
     mode: EditorMode,
     toolPager: PagerState,
+    /** Whether one-shot tools exist on this platform, so their tiles are shown. */
+    includeHandOffs: Boolean,
     resolveSource: (Int) -> Pair<DocumentSession, Int>?,
-    thumbnails: LruCache<Int, Bitmap>,
+    thumbnails: LruCache<Int, PageImage>,
     currentSource: Int?,
     insertDocs: List<Pair<String, Int>>,
     onModeChange: (EditorMode) -> Unit,
@@ -1220,6 +1221,7 @@ private fun DrawerBody(
                 ToolPager(
                     pagerState = toolPager,
                     pages = toolPages(
+                        includeHandOffs = includeHandOffs,
                         currentPageDeleted = currentSource?.let { source ->
                             plan.pages.firstOrNull { it.sourceIndex == source }?.deleted
                         } ?: false,
@@ -1561,7 +1563,7 @@ private fun EmptyEditor(
 private fun PageStrip(
     plan: EditPlan,
     resolveSource: (Int) -> Pair<DocumentSession, Int>?,
-    cache: LruCache<Int, Bitmap>,
+    cache: LruCache<Int, PageImage>,
     selection: Set<Int>,
     currentSourceIndex: Int?,
     selecting: Boolean,
@@ -1626,7 +1628,7 @@ private fun PageStrip(
         if (scrollDirection == 0) return@LaunchedEffect
         while (true) {
             listState.scrollBy(scrollDirection * AUTO_SCROLL_STEP_PX)
-            awaitFrame()
+            withFrameNanos { }
         }
     }
 
@@ -1728,7 +1730,7 @@ private fun Thumbnail(
     page: PageState,
     position: Int?,
     resolveSource: (Int) -> Pair<DocumentSession, Int>?,
-    cache: LruCache<Int, Bitmap>,
+    cache: LruCache<Int, PageImage>,
     selected: Boolean,
     current: Boolean,
     selecting: Boolean,
@@ -1771,7 +1773,7 @@ private fun Thumbnail(
         ) {
             bitmap?.let {
                 Image(
-                    bitmap = it.asImageBitmap(),
+                    bitmap = it.toImageBitmap(),
                     contentDescription = position?.let { "Page $it" } ?: "Deleted page",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
