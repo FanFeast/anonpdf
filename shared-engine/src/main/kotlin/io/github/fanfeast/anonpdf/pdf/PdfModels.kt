@@ -1,6 +1,5 @@
 package io.github.fanfeast.anonpdf.pdf
 
-import android.graphics.Bitmap
 
 /** Reports 0f..1f completion so long operations can drive a progress bar. */
 typealias Progress = (Float) -> Unit
@@ -86,7 +85,7 @@ data class CropInsets(
  */
 data class ImageStamp(
     val pageIndex: Int,
-    val bitmap: Bitmap,
+    val bitmap: PageImage,
     val centerXRatio: Float,
     val centerYRatio: Float,
     val widthRatio: Float,

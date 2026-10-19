@@ -1,6 +1,5 @@
 package io.github.fanfeast.anonpdf.pdf
 
-import android.graphics.Bitmap
 import com.tom_roush.pdfbox.cos.COSArray
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSDictionary
@@ -362,7 +361,7 @@ object PdfEditor {
         targetWidthPx: Int,
         workDir: File,
         password: String? = null,
-    ): Bitmap? = renderPreview(
+    ): PageImage? = renderPreview(
         sources = listOf(PlanSource(input, password, Int.MAX_VALUE)),
         plan = plan,
         outputPosition = outputPosition,
@@ -382,7 +381,7 @@ object PdfEditor {
         outputPosition: Int,
         targetWidthPx: Int,
         workDir: File,
-    ): Bitmap? = openPreview(sources, plan, outputPosition, workDir)?.use { page ->
+    ): PageImage? = openPreview(sources, plan, outputPosition, workDir)?.use { page ->
         try {
             page.render(targetWidthPx)
         } catch (e: CancellationException) {
@@ -584,7 +583,7 @@ object PdfEditor {
 
         try {
             // Rendered onto white, so there is no transparency to keep.
-            bitmap.setHasAlpha(false)
+            bitmap.dropAlpha()
             val image = JPEGFactory.createFromImage(document, bitmap, FLATTEN_JPEG_QUALITY)
             for (name in FLATTEN_DROPPED_KEYS) page.cosObject.removeItem(name)
             page.resources = PDResources()
@@ -599,7 +598,7 @@ object PdfEditor {
                 true,
             ).use { stream -> stream.drawImage(image, 0f, 0f, width, height) }
         } finally {
-            bitmap.recycle()
+            bitmap.release()
         }
     }
 
@@ -721,10 +720,10 @@ class PreviewPage internal constructor(
 ) : Closeable {
 
     /** The whole page, [widthPx] wide. */
-    suspend fun render(widthPx: Int): Bitmap = rasterizer.renderByWidth(0, widthPx)
+    suspend fun render(widthPx: Int): PageImage = rasterizer.renderByWidth(0, widthPx)
 
     /** One window of the page as it looks [fullWidthPx] wide; see [PdfRasterizer.renderRegion]. */
-    suspend fun renderRegion(fullWidthPx: Int, left: Int, top: Int, width: Int, height: Int): Bitmap =
+    suspend fun renderRegion(fullWidthPx: Int, left: Int, top: Int, width: Int, height: Int): PageImage =
         rasterizer.renderRegion(0, fullWidthPx, left, top, width, height)
 
     override fun close() {

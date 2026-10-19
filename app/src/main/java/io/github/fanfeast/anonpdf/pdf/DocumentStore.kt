@@ -114,10 +114,9 @@ class DocumentStore(private val context: Context) {
     companion object {
         private const val TRASH_PREFIX = "trash-"
 
-        fun sanitize(name: String): String =
-            name.replace(Regex("[^A-Za-z0-9._-]"), "_").take(80).ifEmpty { "document" }
+        fun sanitize(name: String): String = FileNames.sanitize(name)
 
         /** "report.pdf" -> "report", so we can build "report-compressed.pdf". */
-        fun stem(name: String): String = name.substringBeforeLast('.', name).ifEmpty { "document" }
+        fun stem(name: String): String = FileNames.stem(name)
     }
 }

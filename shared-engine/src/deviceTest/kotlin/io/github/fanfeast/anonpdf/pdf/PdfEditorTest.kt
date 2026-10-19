@@ -1,10 +1,5 @@
 package io.github.fanfeast.anonpdf.pdf
 
-import android.content.Context
-import android.graphics.Bitmap
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.core.graphics.scale
-import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
@@ -20,7 +15,6 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
 import java.io.File
 import kotlin.math.abs
 
@@ -28,16 +22,13 @@ import kotlin.math.abs
  * The editor's promise is that the preview is the output. These tests hold it to
  * that by rendering both and comparing pixels.
  */
-@RunWith(AndroidJUnit4::class)
 class PdfEditorTest {
 
-    private lateinit var context: Context
     private lateinit var workDir: File
 
     @Before
     fun setUp() {
-        context = InstrumentationRegistry.getInstrumentation().targetContext
-        workDir = File(context.cacheDir, "editortest").apply {
+        workDir = TestPlatform.scratchDir("editortest").apply {
             deleteRecursively()
             mkdirs()
         }
@@ -74,14 +65,14 @@ class PdfEditorTest {
         EditPlanBuilder.build(pageCount, ops.toList())
 
     /** Fraction of sampled pixels that differ between two same-size bitmaps. */
-    private fun differingFraction(a: Bitmap, b: Bitmap): Float {
+    private fun differingFraction(a: PageImage, b: PageImage): Float {
         if (a.width != b.width || a.height != b.height) return 1f
         var differing = 0
         var total = 0
         for (y in 0 until a.height step 3) {
             for (x in 0 until a.width step 3) {
                 total++
-                if (a.getPixel(x, y) != b.getPixel(x, y)) differing++
+                if (a.argbAt(x, y) != b.argbAt(x, y)) differing++
             }
         }
         return if (total == 0) 0f else differing.toFloat() / total
@@ -94,14 +85,14 @@ class PdfEditorTest {
      * is not, while still being nowhere near able to hide a page whose content was
      * clipped or moved.
      */
-    private fun averageChannelDifference(a: Bitmap, b: Bitmap): Float {
+    private fun averageChannelDifference(a: PageImage, b: PageImage): Float {
         if (a.width != b.width || a.height != b.height) return 255f
         var total = 0L
         var samples = 0
         for (y in 0 until a.height step 3) {
             for (x in 0 until a.width step 3) {
-                val left = a.getPixel(x, y)
-                val right = b.getPixel(x, y)
+                val left = a.argbAt(x, y)
+                val right = b.argbAt(x, y)
                 total += abs(((left shr 16) and 0xFF) - ((right shr 16) and 0xFF))
                 total += abs(((left shr 8) and 0xFF) - ((right shr 8) and 0xFF))
                 total += abs((left and 0xFF) - (right and 0xFF))
@@ -112,13 +103,13 @@ class PdfEditorTest {
     }
 
     /** Fraction of pixels that are not white — i.e. how much was actually drawn. */
-    private fun inkFraction(bitmap: Bitmap): Float {
+    private fun inkFraction(bitmap: PageImage): Float {
         var ink = 0
         var total = 0
         for (y in 0 until bitmap.height step 3) {
             for (x in 0 until bitmap.width step 3) {
                 total++
-                if (bitmap.getPixel(x, y) != android.graphics.Color.WHITE) ink++
+                if (bitmap.argbAt(x, y) != TestPlatform.WHITE) ink++
             }
         }
         return if (total == 0) 0f else ink.toFloat() / total
@@ -201,8 +192,8 @@ class PdfEditorTest {
                     "preview $position must match the export, differing=$difference",
                     difference < 0.01f,
                 )
-                preview.recycle()
-                exported.recycle()
+                preview.release()
+                exported.release()
             }
         }
     }
@@ -253,7 +244,7 @@ class PdfEditorTest {
             aspect,
             0.02f,
         )
-        rendered.recycle()
+        rendered.release()
     }
 
     /**
@@ -315,7 +306,7 @@ class PdfEditorTest {
         val after = if (rendered.height == before.height) {
             rendered
         } else {
-            rendered.scale(before.width, before.height)
+            rendered.scaledTo(before.width, before.height)
         }
 
         val difference = averageChannelDifference(before, after)
@@ -325,9 +316,9 @@ class PdfEditorTest {
             difference < 12f,
         )
         assertTrue("and must not be blank", inkFraction(after) > 0.005f)
-        before.recycle()
-        if (after !== rendered) rendered.recycle()
-        after.recycle()
+        before.release()
+        if (after !== rendered) rendered.release()
+        after.release()
     }
 
     /**
@@ -354,13 +345,9 @@ class PdfEditorTest {
      * Visibly not paper. A white-out flattens its page to a JPEG, whose white can
      * come back a shade or two off, so near-white still counts as blank.
      */
-    private fun isInk(bitmap: Bitmap, x: Int, y: Int): Boolean {
-        val pixel = bitmap.getPixel(x, y)
-        return minOf(
-            android.graphics.Color.red(pixel),
-            android.graphics.Color.green(pixel),
-            android.graphics.Color.blue(pixel),
-        ) < 235
+    private fun isInk(bitmap: PageImage, x: Int, y: Int): Boolean {
+        val pixel = bitmap.argbAt(x, y)
+        return minOf((pixel shr 16) and 0xFF, (pixel shr 8) and 0xFF, pixel and 0xFF) < 235
     }
 
     @Test
@@ -428,8 +415,8 @@ class PdfEditorTest {
             isInk(fillRender, fillRender.width / 2, 1),
         )
 
-        fitRender.recycle()
-        fillRender.recycle()
+        fitRender.release()
+        fillRender.release()
     }
 
     @Test
@@ -460,7 +447,7 @@ class PdfEditorTest {
         val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
         assertTrue("renders landscape", rendered.width > rendered.height)
         assertTrue("and is not blank", inkFraction(rendered) > 0.005f)
-        rendered.recycle()
+        rendered.release()
     }
 
     @Test
@@ -512,7 +499,7 @@ class PdfEditorTest {
         // content, scaled up, not the original with its hidden parts restored.
         val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 320) }
         assertTrue("content fills the refitted sheet", inkFraction(rendered) > 0.9f)
-        rendered.recycle()
+        rendered.release()
     }
 
     @Test
@@ -542,8 +529,8 @@ class PdfEditorTest {
                     "refitted preview must match its export",
                     differingFraction(preview, exported) < 0.01f,
                 )
-                preview.recycle()
-                exported.recycle()
+                preview.release()
+                exported.release()
             }
         }
     }
@@ -645,7 +632,7 @@ class PdfEditorTest {
             "outside the block should be untouched",
             isInk(rendered, (rendered.width * 0.1f).toInt(), midY),
         )
-        rendered.recycle()
+        rendered.release()
     }
 
     /** Covers the "<marker> 1" line [textPdf] draws near the top of the page. */
@@ -736,7 +723,7 @@ class PdfEditorTest {
             "content outside the box survives flattening",
             isInk(rendered, rendered.width / 3, (rendered.height * (1f - 230f / 842f)).toInt()),
         )
-        rendered.recycle()
+        rendered.release()
     }
 
     @Test
@@ -765,8 +752,8 @@ class PdfEditorTest {
             "flattened page must preview exactly as exported",
             differingFraction(preview!!, exported) < 0.01f,
         )
-        preview.recycle()
-        exported.recycle()
+        preview.release()
+        exported.release()
         // Nothing left behind in the scratch folder.
         assertTrue(workDir.listFiles().orEmpty().none { it.name.startsWith("flatten-") })
     }
@@ -818,7 +805,7 @@ class PdfEditorTest {
         assertTrue(PdfOps.extractText(output).contains("Marked 1"))
         val rendered = PdfRasterizer.open(output).use { it.renderByWidth(0, 400) }
         assertTrue("highlight band has ink", isInk(rendered, rendered.width / 2, (rendered.height * 0.17f).toInt()))
-        rendered.recycle()
+        rendered.release()
     }
 
     @Test
@@ -908,7 +895,7 @@ class PdfEditorTest {
             "the stroke should be visible where it was drawn",
             isInk(rendered, rendered.width / 2, (rendered.height * 0.55f).toInt()),
         )
-        rendered.recycle()
+        rendered.release()
     }
 
     @Test
@@ -975,7 +962,7 @@ class PdfEditorTest {
             "bottom-right should be untouched",
             isInk(rendered, (rendered.width * 0.85f).toInt(), (rendered.height * 0.85f).toInt()),
         )
-        rendered.recycle()
+        rendered.release()
     }
 
     @Test
@@ -1019,8 +1006,8 @@ class PdfEditorTest {
                     "added content must preview exactly as exported, page $position",
                     differingFraction(preview!!, exported) < 0.01f,
                 )
-                preview.recycle()
-                exported.recycle()
+                preview.release()
+                exported.release()
             }
         }
     }
@@ -1047,8 +1034,8 @@ class PdfEditorTest {
             "a no-op plan must not alter the pages",
             differingFraction(before, after) < 0.005f,
         )
-        before.recycle()
-        after.recycle()
+        before.release()
+        after.release()
     }
 
     @Test
@@ -1092,7 +1079,7 @@ class PdfEditorTest {
             password = "pw",
         )
         assertNotNull("preview works on an encrypted source", preview)
-        preview?.recycle()
+        preview?.release()
     }
 
     // ------------------------------------------------------------ merging
@@ -1212,8 +1199,8 @@ class PdfEditorTest {
                     "merged preview $position must match the export, differing=$difference",
                     difference < 0.01f,
                 )
-                preview.recycle()
-                exported.recycle()
+                preview.release()
+                exported.release()
             }
         }
     }
