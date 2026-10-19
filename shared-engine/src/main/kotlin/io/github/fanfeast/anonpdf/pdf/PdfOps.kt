@@ -1,6 +1,5 @@
 package io.github.fanfeast.anonpdf.pdf
 
-import android.util.SizeF
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.multipdf.PDFMergerUtility
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -179,7 +178,7 @@ object PdfOps {
         require(ranges.isNotEmpty()) { "Describe at least one page range." }
         outputDir.mkdirs()
         ranges.mapIndexed { index, range ->
-            val target = File(outputDir, "${DocumentStore.sanitize(baseName)}-${index + 1}.pdf")
+            val target = File(outputDir, "${FileNames.sanitize(baseName)}-${index + 1}.pdf")
             load(input, password).use { doc ->
                 val keep = range.filter { it in 0 until doc.numberOfPages }
                 require(keep.isNotEmpty()) { "Range ${index + 1} does not cover any pages." }

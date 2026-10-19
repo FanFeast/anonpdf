@@ -15,16 +15,16 @@ class RenderCapTest {
     @Test
     fun `a4 at the highest export dpi is left alone`() {
         val scale = 400 / 72f
-        assertEquals(scale, PdfRasterizer.cappedScale(a4.first, a4.second, scale), 0f)
+        assertEquals(scale, RenderLimits.cappedScale(a4.first, a4.second, scale), 0f)
     }
 
     @Test
     fun `a0 at the highest export dpi is scaled down to the cap`() {
         val requested = 400 / 72f
-        val capped = PdfRasterizer.cappedScale(a0.first, a0.second, requested)
+        val capped = RenderLimits.cappedScale(a0.first, a0.second, requested)
         assertTrue(capped < requested)
-        assertTrue(pixels(a0, capped) <= PdfRasterizer.MAX_RENDER_PIXELS * 1.001)
+        assertTrue(pixels(a0, capped) <= RenderLimits.MAX_RENDER_PIXELS * 1.001)
         // Reduced just enough, not more.
-        assertTrue(pixels(a0, capped) > PdfRasterizer.MAX_RENDER_PIXELS * 0.99)
+        assertTrue(pixels(a0, capped) > RenderLimits.MAX_RENDER_PIXELS * 0.99)
     }
 }

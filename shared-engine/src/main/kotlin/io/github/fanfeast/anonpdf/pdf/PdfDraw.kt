@@ -1,6 +1,5 @@
 package io.github.fanfeast.anonpdf.pdf
 
-import android.util.SizeF
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream

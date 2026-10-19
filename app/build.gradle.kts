@@ -74,6 +74,15 @@ android {
         buildConfig = true
     }
 
+    // The PDF engine lives in shared-engine/ so the desktop app can compile the
+    // same source (see desktop-engine/). This module still builds it directly.
+    sourceSets {
+        getByName("main").kotlin.srcDir("../shared-engine/src/main/kotlin")
+        getByName("test").kotlin.srcDir("../shared-engine/src/test/kotlin")
+        // Engine tests that need a real renderer run on a device here.
+        getByName("androidTest").kotlin.srcDir("../shared-engine/src/deviceTest/kotlin")
+    }
+
     packaging {
         resources {
             excludes += setOf(

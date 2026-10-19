@@ -196,9 +196,14 @@ sdk.dir=/path/to/Android/Sdk
 ### Tests
 
 ```bash
-./gradlew testDebugUnitTest          # 48 JVM tests: page ranges, edit-plan folding, render cap
-./gradlew connectedDebugAndroidTest  # 77 device tests; needs a device or emulator
+./gradlew testDebugUnitTest          # 55 JVM tests: page ranges, edit-plan folding, render cap, UI logic
+./gradlew connectedDebugAndroidTest  # device tests; needs a device or emulator
+./gradlew :desktop-engine:test       # the engine on desktop: 77 tests, no device needed
 ```
+
+The engine's editor tests live in `shared-engine/src/deviceTest` and run in both
+the Android and the desktop suite. CI runs the desktop engine tests on Linux and
+Windows.
 
 The instrumented suite is where the real coverage lives. It builds PDFs, runs
 every operation against them, and asserts on the results: page counts and order
@@ -245,22 +250,32 @@ artifact.
 
 ## How it is put together
 
-Single-module Kotlin app, Jetpack Compose, no dependency-injection framework and
-no architecture ceremony beyond what the size justifies.
+Kotlin, Jetpack Compose, no dependency-injection framework and no architecture
+ceremony beyond what the size justifies. The PDF engine is shared with a desktop
+build that is in progress; the Android app is the only one that ships today.
 
 ```
-app/src/main/java/io/github/fanfeast/anonpdf/
-├── pdf/          The engine. File in, file out, no Android UI types.
+shared-engine/src/     The engine, shared by Android and desktop. File in, file out.
+├── main/.../pdf/
 │   ├── PdfEditor.kt     Edit ops → normalised plan → apply / preview
 │   ├── PdfOps.kt        Merge, split, extract, crop, security, text
 │   ├── PdfDraw.kt       Single-page drawing shared by editor and tools
-│   ├── PdfConvert.kt    Compression, page export, images → PDF
-│   ├── PdfRasterizer.kt Wraps android.graphics.pdf.PdfRenderer
-│   ├── DocumentStore.kt Moves bytes between SAF and the private cache
 │   └── PageRanges.kt    Parses "1-3, 5, 9-12"
+├── test/              JVM tests, run on both platforms
+└── deviceTest/        Engine tests that need a renderer: on a device for
+                       Android, as plain tests on desktop
+
+app/src/main/java/io/github/fanfeast/anonpdf/
+├── pdf/          Android's half of the engine
+│   ├── Platform.kt      What the engine's image and size types are here
+│   ├── PdfRasterizer.kt Wraps android.graphics.pdf.PdfRenderer
+│   ├── PdfConvert.kt    Compression, page export, images → PDF
+│   └── DocumentStore.kt Moves bytes between SAF and the private cache
 ├── storage/      Optional all-files access and the PDF scanner
 ├── data/         Recent files and preferences (DataStore)
 └── ui/           Compose screens: viewer, editor, browser, tools
+
+desktop-engine/   The engine compiled for Windows and Linux (see below)
 ```
 
 Four decisions worth explaining:
@@ -278,6 +293,14 @@ they cannot drift apart.
 file, preview extracts the page being shown, applies the plan's page-scoped and
 document-scoped operations, and renders that. A 400-page file previews as fast as
 a 4-page one.
+
+**One engine source, two PDFBox builds.** Android uses PdfBox-Android, a port of
+PDFBox with the same API under another package name (`com.tom_roush.pdfbox`).
+The engine is written once against it, and `desktop-engine` compiles a copy
+generated at build time with the upstream package name (`org.apache.pdfbox`) put
+back. What genuinely differs per platform — the image type, and how a page is
+rasterised (Android's built-in renderer; PDFBox's own on desktop) — is a small
+file on each side. The same editor tests run against both.
 
 **Page edits happen in place.** Reordering or deleting pins each page's inherited
 attributes, detaches every page from the page tree, then re-attaches them in the
