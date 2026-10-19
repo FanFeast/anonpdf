@@ -91,11 +91,12 @@ jobs:
             app/build/reports/
           if-no-files-found: ignore
 
-  desktop-engine:
+  desktop:
     # The PDF engine compiled for desktop (desktop-engine/) runs the same engine
-    # tests the instrumented job runs on Android, against upstream PDFBox. Windows
-    # is included because nobody develops on it, so CI is where it gets tested.
-    name: Desktop engine (${{ matrix.os }})
+    # tests the instrumented job runs on Android, against upstream PDFBox, and the
+    # desktop app's own tests run alongside. Windows is included because nobody
+    # develops on it, so CI is where it gets tested.
+    name: Desktop (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -113,9 +114,9 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Engine tests
+      - name: Engine and app tests
         shell: bash
-        run: ./gradlew :desktop-engine:test
+        run: ./gradlew :desktop-engine:test :desktop:test
 
   instrumented:
     name: Instrumented tests (API ${{ matrix.api }})

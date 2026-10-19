@@ -199,6 +199,8 @@ sdk.dir=/path/to/Android/Sdk
 ./gradlew testDebugUnitTest          # 55 JVM tests: page ranges, edit-plan folding, render cap, UI logic
 ./gradlew connectedDebugAndroidTest  # device tests; needs a device or emulator
 ./gradlew :desktop-engine:test       # the engine on desktop: 77 tests, no device needed
+./gradlew :desktop:test              # the desktop app's own tests
+./gradlew :desktop:run               # run the desktop app (work in progress)
 ```
 
 The engine's editor tests live in `shared-engine/src/deviceTest` and run in both
@@ -276,6 +278,7 @@ app/src/main/java/io/github/fanfeast/anonpdf/
 └── ui/           Compose screens: viewer, editor, browser, tools
 
 desktop-engine/   The engine compiled for Windows and Linux (see below)
+desktop/          The desktop app (in progress): a native window, no browser
 ```
 
 Four decisions worth explaining:

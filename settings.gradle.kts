@@ -19,3 +19,5 @@ include(":app")
 // The PDF engine compiled for desktop. Its source is shared-engine/, which is
 // not a module of its own: :app and :desktop-engine each compile it.
 include(":desktop-engine")
+// The desktop app (Windows, Linux): a native window, no browser, no network.
+include(":desktop")
