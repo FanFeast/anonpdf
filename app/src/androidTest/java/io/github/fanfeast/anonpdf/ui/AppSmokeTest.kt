@@ -185,6 +185,19 @@ class AppSmokeTest {
 
     @Test
     fun editsSurviveAToolAndBack() {
+        openAnEditedDocumentInATool()
+
+        compose.onNodeWithContentDescription("Back").performClick()
+        compose.waitFor { onAllNodesWithContentDescription("Undo") }
+        // Back in the editor, the rotation is still pending and can be undone.
+        compose.onNodeWithContentDescription("Undo").assertIsEnabled()
+        // Let the tool's screen finish animating out before the test tears the
+        // activity down: Navigation throws if an entry is destroyed mid-transition.
+        compose.waitForIdle()
+    }
+
+    /** Opens a PDF in the editor, rotates a page, and hands it to Compress. */
+    private fun openAnEditedDocumentInATool() {
         val pdf = samplePdf(pages = 3)
         StrictMode.setVmPolicy(StrictMode.VmPolicy.Builder().build())
         val intent = Intent(context, MainActivity::class.java)
@@ -214,11 +227,6 @@ class AppSmokeTest {
         compose.waitUntil(TIMEOUT_MS) {
             compose.onAllNodesWithContentDescription("Undo").fetchSemanticsNodes().isEmpty()
         }
-
-        compose.onNodeWithContentDescription("Back").performClick()
-        compose.waitFor { onAllNodesWithContentDescription("Undo") }
-        // Back in the editor, the rotation is still pending and can be undone.
-        compose.onNodeWithContentDescription("Undo").assertIsEnabled()
     }
 
     @Test
