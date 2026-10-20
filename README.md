@@ -301,7 +301,8 @@ shared-ui/src/main/.../ui/   Screens shared with the desktop app: the editor,
 
 desktop-engine/   The engine compiled for Windows and Linux (see below)
 desktop/          The desktop app: a native window, no browser, with the
-                  editor and every tool behind a sidebar
+                  editor and every tool behind a sidebar; files can be
+                  dragged onto it from the file manager
 ```
 
 Four decisions worth explaining:
@@ -333,7 +334,10 @@ Multiplatform uses Jetpack Compose's own `androidx.compose` packages. Each side
 has a small `Platform.kt` saying what a document reference is (a content URI on
 Android, a file on desktop), how the user picks one, and how a photo is read
 upright, plus its own result card for saving. On a wide screen the editor puts
-its controls in a panel beside the page instead of a drawer under it.
+its controls in a panel beside the page instead of a drawer under it. Files
+dropped onto the desktop window reach the shared screens through `DropInbox`,
+which does nothing on Android, so each screen decides for itself what a dropped
+file means.
 
 **Page edits happen in place.** Reordering or deleting pins each page's inherited
 attributes, detaches every page from the page tree, then re-attaches them in the

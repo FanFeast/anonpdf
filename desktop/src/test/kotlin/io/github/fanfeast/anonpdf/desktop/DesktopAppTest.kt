@@ -28,8 +28,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.awt.image.BufferedImage
 import java.io.File
 import java.nio.file.Files
+import javax.imageio.ImageIO
 
 /**
  * The desktop app driven end to end with real files: the editor, the tools it
@@ -148,6 +150,92 @@ class DesktopAppTest {
             assertTrue("page 1 carries the signature", document.getPage(0).resources.xObjectNames.any())
             assertFalse("page 2 does not", document.getPage(1).resources.xObjectNames.any())
         }
+    }
+
+    // Dropping: an OS drag can't be faked in a test, so these start where the
+    // window's drop target hands over, with the dropped files.
+
+    @Test
+    fun `dropped files are sorted into PDFs and pictures, and the rest left out`() {
+        val picture = picture("photo.JPG")
+        val notes = File(scratch, "notes.txt").apply { writeText("not a PDF") }
+        val folder = File(scratch, "folder.pdf").apply { mkdir() }
+
+        val dropped = sortDropped(listOf(pdf, picture, notes, folder))
+        assertEquals(listOf(pdf), dropped.pdfs)
+        assertEquals(listOf(picture), dropped.images)
+        assertFalse("nothing usable is refused", DesktopNavigator().drop(listOf(notes, folder)))
+    }
+
+    @Test
+    fun `a PDF dropped on the start page opens in the editor`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+        onNodeWithText("What would you like to do?").assertExists()
+
+        runOnIdle { assertTrue(navigator.drop(listOf(pdf))) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+    }
+
+    @Test
+    fun `a PDF dropped on an open document is added through Merge, not swapped in`() =
+        runDesktopComposeUiTest(WIDTH, HEIGHT) {
+            val navigator = DesktopNavigator(pdf)
+            setContent { DesktopApp(navigator) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+            runOnIdle { navigator.drop(listOf(pdf.copyTo(File(scratch, "more.pdf")))) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("3 pages to insert")).fetchSemanticsNodes().isNotEmpty()
+            }
+            onNode(hasText("Insert") and isButton).performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("1 edit")).fetchSemanticsNodes().isNotEmpty() }
+        }
+
+    @Test
+    fun `several PDFs dropped on the start page go to Merge`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+
+        runOnIdle { navigator.drop(listOf(pdf, pdf.copyTo(File(scratch, "more.pdf")))) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) {
+            onAllNodes(hasText("more.pdf", substring = true)).fetchSemanticsNodes().isNotEmpty() &&
+                onAllNodes(hasText("three pages.pdf", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(Pane.Tool(ToolId.MERGE), navigator.pane)
+    }
+
+    @Test
+    fun `pictures dropped on the start page go to Images to PDF`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+
+        runOnIdle { navigator.drop(listOf(picture("one.png"), picture("two.png"))) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Image 2")).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(Pane.Tool(ToolId.IMAGES_TO_PDF), navigator.pane)
+    }
+
+    @Test
+    fun `a tool takes a dropped PDF, and says so when handed the wrong kind of file`() =
+        runDesktopComposeUiTest(WIDTH, HEIGHT) {
+            val navigator = DesktopNavigator()
+            navigator.show(Pane.Tool(ToolId.COMPRESS))
+            setContent { DesktopApp(navigator) }
+
+            runOnIdle { navigator.drop(listOf(picture("photo.png"))) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("Only a PDF can be used here.")).fetchSemanticsNodes().isNotEmpty()
+            }
+
+            runOnIdle { navigator.drop(listOf(pdf)) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("3 pages", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            assertEquals(Pane.Tool(ToolId.COMPRESS), navigator.pane)
+        }
+
+    private fun picture(name: String): File = File(scratch, name).also {
+        ImageIO.write(BufferedImage(40, 30, BufferedImage.TYPE_INT_RGB), "png", it)
     }
 
     private companion object {
