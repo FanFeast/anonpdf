@@ -230,7 +230,7 @@ that backup stays off. CI also builds the minified release bundle on every pull
 request and checks its permissions, so a shrinker or manifest regression shows
 up before a release is tagged.
 
-### Desktop downloads (in progress)
+### Desktop downloads
 
 ```bash
 ./gradlew :desktop:createReleaseDistributable            # shrunk app + trimmed Java runtime
@@ -245,6 +245,29 @@ extract and double-click. The AppImage uses the static runtime, so it needs no
 `libfuse2`, and its build tools are pinned by checksum. `--self-test` runs the
 engine's riskiest paths inside the packaged app; CI runs it on every pull
 request, on Linux and Windows, against the exact files it builds.
+
+### Flatpak
+
+`flatpak/` holds the Flathub manifest. Flathub builds with no network, so every
+Maven file the build needs is listed in `flatpak/maven-sources.json` with its
+SHA-256, and `offline.init.gradle.kts` makes those the only place Gradle looks.
+The sandbox gives the app no network either: the manifest grants no
+`--share=network`, and only the Documents, Downloads, Desktop and Pictures
+folders. A file opened from the file manager or dragged onto the window comes in
+through the document portal from anywhere.
+
+```bash
+# After any dependency change; CI fails until the list matches the build.
+G=$(mktemp -d)
+GRADLE_USER_HOME=$G ./gradlew --no-daemon -Panonpdf.desktopOnly=true :desktop:createReleaseDistributable
+flatpak/generate-sources.py $G > flatpak/maven-sources.json
+
+# Build and install locally (point the manifest's git source at your checkout).
+flatpak run org.flatpak.Builder --user --install --force-clean builddir flatpak/io.github.fanfeast.anonpdf.yml
+```
+
+The build runs `--self-test` inside the sandbox, so a broken Flatpak fails to
+build rather than failing for a user.
 
 ### Release builds
 
