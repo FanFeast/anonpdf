@@ -101,3 +101,74 @@ jobs:
           generate_release_notes: true
           # v1.0.0-rc.1 and the like are candidates, not the latest release.
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  desktop:
+    # The portable desktop downloads, attached to the same release as the APK.
+    name: Desktop downloads (${{ matrix.os }})
+    # After the APK job, which creates the release: two jobs creating the same
+    # release at once can race.
+    needs: release
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Work out the version
+        id: version
+        shell: bash
+        run: |
+          # v1.2.0-rc.1 -> files say 1.2.0-rc.1; the app itself says 1.2.0, since
+          # jpackage takes plain numbers only.
+          NAME="${GITHUB_REF_NAME#v}"
+          [ "$GITHUB_REF_TYPE" = tag ] || NAME="dev-${GITHUB_SHA::7}"
+          NUMERIC="$(echo "$NAME" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo 1.0.0)"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "numeric=$NUMERIC" >> "$GITHUB_OUTPUT"
+
+      - name: Package the release build
+        shell: bash
+        run: ./gradlew :desktop:createReleaseDistributable -PappVersion=${{ steps.version.outputs.numeric }}
+
+      - name: Self-test and build the Linux download
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          desktop/packaging/linux/build-appimage.sh "${{ steps.version.outputs.name }}" dist
+          mkdir unpacked && tar -C unpacked -xzf dist/*.tar.gz
+          APPIMAGE_EXTRACT_AND_RUN=1 unpacked/*/AnonPDF.AppImage --self-test
+
+      - name: Self-test and build the Windows download
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = "desktop/build/compose/binaries/main-release/app/AnonPDF/AnonPDF.exe"
+          $run = Start-Process -FilePath $exe -ArgumentList "--self-test" -Wait -PassThru -NoNewWindow
+          if ($run.ExitCode -ne 0) { throw "Self-test failed with exit code $($run.ExitCode)" }
+          ./desktop/packaging/windows/build-zip.ps1 -Version "${{ steps.version.outputs.name }}" -Out dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonpdf-desktop-${{ runner.os }}
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Attach to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          prerelease: ${{ contains(github.ref_name, '-') }}

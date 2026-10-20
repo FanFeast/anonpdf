@@ -18,10 +18,12 @@ import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import io.github.fanfeast.anonpdf.ui.editor.EditorScreen
 import io.github.fanfeast.anonpdf.ui.theme.AnonPdfTheme
 import java.io.File
+import kotlin.system.exitProcess
 
 fun main(args: Array<String>) {
     // First, before anything can create a temp file: see PrivateScratch.
     PrivateScratch.install()
+    if (args.firstOrNull() == "--self-test") exitProcess(runCatching { SelfTest.run() }.getOrElse { it.printStackTrace(); 2 })
     val initial = args.firstOrNull()?.let(::File)?.takeIf { it.isFile }
     application {
         Window(
