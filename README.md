@@ -198,13 +198,14 @@ sdk.dir=/path/to/Android/Sdk
 ```bash
 ./gradlew testDebugUnitTest          # 55 JVM tests: page ranges, edit-plan folding, render cap, UI logic
 ./gradlew connectedDebugAndroidTest  # device tests; needs a device or emulator
-./gradlew :desktop-engine:test       # the engine on desktop: 77 tests, no device needed
-./gradlew :desktop:test              # the desktop app's own tests
-./gradlew :desktop:run               # run the desktop app (work in progress)
+./gradlew :desktop-engine:test       # the engine on desktop: 108 tests, no device needed
+./gradlew :desktop:test              # the desktop app, driven end to end
+./gradlew :desktop:run               # run the desktop app
 ```
 
-The engine's editor tests live in `shared-engine/src/deviceTest` and run in both
-the Android and the desktop suite. CI runs the desktop engine tests on Linux and
+The engine's tests that need a renderer (every operation, and the editor's
+preview-matches-export checks) live in `shared-engine/src/deviceTest` and run in
+both the Android and the desktop suite. CI runs the desktop engine tests on Linux and
 Windows.
 
 The instrumented suite is where the real coverage lives. It builds PDFs, runs
@@ -270,14 +271,15 @@ artifact.
 
 Kotlin, Jetpack Compose, no dependency-injection framework and no architecture
 ceremony beyond what the size justifies. The PDF engine and the editor screens
-are shared with a desktop app that is in progress; the Android app is the only
-one that ships today.
+and tool screens are shared with a desktop app for Linux and Windows, which is
+built and tested on every change but not released yet.
 
 ```
 shared-engine/src/     The engine, shared by Android and desktop. File in, file out.
 ├── main/.../pdf/
 │   ├── PdfEditor.kt     Edit ops → normalised plan → apply / preview
 │   ├── PdfOps.kt        Merge, split, extract, crop, security, text
+│   ├── PdfConvert.kt    Compression, page export, images → PDF
 │   ├── PdfDraw.kt       Single-page drawing shared by editor and tools
 │   └── PageRanges.kt    Parses "1-3, 5, 9-12"
 ├── test/              JVM tests, run on both platforms
@@ -288,19 +290,18 @@ app/src/main/java/io/github/fanfeast/anonpdf/
 ├── pdf/          Android's half of the engine
 │   ├── Platform.kt      What the engine's image and size types are here
 │   ├── PdfRasterizer.kt Wraps android.graphics.pdf.PdfRenderer
-│   ├── PdfConvert.kt    Compression, page export, images → PDF
 │   └── DocumentStore.kt Moves bytes between SAF and the private cache
 ├── ui/common/Platform.kt  What the shared screens' file types and pickers are here
 ├── storage/      Optional all-files access and the PDF scanner
 ├── data/         Recent files and preferences (DataStore)
-└── ui/           Compose screens: viewer, editor, browser, tools
+└── ui/           Android-only screens: home, viewer, browser, settings, about
 
 shared-ui/src/main/.../ui/   Screens shared with the desktop app: the editor,
-                             its panels and overlays, theme, common components
+                             the tools and Sign, theme, common components
 
 desktop-engine/   The engine compiled for Windows and Linux (see below)
-desktop/          The desktop app (in progress): a native window, no browser,
-                  running the shared editor
+desktop/          The desktop app: a native window, no browser, with the
+                  editor and every tool behind a sidebar
 ```
 
 Four decisions worth explaining:
@@ -330,8 +331,9 @@ file on each side. The same editor tests run against both.
 The editor screens are shared the same way, without the rename: Compose
 Multiplatform uses Jetpack Compose's own `androidx.compose` packages. Each side
 has a small `Platform.kt` saying what a document reference is (a content URI on
-Android, a file on desktop) and how the user picks one, plus its own result card
-for saving.
+Android, a file on desktop), how the user picks one, and how a photo is read
+upright, plus its own result card for saving. On a wide screen the editor puts
+its controls in a panel beside the page instead of a drawer under it.
 
 **Page edits happen in place.** Reordering or deleting pins each page's inherited
 attributes, detaches every page from the page tree, then re-attaches them in the
