@@ -69,6 +69,7 @@ import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
+import io.github.fanfeast.anonpdf.ui.common.OnFilesDropped
 import io.github.fanfeast.anonpdf.ui.common.OpenOutcome
 import io.github.fanfeast.anonpdf.ui.common.openDocumentSession
 import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
@@ -166,6 +167,15 @@ fun SignScreen(
     }
 
     val pickPdf = rememberOpenPdf { load(it, null) }
+
+    OnFilesDropped { dropped ->
+        val pdf = dropped.pdfs.firstOrNull()
+        if (pdf != null) {
+            load(pdf, null)
+        } else {
+            scope.launch { snackbarHost.showSnackbar("Only a PDF can be signed.") }
+        }
+    }
 
     LaunchedEffect(initialDocument) {
         if (initialDocument != null && session == null) load(initialDocument, null)

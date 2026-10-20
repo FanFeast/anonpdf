@@ -123,6 +123,7 @@ import io.github.fanfeast.anonpdf.pdf.TextMark
 import io.github.fanfeast.anonpdf.pdf.WatermarkOptions
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
+import io.github.fanfeast.anonpdf.ui.common.OnFilesDropped
 import io.github.fanfeast.anonpdf.ui.common.documentRefOf
 import io.github.fanfeast.anonpdf.ui.common.memoryBytes
 import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
@@ -355,6 +356,29 @@ fun EditorScreen(
 
     LaunchedEffect(initialDocument) {
         if (initialDocument != null && session == null) load(initialDocument, null)
+    }
+
+    // A PDF dropped on an empty editor opens; dropped on an open document, its
+    // pages go through Add pages like picked ones, so the user places them and
+    // can undo it, and nothing they were editing is replaced.
+    OnFilesDropped { dropped ->
+        fun tell(message: String) {
+            scope.launch { snackbarHost.showSnackbar(message) }
+        }
+        when {
+            dropped.pdfs.isEmpty() -> if (session == null) {
+                error = "Only PDFs can be opened here."
+            } else {
+                tell("Only PDFs can be added here.")
+            }
+            session == null -> if (!loading) load(dropped.pdfs.first(), null)
+            mode != EditorMode.Normal || busyMessage != null || insertQueue.isNotEmpty() ->
+                tell("Finish what you're doing first, then drop the file again.")
+            else -> {
+                insertQueue = dropped.pdfs
+                processInsertQueue()
+            }
+        }
     }
 
     val document = session

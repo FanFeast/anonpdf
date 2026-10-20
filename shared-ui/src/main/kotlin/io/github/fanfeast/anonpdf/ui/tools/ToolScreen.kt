@@ -52,6 +52,7 @@ import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.PdfPageSizePreset
 import io.github.fanfeast.anonpdf.pdf.PdfWrongPasswordException
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
+import io.github.fanfeast.anonpdf.ui.common.OnFilesDropped
 import io.github.fanfeast.anonpdf.ui.common.fileName
 import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenImages
@@ -141,6 +142,24 @@ fun ToolScreen(
     val pickSinglePdf = rememberOpenPdf { addDocument(it, replace = true) }
     val pickMultiplePdf = rememberOpenPdfs { picked -> picked.forEach { addDocument(it, replace = false) } }
     val pickImages = rememberOpenImages { picked -> images = images + picked }
+
+    OnFilesDropped { dropped ->
+        when (spec.input) {
+            ToolInput.SINGLE_PDF -> dropped.pdfs.firstOrNull()
+                ?.let { addDocument(it, replace = true) }
+                ?: showMessage("Only a PDF can be used here.")
+            ToolInput.MULTIPLE_PDF -> if (dropped.pdfs.isEmpty()) {
+                showMessage("Only PDFs can be added here.")
+            } else {
+                dropped.pdfs.forEach { addDocument(it, replace = false) }
+            }
+            ToolInput.IMAGES -> if (dropped.images.isEmpty()) {
+                showMessage("Only pictures can be added here: JPEG, PNG, GIF or BMP.")
+            } else {
+                images = images + dropped.images
+            }
+        }
+    }
 
     LaunchedEffect(initialDocument) {
         if (initialDocument != null && docs.isEmpty() && spec.input != ToolInput.IMAGES) {
