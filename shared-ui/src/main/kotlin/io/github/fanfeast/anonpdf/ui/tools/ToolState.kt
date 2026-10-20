@@ -7,11 +7,12 @@ import io.github.fanfeast.anonpdf.pdf.ImageFormat
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PdfPageSizePreset
 import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
+import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import java.io.File
 
 /** A document the user handed to a tool, plus what we learned by opening it. */
 data class InputDoc(
-    val uri: android.net.Uri,
+    val ref: DocumentRef,
     val name: String,
     val sizeBytes: Long,
     val localFile: File? = null,

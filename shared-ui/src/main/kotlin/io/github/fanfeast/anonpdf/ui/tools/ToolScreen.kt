@@ -1,8 +1,5 @@
 package io.github.fanfeast.anonpdf.ui.tools
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,18 +42,21 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImageFormat
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.PdfPageSizePreset
 import io.github.fanfeast.anonpdf.pdf.PdfWrongPasswordException
-import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
+import io.github.fanfeast.anonpdf.ui.common.DocumentRef
+import io.github.fanfeast.anonpdf.ui.common.fileName
+import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenImages
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdf
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdfs
 import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.BusyOverlay
 import io.github.fanfeast.anonpdf.ui.components.ChoiceChips
@@ -68,29 +68,27 @@ import io.github.fanfeast.anonpdf.ui.components.RemovableRow
 import io.github.fanfeast.anonpdf.ui.components.ResultCard
 import io.github.fanfeast.anonpdf.ui.components.SectionLabel
 import io.github.fanfeast.anonpdf.ui.components.formatBytes
+import io.github.fanfeast.anonpdf.ui.components.readableWidth
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private const val PDF_MIME = "application/pdf"
-
 @Composable
 fun ToolScreen(
     toolId: ToolId,
-    initialUri: Uri?,
+    initialDocument: DocumentRef?,
     onBack: () -> Unit,
 ) {
     val spec = remember(toolId) { ToolCatalog.spec(toolId) }
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val store = remember { DocumentStore(context) }
-    val runner = remember { ToolRunner(context, store) }
+    val store = rememberDocumentStore()
+    val runner = remember { ToolRunner(store) }
     val options = remember { ToolOptionsState() }
     val snackbarHost = remember { SnackbarHostState() }
 
     var docs by remember { mutableStateOf<List<InputDoc>>(emptyList()) }
-    var imageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var images by remember { mutableStateOf<List<DocumentRef>>(emptyList()) }
     var busyMessage by remember { mutableStateOf<String?>(null) }
     var progress by remember { mutableStateOf(0f) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -106,19 +104,19 @@ fun ToolScreen(
      * Copies the picked document into our cache and finds out what it is: how
      * many pages, and whether it needs a password before we can touch it.
      */
-    fun addDocument(uri: Uri, replace: Boolean) {
+    fun addDocument(ref: DocumentRef, replace: Boolean) {
         scope.launch {
             busyMessage = "Reading the file…"
             progress = 0f
             error = null
             try {
-                val name = store.displayName(uri)
-                val size = store.sizeBytes(uri)
-                val local = store.materialize(uri, name)
+                val name = store.displayName(ref)
+                val size = store.sizeBytes(ref)
+                val local = store.materialize(ref, name)
                 val protected = PdfOps.isPasswordProtected(local)
                 val pageCount = if (protected) 0 else PdfOps.readMeta(local).pageCount
                 val doc = InputDoc(
-                    uri = uri,
+                    ref = ref,
                     name = name,
                     sizeBytes = size,
                     localFile = local,
@@ -140,28 +138,20 @@ fun ToolScreen(
         }
     }
 
-    val pickSinglePdf = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri -> if (uri != null) addDocument(uri, replace = true) }
+    val pickSinglePdf = rememberOpenPdf { addDocument(it, replace = true) }
+    val pickMultiplePdf = rememberOpenPdfs { picked -> picked.forEach { addDocument(it, replace = false) } }
+    val pickImages = rememberOpenImages { picked -> images = images + picked }
 
-    val pickMultiplePdf = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris -> uris.forEach { addDocument(it, replace = false) } }
-
-    val pickImages = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris -> if (uris.isNotEmpty()) imageUris = imageUris + uris }
-
-    LaunchedEffect(initialUri) {
-        if (initialUri != null && docs.isEmpty() && spec.input != ToolInput.IMAGES) {
-            addDocument(initialUri, replace = true)
+    LaunchedEffect(initialDocument) {
+        if (initialDocument != null && docs.isEmpty() && spec.input != ToolInput.IMAGES) {
+            addDocument(initialDocument, replace = true)
         }
     }
 
     val inputsReady = when (spec.input) {
         ToolInput.SINGLE_PDF -> docs.size == 1 && docs.all { it.isReady }
         ToolInput.MULTIPLE_PDF -> docs.size >= 2 && docs.all { it.isReady }
-        ToolInput.IMAGES -> imageUris.isNotEmpty()
+        ToolInput.IMAGES -> images.isNotEmpty()
     }
 
     Scaffold(
@@ -174,7 +164,7 @@ fun ToolScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .readableWidth(),
             ) {
                 Spacer(Modifier.height(4.dp))
                 Text(spec.summary, style = MaterialTheme.typography.bodyMedium)
@@ -193,7 +183,7 @@ fun ToolScreen(
                         val doc = docs.firstOrNull()
                         if (doc == null) {
                             PickButton("Choose a PDF", Icons.Filled.Description) {
-                                pickSinglePdf.launch(arrayOf(PDF_MIME))
+                                pickSinglePdf()
                             }
                         } else {
                             DocumentRow(
@@ -220,7 +210,7 @@ fun ToolScreen(
                         }
                         Spacer(Modifier.height(8.dp))
                         PickButton("Add PDFs", Icons.Filled.Add) {
-                            pickMultiplePdf.launch(arrayOf(PDF_MIME))
+                            pickMultiplePdf()
                         }
                         if (docs.size in 1..1) {
                             Spacer(Modifier.height(8.dp))
@@ -234,19 +224,18 @@ fun ToolScreen(
                     }
 
                     ToolInput.IMAGES -> {
-                        imageUris.forEachIndexed { index, uri ->
+                        images.forEachIndexed { index, image ->
                             RemovableRow(
-                                text = uri.lastPathSegment?.substringAfterLast('/')
-                                    ?: "Image ${index + 1}",
+                                text = image.fileName() ?: "Image ${index + 1}",
                                 supporting = "Image ${index + 1}",
                                 onRemove = {
-                                    imageUris = imageUris.filterIndexed { i, _ -> i != index }
+                                    images = images.filterIndexed { i, _ -> i != index }
                                 },
                             )
                         }
                         Spacer(Modifier.height(8.dp))
                         PickButton("Add images", Icons.Filled.Image) {
-                            pickImages.launch(arrayOf("image/*"))
+                            pickImages()
                         }
                     }
                 }
@@ -294,7 +283,7 @@ fun ToolScreen(
                                     result = runner.run(
                                         spec = spec,
                                         docs = docs,
-                                        imageUris = imageUris,
+                                        images = images,
                                         options = options,
                                     ) { value -> progress = value }
                                 } catch (e: CancellationException) {

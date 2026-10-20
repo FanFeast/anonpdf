@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
@@ -45,7 +46,21 @@ fun rememberOpenPdfs(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
     return { launcher.launch(arrayOf("application/pdf")) }
 }
 
+/** Opens the system picker for any number of images, for Images to PDF. */
+@Composable
+fun rememberOpenImages(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
+        if (it.isNotEmpty()) onPicked(it)
+    }
+    return { launcher.launch(arrayOf("image/*")) }
+}
+
+/** The file's name as far as the reference shows it, without asking the provider. */
+fun DocumentRef.fileName(): String? = lastPathSegment?.substringAfterLast('/')
+
 fun PageImage.toImageBitmap(): ImageBitmap = asImageBitmap()
+
+fun ImageBitmap.toPageImage(): PageImage = asAndroidBitmap()
 
 /** How much memory the image's pixels take, for sizing caches. */
 val PageImage.memoryBytes: Int get() = byteCount

@@ -2,12 +2,6 @@
 
 package io.github.fanfeast.anonpdf.ui.sign
 
-import android.graphics.Bitmap
-import android.graphics.Paint
-import android.graphics.Path
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -56,21 +50,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Canvas as ImageCanvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintingStyle
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.createBitmap
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImageStamp
+import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.PdfOps
+import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
 import io.github.fanfeast.anonpdf.ui.common.OpenOutcome
 import io.github.fanfeast.anonpdf.ui.common.openDocumentSession
+import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdf
+import io.github.fanfeast.anonpdf.ui.common.toImageBitmap
+import io.github.fanfeast.anonpdf.ui.common.toPageImage
 import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.BusyOverlay
 import io.github.fanfeast.anonpdf.ui.components.ChoiceChips
@@ -81,6 +85,7 @@ import io.github.fanfeast.anonpdf.ui.components.PasswordDialog
 import io.github.fanfeast.anonpdf.ui.components.ResultCard
 import io.github.fanfeast.anonpdf.ui.components.SectionLabel
 import io.github.fanfeast.anonpdf.ui.components.friendlyMessage
+import io.github.fanfeast.anonpdf.ui.components.readableWidth
 import io.github.fanfeast.anonpdf.ui.tools.ToolResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -98,18 +103,17 @@ private enum class InkColor(val label: String, val color: Color) {
 
 @Composable
 fun SignScreen(
-    initialUri: Uri?,
+    initialDocument: DocumentRef?,
     onBack: () -> Unit,
 ) {
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val store = remember { DocumentStore(context) }
+    val store = rememberDocumentStore()
     val snackbarHost = remember { SnackbarHostState() }
 
     var session by remember { mutableStateOf<DocumentSession?>(null) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    var pendingUri by remember { mutableStateOf<Uri?>(null) }
+    var pending by remember { mutableStateOf<DocumentRef?>(null) }
     var askPassword by remember { mutableStateOf(false) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var busyMessage by remember { mutableStateOf<String?>(null) }
@@ -126,16 +130,16 @@ fun SignScreen(
     var centerX by remember { mutableStateOf(0.5f) }
     var centerY by remember { mutableStateOf(0.8f) }
     var widthRatio by remember { mutableStateOf(0.32f) }
-    var pagePreview by remember { mutableStateOf<Bitmap?>(null) }
+    var pagePreview by remember { mutableStateOf<PageImage?>(null) }
 
     DisposableEffect(Unit) { onDispose { session?.close() } }
 
-    fun load(uri: Uri, password: String?) {
+    fun load(ref: DocumentRef, password: String?) {
         scope.launch {
             loading = true
             error = null
-            pendingUri = uri
-            when (val outcome = openDocumentSession(store, uri, password, session?.sourceFile)) {
+            pending = ref
+            when (val outcome = openDocumentSession(store, ref, password, session?.sourceFile)) {
                 is OpenOutcome.Ready -> {
                     session?.close()
                     session = outcome.session
@@ -161,12 +165,10 @@ fun SignScreen(
         }
     }
 
-    val pickPdf = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri -> if (uri != null) load(uri, null) }
+    val pickPdf = rememberOpenPdf { load(it, null) }
 
-    LaunchedEffect(initialUri) {
-        if (initialUri != null && session == null) load(initialUri, null)
+    LaunchedEffect(initialDocument) {
+        if (initialDocument != null && session == null) load(initialDocument, null)
     }
 
     val current = session
@@ -180,7 +182,7 @@ fun SignScreen(
     }
 
     val signatureBitmap = remember(strokes, ink) {
-        if (strokes.isEmpty()) null else renderSignature(strokes, ink.color.toArgb())
+        if (strokes.isEmpty()) null else renderSignature(strokes, ink.color)
     }
 
     Scaffold(
@@ -193,7 +195,7 @@ fun SignScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .readableWidth(),
             ) {
                 Spacer(Modifier.height(4.dp))
 
@@ -205,7 +207,7 @@ fun SignScreen(
                     )
                     Spacer(Modifier.height(20.dp))
                     OutlinedButton(
-                        onClick = { pickPdf.launch(arrayOf("application/pdf")) },
+                        onClick = pickPdf,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Icon(Icons.Filled.Description, contentDescription = null)
@@ -261,7 +263,7 @@ fun SignScreen(
                     }
 
                     Text(
-                        "Tap the page where you want your signature.",
+                        "Tap or click the page where you want your signature.",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -328,7 +330,7 @@ fun SignScreen(
                                             stamps = listOf(
                                                 ImageStamp(
                                                     pageIndex = pageIndex,
-                                                    bitmap = bitmap,
+                                                    bitmap = bitmap.toPageImage(),
                                                     centerXRatio = centerX,
                                                     centerYRatio = centerY,
                                                     widthRatio = widthRatio,
@@ -387,7 +389,7 @@ fun SignScreen(
                 askPassword = false
                 if (session == null) onBack()
             },
-            onConfirm = { candidate -> pendingUri?.let { load(it, candidate) } },
+            onConfirm = { candidate -> pending?.let { load(it, candidate) } },
         )
     }
 }
@@ -407,6 +409,7 @@ private fun SignaturePad(
             .height(180.dp)
             .background(Color.White, RoundedCornerShape(12.dp))
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+            .semantics { contentDescription = "Signature pad" }
             .pointerInput(Unit) {
                 detectDragGestures(
                     onDragStart = { offset -> onStrokeStart(offset.inPadUnits(size)) },
@@ -471,9 +474,9 @@ private fun PageChooser(pageCount: Int, selected: Int, onSelect: (Int) -> Unit) 
 
 @Composable
 private fun PagePlacement(
-    preview: Bitmap?,
+    preview: PageImage?,
     pageAspect: Float,
-    signature: Bitmap?,
+    signature: ImageBitmap?,
     centerX: Float,
     centerY: Float,
     widthRatio: Float,
@@ -497,9 +500,10 @@ private fun PagePlacement(
                 }
             },
     ) {
-        if (preview != null) {
+        val previewImage = remember(preview) { preview?.toImageBitmap() }
+        if (previewImage != null) {
             Image(
-                bitmap = preview.asImageBitmap(),
+                bitmap = previewImage,
                 contentDescription = "Page preview",
                 contentScale = ContentScale.FillBounds,
                 modifier = Modifier.fillMaxSize(),
@@ -515,7 +519,7 @@ private fun PagePlacement(
             val signatureHeight =
                 signatureWidth * (signature.height / signature.width.toFloat())
             Image(
-                bitmap = signature.asImageBitmap(),
+                bitmap = signature,
                 contentDescription = "Signature",
                 contentScale = ContentScale.Fit,
                 modifier = Modifier
@@ -543,28 +547,32 @@ private fun Offset.normalizedIn(size: androidx.compose.ui.unit.IntSize): Offset 
  * bounding box so placement on the page is predictable. Strokes are in pad units,
  * so the bitmap keeps the proportions the signature was drawn with.
  */
-private fun renderSignature(strokes: List<List<Offset>>, colorArgb: Int): Bitmap? {
+private fun renderSignature(strokes: List<List<Offset>>, color: Color): ImageBitmap? {
     val frame = SignatureFrame.of(strokes.flatten().map { it.x to it.y }) ?: return null
     val targetWidth = 1200
     val (width, height) = frame.bitmapSize(targetWidth)
 
-    val bitmap = createBitmap(width, height)
-    val canvas = android.graphics.Canvas(bitmap)
+    val bitmap = ImageBitmap(width, height)
+    val canvas = ImageCanvas(bitmap)
     val paint = Paint().apply {
         isAntiAlias = true
-        color = colorArgb
-        style = Paint.Style.STROKE
+        this.color = color
+        style = PaintingStyle.Stroke
         strokeWidth = targetWidth * 0.012f
-        strokeCap = Paint.Cap.ROUND
-        strokeJoin = Paint.Join.ROUND
+        strokeCap = StrokeCap.Round
+        strokeJoin = StrokeJoin.Round
     }
-    val dotPaint = Paint(paint).apply { style = Paint.Style.FILL }
+    val dotPaint = Paint().apply {
+        isAntiAlias = true
+        this.color = color
+        style = PaintingStyle.Fill
+    }
 
     strokes.forEach { stroke ->
         val x0 = frame.mapX(stroke.firstOrNull()?.x ?: return@forEach, targetWidth)
         val y0 = frame.mapY(stroke.first().y, targetWidth)
         if (stroke.size == 1) {
-            canvas.drawCircle(x0, y0, paint.strokeWidth / 2f, dotPaint)
+            canvas.drawCircle(Offset(x0, y0), paint.strokeWidth / 2f, dotPaint)
             return@forEach
         }
         val path = Path()

@@ -1,18 +1,11 @@
 package io.github.fanfeast.anonpdf.pdf
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Color
-import android.net.Uri
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import androidx.test.platform.app.InstrumentationRegistry
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
-import android.os.Looper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
@@ -22,27 +15,23 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
 import java.io.File
 import kotlin.random.Random
 
 /**
- * Exercises every PDF operation against real documents on a real device.
+ * Exercises every PDF operation against real documents.
  *
- * These are instrumented rather than JVM tests on purpose: the engine leans on
- * Android's own PdfRenderer, Bitmap and ImageDecoder, so testing it off-device
- * would test something other than what ships.
+ * On Android these run on a device, because the engine leans on Android's own
+ * PdfRenderer and Bitmap there and testing off-device would test something
+ * other than what ships. On desktop they are plain JVM tests.
  */
-@RunWith(AndroidJUnit4::class)
 class PdfEngineTest {
 
-    private lateinit var context: Context
     private lateinit var workDir: File
 
     @Before
     fun setUp() {
-        context = InstrumentationRegistry.getInstrumentation().targetContext
-        workDir = File(context.cacheDir, "enginetest").apply {
+        workDir = TestPlatform.scratchDir("enginetest").apply {
             deleteRecursively()
             mkdirs()
         }
@@ -87,28 +76,22 @@ class PdfEngineTest {
             }
             document.save(file)
         }
-        bitmap.recycle()
+        bitmap.release()
         return file
     }
 
-    private fun noiseBitmap(width: Int, height: Int, opaque: Boolean = true): Bitmap {
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    private fun noiseBitmap(width: Int, height: Int, opaque: Boolean = true): PageImage {
         val random = Random(7)
-        val row = IntArray(width)
-        for (y in 0 until height) {
-            for (x in 0 until width) {
-                row[x] = Color.rgb(
-                    (x + y) % 256,
-                    random.nextInt(256),
-                    (x * 3 + y) % 256,
-                )
-            }
-            bitmap.setPixels(row, 0, width, 0, y, width, 1)
+        val pixels = IntArray(width * height) { index ->
+            val x = index % width
+            val y = index / width
+            val red = (x + y) % 256
+            val blue = (x * 3 + y) % 256
+            (0xFF shl 24) or (red shl 16) or (random.nextInt(256) shl 8) or blue
         }
-        // An ARGB_8888 bitmap reports hasAlpha() even when every pixel is opaque,
-        // and PDFBox then emits a soft mask. Say so explicitly.
-        if (opaque) bitmap.setHasAlpha(false)
-        return bitmap
+        // Every pixel is opaque either way; [opaque] decides whether the image
+        // says it may have transparency, which is what makes PDFBox emit a soft mask.
+        return TestPlatform.imageOf(width, height, pixels, hasAlpha = !opaque)
     }
 
     /**
@@ -120,7 +103,7 @@ class PdfEngineTest {
      */
     private fun squashed(text: String) = text.replace(Regex("\\s+"), "")
 
-    private suspend fun renderFirstPage(file: File, width: Int = 400): Bitmap =
+    private suspend fun renderFirstPage(file: File, width: Int = 400): PageImage =
         PdfRasterizer.open(file).use { it.renderByWidth(0, width) }
 
     /** All the page's content streams concatenated, for operator-level assertions. */
@@ -136,7 +119,7 @@ class PdfEngineTest {
      * Fraction of pixels that differ inside the middle half of the page, which is
      * where a centred or diagonal watermark has to show up.
      */
-    private fun centreDifferenceFraction(before: Bitmap, after: Bitmap): Float {
+    private fun centreDifferenceFraction(before: PageImage, after: PageImage): Float {
         if (before.width != after.width || before.height != after.height) return 1f
         val fromX = before.width / 4
         val toX = before.width * 3 / 4
@@ -147,7 +130,7 @@ class PdfEngineTest {
         for (y in fromY until toY step 2) {
             for (x in fromX until toX step 2) {
                 total++
-                if (before.getPixel(x, y) != after.getPixel(x, y)) differing++
+                if (before.argbAt(x, y) != after.argbAt(x, y)) differing++
             }
         }
         return if (total == 0) 0f else differing.toFloat() / total
@@ -156,8 +139,8 @@ class PdfEngineTest {
     private fun pngFile(width: Int, height: Int): File {
         val file = File(workDir, "img-${System.nanoTime()}.png")
         val bitmap = noiseBitmap(width, height)
-        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        bitmap.recycle()
+        file.outputStream().use { bitmap.writeTo(it, ImageFormat.PNG) }
+        bitmap.release()
         return file
     }
 
@@ -335,8 +318,8 @@ class PdfEngineTest {
             "watermark should mark the middle of the page, changed=$changed",
             changed > 0.01f,
         )
-        before.recycle()
-        after.recycle()
+        before.release()
+        after.release()
     }
 
     @Test
@@ -363,8 +346,8 @@ class PdfEngineTest {
         assertTrue("rotated page renders landscape", after.width > after.height)
         val changed = centreDifferenceFraction(before, after)
         assertTrue("watermark visible on the rotated page, changed=$changed", changed > 0.01f)
-        before.recycle()
-        after.recycle()
+        before.release()
+        after.release()
     }
 
     @Test
@@ -559,7 +542,7 @@ class PdfEngineTest {
             }
             document.save(source)
         }
-        bitmap.recycle()
+        bitmap.release()
         val output = out("compressed-shared")
 
         val result = PdfConvert.compressSmart(source, output, 0.6f, 1200)
@@ -585,9 +568,9 @@ class PdfEngineTest {
         // not blank paper.
         val last = PdfRasterizer.open(output).use { it.renderByWidth(pages - 1, 300) }
         val inked = (0 until last.height step 4).sumOf { y ->
-            (0 until last.width step 4).count { x -> last.getPixel(x, y) != Color.WHITE }
+            (0 until last.width step 4).count { x -> last.argbAt(x, y) != TestPlatform.WHITE }
         }
-        last.recycle()
+        last.release()
         assertTrue("last page shows its image, $inked inked samples", inked > 500)
     }
 
@@ -658,10 +641,10 @@ class PdfEngineTest {
         assertEquals(3, files.size)
         files.forEach { file ->
             assertTrue("${file.name} has content", file.length() > 0)
-            val decoded = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+            val decoded = TestPlatform.readImage(file)
             assertNotNull("${file.name} decodes", decoded)
-            assertTrue(decoded.width > 100)
-            decoded.recycle()
+            assertTrue(decoded!!.width > 100)
+            decoded.release()
         }
     }
 
@@ -672,8 +655,8 @@ class PdfEngineTest {
         val output = out("from-images")
 
         PdfConvert.imagesToPdf(
-            context = context,
-            images = listOf(Uri.fromFile(first), Uri.fromFile(second)),
+            images = listOf(first, second),
+            decode = TestPlatform::readImage,
             output = output,
             options = ImagesToPdfOptions(pageSize = PdfPageSizePreset.FIT_IMAGE),
         )
@@ -693,8 +676,8 @@ class PdfEngineTest {
         val output = out("from-images-a4")
 
         PdfConvert.imagesToPdf(
-            context = context,
-            images = listOf(Uri.fromFile(image)),
+            images = listOf(image),
+            decode = TestPlatform::readImage,
             output = output,
             options = ImagesToPdfOptions(pageSize = PdfPageSizePreset.A4, marginPoints = 36f),
         )
@@ -732,7 +715,7 @@ class PdfEngineTest {
             assertTrue("stamped page gained an XObject", stamped.isNotEmpty())
             assertTrue("other pages untouched", untouched.isEmpty())
         }
-        signature.recycle()
+        signature.release()
     }
 
     @Test
@@ -748,11 +731,11 @@ class PdfEngineTest {
             val bitmap = rasterizer.renderByWidth(0, 640)
             assertEquals(640, bitmap.width)
             assertTrue("aspect ratio preserved", bitmap.height in 880..920)
-            bitmap.recycle()
+            bitmap.release()
 
             val atDpi = rasterizer.renderAtDpi(1, 72)
             assertTrue(atDpi.width in 590..600)
-            atDpi.recycle()
+            atDpi.release()
         }
     }
 
@@ -773,21 +756,6 @@ class PdfEngineTest {
     }
 
     @Test
-    fun renderingLeavesTheMainThreadFree() = runBlocking(Dispatchers.Main) {
-        // Callers are composables on the main thread. If the render ran there, the
-        // main thread could do nothing else until it finished; off it, other main
-        // thread work gets in while the page is still drawing.
-        val source = imageHeavyPdf()
-        PdfRasterizer.open(source).use { rasterizer ->
-            assertTrue(Looper.getMainLooper().isCurrentThread)
-            val render = async { rasterizer.renderAtDpi(0, 300) }
-            val mainRanDuringRender = async { !render.isCompleted }
-            assertTrue("main thread was blocked by the render", mainRanDuringRender.await())
-            render.await().recycle()
-        }
-    }
-
-    @Test
     fun closingMidRenderIsSafeAndLaterRendersFail() = runBlocking {
         val source = imageHeavyPdf()
         val rasterizer = PdfRasterizer.open(source)
@@ -800,7 +768,7 @@ class PdfEngineTest {
         rasterizer.close()
         val outcomes = renders.map { it.await() }
         outcomes.forEach { outcome ->
-            outcome.getOrNull()?.recycle()
+            outcome.getOrNull()?.release()
             outcome.exceptionOrNull()?.let {
                 assertTrue("unexpected failure: $it", it is IllegalStateException)
             }

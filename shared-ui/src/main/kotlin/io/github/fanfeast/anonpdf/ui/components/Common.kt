@@ -53,6 +53,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import java.util.Locale
@@ -325,4 +327,18 @@ fun formatBytes(bytes: Long): String {
     val megabytes = kilobytes / 1024.0
     if (megabytes < 1024) return String.format(Locale.US, "%.1f MB", megabytes)
     return String.format(Locale.US, "%.2f GB", megabytes / 1024.0)
+}
+
+/**
+ * Keeps a form readable in a wide window: at most [maxWidth] wide and centred,
+ * with a [gutter] either side on a narrow screen.
+ *
+ * A layout modifier rather than a centred inner column, so a scrolling screen
+ * still scrolls when the wheel is over the empty space beside the form.
+ */
+fun Modifier.readableWidth(maxWidth: Dp = 720.dp, gutter: Dp = 16.dp): Modifier = layout { measurable, constraints ->
+    val available = if (constraints.hasBoundedWidth) constraints.maxWidth else maxWidth.roundToPx()
+    val width = minOf(maxWidth.roundToPx(), available - 2 * gutter.roundToPx()).coerceAtLeast(0)
+    val placeable = measurable.measure(constraints.copy(minWidth = width, maxWidth = width))
+    layout(available, placeable.height) { placeable.place((available - width) / 2, 0) }
 }
