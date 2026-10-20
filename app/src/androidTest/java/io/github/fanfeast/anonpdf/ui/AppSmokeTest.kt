@@ -12,7 +12,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.ComposeTestRule
-import androidx.compose.ui.test.junit4.createEmptyComposeRule
+import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -56,6 +56,10 @@ import java.io.File
 @RunWith(AndroidJUnit4::class)
 class AppSmokeTest {
 
+    // The v2 rule: its test dispatcher resumes coroutines on the main thread, as
+    // the app's own dispatcher does. The v1 rule resumed them on whichever thread
+    // finished the work, so a screen that navigated after a background step would
+    // now and then do it off the main thread and break the back stack.
     @get:Rule
     val compose = createEmptyComposeRule()
 
@@ -191,9 +195,6 @@ class AppSmokeTest {
         compose.waitFor { onAllNodesWithContentDescription("Undo") }
         // Back in the editor, the rotation is still pending and can be undone.
         compose.onNodeWithContentDescription("Undo").assertIsEnabled()
-        // Let the tool's screen finish animating out before the test tears the
-        // activity down: Navigation throws if an entry is destroyed mid-transition.
-        compose.waitForIdle()
     }
 
     /** Opens a PDF in the editor, rotates a page, and hands it to Compress. */

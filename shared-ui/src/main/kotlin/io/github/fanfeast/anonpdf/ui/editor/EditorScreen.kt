@@ -498,24 +498,28 @@ fun EditorScreen(
             }
             busyMessage = "Applying your edits first…"
             progress = 0f
-            try {
-                val staged = store.newOutputFile(
+            val staged = try {
+                store.newOutputFile(
                     "${DocumentStore.stem(document.name)}-edited",
                     "pdf",
-                )
-                PdfEditor.applyPlan(
-                    sources = planSources(),
-                    output = staged,
-                    plan = plan,
-                ) { value -> progress = value }
-                openTool(tool, documentRefOf(staged))
+                ).also { output ->
+                    PdfEditor.applyPlan(
+                        sources = planSources(),
+                        output = output,
+                        plan = plan,
+                    ) { value -> progress = value }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
                 error = t.friendlyMessage("Could not prepare the document.")
+                null
             } finally {
                 busyMessage = null
             }
+            // Outside the try: a navigation that fails part-way leaves the back
+            // stack broken, and must not pass for a document that couldn't be read.
+            if (staged != null) openTool(tool, documentRefOf(staged))
         }
     }
 
