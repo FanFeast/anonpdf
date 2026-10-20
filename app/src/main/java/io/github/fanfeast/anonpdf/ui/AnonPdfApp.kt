@@ -130,7 +130,7 @@ fun AnonPdfApp(initialUri: Uri?) {
             } else {
                 ToolScreen(
                     toolId = spec.id,
-                    initialUri = entry.arguments?.getString("uri")?.toUri(),
+                    initialDocument = entry.arguments?.getString("uri")?.toUri(),
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -138,7 +138,7 @@ fun AnonPdfApp(initialUri: Uri?) {
 
         composable(route = Routes.SIGN, arguments = optionalUriArg()) { entry ->
             SignScreen(
-                initialUri = entry.arguments?.getString("uri")?.toUri(),
+                initialDocument = entry.arguments?.getString("uri")?.toUri(),
                 onBack = { navController.popBackStack() },
             )
         }

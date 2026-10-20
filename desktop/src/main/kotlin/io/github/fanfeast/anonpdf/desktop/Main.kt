@@ -1,22 +1,18 @@
 package io.github.fanfeast.anonpdf.desktop
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyShortcut
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import androidx.lifecycle.ViewModelStore
-import androidx.lifecycle.ViewModelStoreOwner
-import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import io.github.fanfeast.anonpdf.ui.editor.EditorScreen
+import io.github.fanfeast.anonpdf.ui.common.choosePdfs
 import io.github.fanfeast.anonpdf.ui.theme.AnonPdfTheme
+import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
+import java.awt.Dimension
 import java.io.File
 import kotlin.system.exitProcess
 
@@ -26,44 +22,38 @@ fun main(args: Array<String>) {
     if (args.firstOrNull() == "--self-test") exitProcess(runCatching { SelfTest.run() }.getOrElse { it.printStackTrace(); 2 })
     val initial = args.firstOrNull()?.let(::File)?.takeIf { it.isFile }
     application {
+        val navigator = remember { DesktopNavigator(initial) }
         Window(
             onCloseRequest = ::exitApplication,
             title = "AnonPDF",
-            state = rememberWindowState(width = 1000.dp, height = 1100.dp),
+            state = rememberWindowState(width = 1280.dp, height = 880.dp),
         ) {
-            AnonPdfTheme { DesktopApp(initial) }
-        }
-    }
-}
-
-/**
- * The editor, which on desktop is the whole app for now.
- *
- * Each document gets its own ViewModel store, so leaving a document (the editor's
- * back arrow) clears it, and that is what closes the document's files. The
- * editor then starts empty, ready to open another.
- */
-@Composable
-internal fun DesktopApp(initial: File?) {
-    var opening by remember { mutableStateOf(initial) }
-    var generation by remember { mutableStateOf(0) }
-    key(generation) {
-        val owner = remember {
-            object : ViewModelStoreOwner {
-                override val viewModelStore = ViewModelStore()
+            LaunchedEffect(Unit) { window.minimumSize = Dimension(960, 640) }
+            MenuBar {
+                Menu("File", mnemonic = 'F') {
+                    Item(
+                        "Open PDF to edit…",
+                        shortcut = KeyShortcut(Key.O, ctrl = true),
+                        onClick = { choosePdfs(multiple = false).firstOrNull()?.let(navigator::edit) },
+                    )
+                    Item(
+                        "Close document",
+                        enabled = navigator.hasEditorSession,
+                        shortcut = KeyShortcut(Key.W, ctrl = true),
+                        onClick = navigator::closeEditor,
+                    )
+                    Separator()
+                    Item("Quit", shortcut = KeyShortcut(Key.Q, ctrl = true), onClick = ::exitApplication)
+                }
+                Menu("Tools", mnemonic = 'T') {
+                    Item("Edit PDF", onClick = { navigator.show(Pane.Editor) })
+                    ToolCatalog.grouped.forEach { (_, tools) ->
+                        Separator()
+                        tools.forEach { tool -> Item(tool.title, onClick = { navigator.show(Pane.Tool(tool.id)) }) }
+                    }
+                }
             }
-        }
-        DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
-        CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-            EditorScreen(
-                initialDocument = opening,
-                onBack = {
-                    opening = null
-                    generation++
-                },
-                // The one-shot tools (compress, split, sign, …) are not on desktop yet.
-                onOpenTool = null,
-            )
+            AnonPdfTheme { DesktopApp(navigator) }
         }
     }
 }

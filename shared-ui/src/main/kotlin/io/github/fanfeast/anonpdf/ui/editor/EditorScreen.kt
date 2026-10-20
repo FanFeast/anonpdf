@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.PagerState
@@ -62,6 +63,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -167,6 +169,10 @@ private const val AUTO_SCROLL_EDGE_PX = 110f
 private const val AUTO_SCROLL_STEP_PX = 14f
 
 /** Drawer heights it snaps to: out of the way, tools showing, everything showing. */
+/** From this width on, the controls sit in a panel beside the page, not under it. */
+private val WIDE_LAYOUT_MIN_WIDTH = 840.dp
+private val SIDE_PANEL_WIDTH = 400.dp
+
 private val DRAWER_HIDDEN = 36.dp
 private val DRAWER_COMPACT = 356.dp
 private val DRAWER_FULL = 460.dp
@@ -693,98 +699,131 @@ fun EditorScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHost) },
     ) { padding ->
-        Box(Modifier.fillMaxSize()) {
-            Column(
-                Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-            ) {
-                PreviewArea(
-                    bitmap = preview,
-                    detail = remember(previewPage) {
-                        previewPage?.let { page -> DetailRenderer(page::renderRegion) }
+        // The page and the editing controls, defined once for both layouts below.
+        val pageArea: @Composable (Modifier) -> Unit = { modifier ->
+            PreviewArea(
+                bitmap = preview,
+                detail = remember(previewPage) {
+                    previewPage?.let { page -> DetailRenderer(page::renderRegion) }
+                },
+                pageKey = currentSource,
+                busy = previewBusy,
+                empty = kept.isEmpty(),
+                shownSize = effectiveSizes.getOrNull(state.position),
+                referenceSize = referenceSize(
+                    state = kept.getOrNull(state.position),
+                    base = kept.getOrNull(state.position)?.let { current ->
+                        resolveSource(current.sourceIndex)
+                            ?.let { (owner, local) -> owner.pageSizes.getOrNull(local) }
                     },
-                    pageKey = currentSource,
-                    busy = previewBusy,
-                    empty = kept.isEmpty(),
-                    shownSize = effectiveSizes.getOrNull(state.position),
-                    referenceSize = referenceSize(
-                        state = kept.getOrNull(state.position),
-                        base = kept.getOrNull(state.position)?.let { current ->
-                            resolveSource(current.sourceIndex)
-                                ?.let { (owner, local) -> owner.pageSizes.getOrNull(local) }
-                        },
-                        shown = effectiveSizes.getOrNull(state.position),
-                    ),
-                    mode = mode,
-                    onModeChange = { mode = it },
-                    onWidthChange = { previewWidthPx = it },
-                    stepper = if (kept.size > 1 && !mode.interactsWithPage) {
-                        { PageStepper(state.position, kept.size) { state.goTo(state.position + it) } }
-                    } else {
-                        null
-                    },
-                    modifier = Modifier.weight(1f),
-                )
+                    shown = effectiveSizes.getOrNull(state.position),
+                ),
+                mode = mode,
+                onModeChange = { mode = it },
+                onWidthChange = { previewWidthPx = it },
+                stepper = if (kept.size > 1 && !mode.interactsWithPage) {
+                    { PageStepper(state.position, kept.size) { state.goTo(state.position + it) } }
+                } else {
+                    null
+                },
+                modifier = modifier,
+            )
+        }
+        val controls: @Composable (stacked: Boolean) -> Unit = { stacked ->
+            DrawerBody(
+                stacked = stacked,
+                state = state,
+                plan = plan,
+                mode = mode,
+                toolPager = toolPager,
+                includeHandOffs = onOpenTool != null,
+                resolveSource = { global -> resolveSource(global) },
+                thumbnails = thumbnails,
+                currentSource = currentSource,
+                insertDocs = insertReady.map { it.name to it.pageCount },
+                onModeChange = { mode = it },
+                onExitMode = { mode = EditorMode.Normal },
+                onPickTool = ::pick,
+                onShowPending = { showPending = true },
+                onSave = ::save,
+                onInsertApply = {
+                    (mode as? EditorMode.Inserting)
+                        ?.let { applyInsert(it.where) }
+                },
+                onInsertCancel = ::cancelInsert,
+                resultingSize = describeResult(
+                    effectiveSizes.getOrNull(state.position),
+                ),
+            )
+        }
 
-                Surface(
-                    tonalElevation = 3.dp,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(drawerHeight),
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            if (maxWidth >= WIDE_LAYOUT_MIN_WIDTH) {
+                // A desktop window or a tablet: the controls get a full-height
+                // panel beside the page instead of a drawer under it.
+                Row(
+                    Modifier
+                        .padding(padding)
+                        .fillMaxSize(),
                 ) {
-                    Column {
-                        DrawerHandle(
-                            onDrag = { deltaPx ->
-                                val delta = with(density) { deltaPx.toDp() }
-                                drawerHeight = (drawerHeight - delta)
-                                    .coerceIn(DRAWER_HIDDEN, DRAWER_FULL)
-                            },
-                            onSettle = { drawerHeight = snapDrawer(drawerHeight) },
-                            onToggle = {
-                                drawerHeight = if (drawerHeight <= DRAWER_CONTENT_THRESHOLD) {
-                                    DRAWER_COMPACT
-                                } else {
-                                    DRAWER_HIDDEN
-                                }
-                            },
-                        )
+                    Column(Modifier.weight(1f)) {
+                        pageArea(Modifier.weight(1f))
+                        error?.let { Column(Modifier.padding(10.dp)) { ErrorNote(it) } }
+                    }
+                    VerticalDivider()
+                    Surface(
+                        tonalElevation = 3.dp,
+                        modifier = Modifier
+                            .width(SIDE_PANEL_WIDTH)
+                            .fillMaxHeight(),
+                    ) {
+                        Box(Modifier.padding(top = 8.dp)) { controls(true) }
+                    }
+                }
+            } else {
+                Column(
+                    Modifier
+                        .padding(padding)
+                        .fillMaxSize(),
+                ) {
+                    pageArea(Modifier.weight(1f))
 
-                        // The body takes whatever height is left, and scrolls inside
-                        // it, so no control is ever pushed out of reach whatever the
-                        // drawer is dragged to.
-                        if (drawerHeight > DRAWER_CONTENT_THRESHOLD) {
-                            Box(Modifier.weight(1f)) {
-                                DrawerBody(
-                                    state = state,
-                                    plan = plan,
-                                    mode = mode,
-                                    toolPager = toolPager,
-                                    includeHandOffs = onOpenTool != null,
-                                    resolveSource = { global -> resolveSource(global) },
-                                    thumbnails = thumbnails,
-                                    currentSource = currentSource,
-                                    insertDocs = insertReady.map { it.name to it.pageCount },
-                                    onModeChange = { mode = it },
-                                    onExitMode = { mode = EditorMode.Normal },
-                                    onPickTool = ::pick,
-                                    onShowPending = { showPending = true },
-                                    onSave = ::save,
-                                    onInsertApply = {
-                                        (mode as? EditorMode.Inserting)
-                                            ?.let { applyInsert(it.where) }
-                                    },
-                                    onInsertCancel = ::cancelInsert,
-                                    resultingSize = describeResult(
-                                        effectiveSizes.getOrNull(state.position),
-                                    ),
-                                )
+                    Surface(
+                        tonalElevation = 3.dp,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(drawerHeight),
+                    ) {
+                        Column {
+                            DrawerHandle(
+                                onDrag = { deltaPx ->
+                                    val delta = with(density) { deltaPx.toDp() }
+                                    drawerHeight = (drawerHeight - delta)
+                                        .coerceIn(DRAWER_HIDDEN, DRAWER_FULL)
+                                },
+                                onSettle = { drawerHeight = snapDrawer(drawerHeight) },
+                                onToggle = {
+                                    drawerHeight = if (drawerHeight <= DRAWER_CONTENT_THRESHOLD) {
+                                        DRAWER_COMPACT
+                                    } else {
+                                        DRAWER_HIDDEN
+                                    }
+                                },
+                            )
+
+                            // The body takes whatever height is left, and scrolls inside
+                            // it, so no control is ever pushed out of reach whatever the
+                            // drawer is dragged to.
+                            if (drawerHeight > DRAWER_CONTENT_THRESHOLD) {
+                                Box(Modifier.weight(1f)) {
+                                    controls(false)
+                                }
                             }
                         }
                     }
-                }
 
-                error?.let { Column(Modifier.padding(10.dp)) { ErrorNote(it) } }
+                    error?.let { Column(Modifier.padding(10.dp)) { ErrorNote(it) } }
+                }
             }
 
             result?.let { finished ->
@@ -800,6 +839,7 @@ fun EditorScreen(
                         store = store,
                         onMessage = { scope.launch { snackbarHost.showSnackbar(it) } },
                         onStartOver = { result = null },
+                        modifier = Modifier.widthIn(max = 520.dp),
                     )
                 }
             }
@@ -1170,6 +1210,8 @@ private fun DrawerBody(
     toolPager: PagerState,
     /** Whether one-shot tools exist on this platform, so their tiles are shown. */
     includeHandOffs: Boolean,
+    /** Every group of tools at once, for a side panel tall enough to hold them. */
+    stacked: Boolean,
     resolveSource: (Int) -> Pair<DocumentSession, Int>?,
     thumbnails: LruCache<Int, PageImage>,
     currentSource: Int?,
@@ -1218,20 +1260,26 @@ private fun DrawerBody(
                     },
                 )
                 ScopeRow(state)
-                ToolPager(
-                    pagerState = toolPager,
-                    pages = toolPages(
-                        includeHandOffs = includeHandOffs,
-                        currentPageDeleted = currentSource?.let { source ->
-                            plan.pages.firstOrNull { it.sourceIndex == source }?.deleted
-                        } ?: false,
-                    ),
-                    highlighted = buildSet {
-                        if (plan.watermark != null) add(EditorTool.WATERMARK)
-                        if (plan.pageNumbers != null) add(EditorTool.PAGE_NUMBERS)
-                    },
-                    onPick = onPickTool,
+                val pages = toolPages(
+                    includeHandOffs = includeHandOffs,
+                    currentPageDeleted = currentSource?.let { source ->
+                        plan.pages.firstOrNull { it.sourceIndex == source }?.deleted
+                    } ?: false,
                 )
+                val highlighted = buildSet {
+                    if (plan.watermark != null) add(EditorTool.WATERMARK)
+                    if (plan.pageNumbers != null) add(EditorTool.PAGE_NUMBERS)
+                }
+                if (stacked) {
+                    ToolList(pages = pages, highlighted = highlighted, onPick = onPickTool)
+                } else {
+                    ToolPager(
+                        pagerState = toolPager,
+                        pages = pages,
+                        highlighted = highlighted,
+                        onPick = onPickTool,
+                    )
+                }
             }
             // Pinned, so "Save as…" is reachable however far the drawer is pulled down.
             SaveRow(state, plan, onShowPending, onSave)
@@ -1714,9 +1762,9 @@ private fun PageStrip(
         }
         Text(
             if (selecting) {
-                "Tap to select. Long-press and drag to reorder."
+                "Tap to select. Press and hold, then drag to reorder."
             } else {
-                "Long-press and drag a page to reorder it."
+                "Press and hold a page, then drag it to reorder."
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -33,6 +33,10 @@ class DocumentStore(private val root: File = File(System.getProperty("java.io.tm
         return File(outDir, "${sanitize(baseName)}.$extension")
     }
 
+    /** Creates a directory for operations that emit more than one file. */
+    fun newOutputDir(name: String): File =
+        File(outDir, "${sanitize(name)}-${System.nanoTime()}").apply { mkdirs() }
+
     /** Writes [source] to [destination], replacing whatever was there. */
     suspend fun export(source: File, destination: File) = withContext(Dispatchers.IO) {
         source.copyTo(destination, overwrite = true)
@@ -40,6 +44,13 @@ class DocumentStore(private val root: File = File(System.getProperty("java.io.tm
     }
 
     suspend fun displayName(file: File): String = file.name
+
+    suspend fun sizeBytes(file: File): Long = withContext(Dispatchers.IO) {
+        if (file.isFile) file.length() else -1L
+    }
+
+    /** Reads a picture for Images to PDF, upright; null if it is not one we can read. */
+    fun decodeImage(file: File): PageImage? = ImageFiles.decode(file)
 
     companion object {
         fun sanitize(name: String): String = FileNames.sanitize(name)

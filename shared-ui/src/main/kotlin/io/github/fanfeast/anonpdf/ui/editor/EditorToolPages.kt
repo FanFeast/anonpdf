@@ -207,25 +207,55 @@ fun ToolPager(
                 .fillMaxWidth()
                 .height(TOOL_GRID_HEIGHT),
         ) { page ->
-            val tools = pages[page].tools
-            Column {
-                tools.chunked(4).forEach { row ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.Start,
-                    ) {
-                        row.forEach { tool ->
-                            ToolCell(
-                                tool = tool,
-                                highlighted = tool in highlighted,
-                                onClick = { onPick(tool) },
-                                modifier = Modifier.weight(1f),
-                            )
-                        }
-                        // Keep a short row left-aligned instead of stretched out.
-                        repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
-                    }
+            ToolGrid(pages[page].tools, highlighted, onPick)
+        }
+    }
+}
+
+/**
+ * Every page of tools at once, one titled grid under the next.
+ *
+ * For a side panel, which has the height to show them all. A pager there would
+ * hide most tools behind a swipe, and a mouse cannot swipe.
+ */
+@Composable
+fun ToolList(
+    pages: List<ToolPage>,
+    highlighted: Set<EditorTool>,
+    onPick: (EditorTool) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier) {
+        pages.forEach { page ->
+            Text(
+                page.title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 14.dp, top = 8.dp, bottom = 2.dp),
+            )
+            ToolGrid(page.tools, highlighted, onPick)
+        }
+    }
+}
+
+@Composable
+private fun ToolGrid(tools: List<EditorTool>, highlighted: Set<EditorTool>, onPick: (EditorTool) -> Unit) {
+    Column {
+        tools.chunked(4).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start,
+            ) {
+                row.forEach { tool ->
+                    ToolCell(
+                        tool = tool,
+                        highlighted = tool in highlighted,
+                        onClick = { onPick(tool) },
+                        modifier = Modifier.weight(1f),
+                    )
                 }
+                // Keep a short row left-aligned instead of stretched out.
+                repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }

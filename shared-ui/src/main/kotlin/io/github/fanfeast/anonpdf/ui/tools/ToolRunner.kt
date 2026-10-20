@@ -1,7 +1,5 @@
 package io.github.fanfeast.anonpdf.ui.tools
 
-import android.content.Context
-import android.net.Uri
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
 import io.github.fanfeast.anonpdf.pdf.PageRanges
@@ -9,6 +7,7 @@ import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
+import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.components.formatBytes
 
 /**
@@ -17,15 +16,12 @@ import io.github.fanfeast.anonpdf.ui.components.formatBytes
  * Kept out of the composable so the mapping is testable and the UI file stays
  * about layout.
  */
-class ToolRunner(
-    private val context: Context,
-    private val store: DocumentStore,
-) {
+class ToolRunner(private val store: DocumentStore) {
 
     suspend fun run(
         spec: ToolSpec,
         docs: List<InputDoc>,
-        imageUris: List<Uri>,
+        images: List<DocumentRef>,
         options: ToolOptionsState,
         onProgress: Progress,
     ): ToolResult = when (spec.id) {
@@ -34,7 +30,7 @@ class ToolRunner(
         ToolId.EXTRACT -> runExtract(docs.single(), options, onProgress)
         ToolId.COMPRESS -> runCompress(docs.single(), options, onProgress)
         ToolId.PDF_TO_IMAGES -> runPdfToImages(docs.single(), options, onProgress)
-        ToolId.IMAGES_TO_PDF -> runImagesToPdf(imageUris, options, onProgress)
+        ToolId.IMAGES_TO_PDF -> runImagesToPdf(images, options, onProgress)
         ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
         ToolId.PROTECT -> runProtect(docs.single(), options, onProgress)
         ToolId.UNLOCK -> runUnlock(docs.single(), onProgress)
@@ -176,15 +172,15 @@ class ToolRunner(
     }
 
     private suspend fun runImagesToPdf(
-        images: List<Uri>,
+        images: List<DocumentRef>,
         options: ToolOptionsState,
         onProgress: Progress,
     ): ToolResult {
         require(images.isNotEmpty()) { "Pick at least one image." }
         val output = store.newOutputFile("images", "pdf")
         PdfConvert.imagesToPdf(
-            context = context,
             images = images,
+            decode = store::decodeImage,
             output = output,
             options = ImagesToPdfOptions(
                 pageSize = options.imagesPageSize,

@@ -1,6 +1,7 @@
 package io.github.fanfeast.anonpdf.pdf
 
 import android.content.Context
+import android.graphics.ImageDecoder
 import android.net.Uri
 import android.provider.OpenableColumns
 import kotlinx.coroutines.Dispatchers
@@ -92,6 +93,27 @@ class DocumentStore(private val context: Context) {
             }
         }.getOrNull() ?: -1L
     }
+
+    /**
+     * Reads a picture for Images to PDF, or null if it is not one we can read.
+     *
+     * Decodes with [ImageDecoder] specifically because it honours the EXIF
+     * orientation tag; BitmapFactory does not, and phone photos would come out
+     * sideways.
+     */
+    fun decodeImage(uri: Uri): PageImage? = runCatching {
+        val source = ImageDecoder.createSource(context.contentResolver, uri)
+        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
+            // Software allocation: hardware bitmaps cannot be read back or compressed.
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            decoder.isMutableRequired = false
+            val longestEdge = maxOf(info.size.width, info.size.height)
+            val limit = PdfConvert.MAX_SOURCE_IMAGE_EDGE
+            if (longestEdge > limit) {
+                decoder.setTargetSampleSize(Integer.highestOneBit(longestEdge / limit).coerceAtLeast(1))
+            }
+        }
+    }.getOrNull()
 
     /**
      * Drops every scratch file. Called at launch and from Settings.

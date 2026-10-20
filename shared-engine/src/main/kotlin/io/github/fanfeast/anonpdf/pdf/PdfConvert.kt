@@ -1,13 +1,5 @@
 package io.github.fanfeast.anonpdf.pdf
 
-import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Color
-import android.graphics.ImageDecoder
-import android.net.Uri
-import androidx.core.graphics.createBitmap
-import androidx.core.graphics.scale
 import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
@@ -140,23 +132,19 @@ object PdfConvert {
         try {
             val currentBytes = image.cosObject.getInt(COSName.LENGTH, Int.MAX_VALUE)
             val scaled = downscale(bitmap, maxImageDimension)
-            val flattened = flattenOntoWhite(scaled)
+            val flattened = scaled.flattenedOntoWhite()
 
             val buffer = ByteArrayOutputStream()
-            flattened.compress(
-                Bitmap.CompressFormat.JPEG,
-                (jpegQuality * 100).roundToInt().coerceIn(1, 100),
-                buffer,
-            )
+            flattened.writeTo(buffer, ImageFormat.JPEG, (jpegQuality * 100).roundToInt())
             val encoded = buffer.toByteArray()
-            if (flattened !== bitmap) flattened.recycle()
-            if (scaled !== bitmap && scaled !== flattened) scaled.recycle()
+            if (flattened !== bitmap) flattened.release()
+            if (scaled !== bitmap && scaled !== flattened) scaled.release()
 
             // Only swap in the new copy if it is actually a win.
             if (encoded.size >= currentBytes) return null
             return JPEGFactory.createFromStream(doc, ByteArrayInputStream(encoded))
         } finally {
-            runCatching { bitmap.recycle() }
+            runCatching { bitmap.release() }
         }
     }
 
@@ -191,7 +179,7 @@ object PdfConvert {
                         PDPageContentStream(doc, page).use { cs ->
                             cs.drawImage(image, 0f, 0f, size.width, size.height)
                         }
-                        bitmap.recycle()
+                        bitmap.release()
                         onProgress(0.9f * (index + 1f) / sizes.size)
                     }
                     doc.save(output)
@@ -227,23 +215,12 @@ object PdfConvert {
                     val label = (index + 1).toString().padStart(digits, '0')
                     val target = File(
                         outputDir,
-                        "${DocumentStore.sanitize(baseName)}-$label.${format.extension}",
+                        "${FileNames.sanitize(baseName)}-$label.${format.extension}",
                     )
                     target.outputStream().use { stream ->
-                        when (format) {
-                            ImageFormat.JPEG -> bitmap.compress(
-                                Bitmap.CompressFormat.JPEG,
-                                jpegQuality.coerceIn(1, 100),
-                                stream,
-                            )
-                            ImageFormat.PNG -> bitmap.compress(
-                                Bitmap.CompressFormat.PNG,
-                                100,
-                                stream,
-                            )
-                        }
+                        bitmap.writeTo(stream, format, jpegQuality)
                     }
-                    bitmap.recycle()
+                    bitmap.release()
                     onProgress((index + 1f) / count)
                     target
                 }
@@ -255,19 +232,24 @@ object PdfConvert {
 
     // --------------------------------------------------------- images -> pdf
 
-    suspend fun imagesToPdf(
-        context: Context,
-        images: List<Uri>,
+    /**
+     * One page per image, in order. [decode] reads an image the way its platform
+     * should (upright, per its EXIF orientation, and no bigger than
+     * [MAX_SOURCE_IMAGE_EDGE]), or returns null if it cannot.
+     */
+    suspend fun <T> imagesToPdf(
+        images: List<T>,
+        decode: suspend (T) -> PageImage?,
         output: File,
         options: ImagesToPdfOptions,
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
         require(images.isNotEmpty()) { "Pick at least one image." }
         PDDocument().use { doc ->
-            images.forEachIndexed { index, uri ->
-                val bitmap = decodeImage(context, uri)
+            images.forEachIndexed { index, source ->
+                val bitmap = decode(source)
                     ?: error("Could not read image ${index + 1}.")
-                val flattened = flattenOntoWhite(bitmap)
+                val flattened = bitmap.flattenedOntoWhite()
 
                 val pageBox = PdfOps.presetRectangle(
                     options.pageSize,
@@ -292,8 +274,8 @@ object PdfConvert {
                 PDPageContentStream(doc, page).use { cs ->
                     cs.drawImage(image, x, y, drawWidth, drawHeight)
                 }
-                if (flattened !== bitmap) flattened.recycle()
-                bitmap.recycle()
+                if (flattened !== bitmap) flattened.release()
+                bitmap.release()
                 onProgress(0.95f * (index + 1f) / images.size)
             }
             doc.save(output)
@@ -301,31 +283,11 @@ object PdfConvert {
         onProgress(1f)
     }
 
-    /**
-     * Decodes with [ImageDecoder] specifically because it honours the EXIF
-     * orientation tag; BitmapFactory does not, and phone photos would come out
-     * sideways.
-     */
-    private fun decodeImage(context: Context, uri: Uri): Bitmap? = runCatching {
-        val source = ImageDecoder.createSource(context.contentResolver, uri)
-        ImageDecoder.decodeBitmap(source) { decoder, info, _ ->
-            // Software allocation: hardware bitmaps cannot be read back or compressed.
-            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-            decoder.isMutableRequired = false
-            val longestEdge = max(info.size.width, info.size.height)
-            if (longestEdge > MAX_SOURCE_IMAGE_EDGE) {
-                decoder.setTargetSampleSize(
-                    Integer.highestOneBit(longestEdge / MAX_SOURCE_IMAGE_EDGE).coerceAtLeast(1),
-                )
-            }
-        }
-    }.getOrNull()
-
     // ------------------------------------------------------------- internals
 
     /**
-     * PdfRenderer cannot open an encrypted PDF at all, so when the user has given
-     * us a password we hand it a decrypted scratch copy instead.
+     * Android's PdfRenderer cannot open an encrypted PDF at all, so when the user
+     * has given us a password we hand the rasterizer a decrypted scratch copy.
      */
     private fun decryptedCopyIfNeeded(input: File, password: String?): File {
         if (password.isNullOrEmpty()) return input
@@ -337,26 +299,17 @@ object PdfConvert {
         return plain
     }
 
-    private fun downscale(bitmap: Bitmap, maxDimension: Int): Bitmap {
+    private fun downscale(bitmap: PageImage, maxDimension: Int): PageImage {
         val longestEdge = max(bitmap.width, bitmap.height)
         if (maxDimension <= 0 || longestEdge <= maxDimension) return bitmap
         val scale = maxDimension.toFloat() / longestEdge
         val width = max(1, (bitmap.width * scale).roundToInt())
         val height = max(1, (bitmap.height * scale).roundToInt())
-        return bitmap.scale(width, height)
-    }
-
-    /** JPEG has no alpha channel; composite over white rather than over black. */
-    private fun flattenOntoWhite(bitmap: Bitmap): Bitmap {
-        if (!bitmap.hasAlpha()) return bitmap
-        val flattened = createBitmap(bitmap.width, bitmap.height)
-        Canvas(flattened).apply {
-            drawColor(Color.WHITE)
-            drawBitmap(bitmap, 0f, 0f, null)
-        }
-        return flattened
+        return bitmap.scaledTo(width, height)
     }
 
     private const val MAX_FORM_DEPTH = 6
-    private const val MAX_SOURCE_IMAGE_EDGE = 4000
+
+    /** Longest edge a decoded source image is allowed, so a 50 MP photo fits in memory. */
+    const val MAX_SOURCE_IMAGE_EDGE = 4000
 }

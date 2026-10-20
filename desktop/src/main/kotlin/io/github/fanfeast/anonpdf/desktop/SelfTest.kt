@@ -3,9 +3,14 @@ package io.github.fanfeast.anonpdf.desktop
 import io.github.fanfeast.anonpdf.pdf.AddMark
 import io.github.fanfeast.anonpdf.pdf.EditPlanBuilder
 import io.github.fanfeast.anonpdf.pdf.FillMark
+import io.github.fanfeast.anonpdf.pdf.ImageFiles
+import io.github.fanfeast.anonpdf.pdf.ImageFormat
+import io.github.fanfeast.anonpdf.pdf.ImageStamp
+import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
 import io.github.fanfeast.anonpdf.pdf.InkMark
 import io.github.fanfeast.anonpdf.pdf.MarkRect
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
+import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
@@ -20,6 +25,7 @@ import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.pdmodel.font.PDType1Font
+import java.awt.image.BufferedImage
 import java.io.File
 
 /**
@@ -98,6 +104,30 @@ internal object SelfTest {
         val unlocked = File(dir, "unlocked.pdf")
         PdfOps.unlock(locked, unlocked, "open sesame")
         check("unlock restores the text", PdfOps.extractText(unlocked).contains("Replacement"))
+
+        // The tools: ImageIO's encoders and decoders, JPEG re-encoding, merge and split.
+        val pagesDir = File(dir, "pages")
+        val jpegs = PdfConvert.pdfToImages(edited, pagesDir, dpi = 60, format = ImageFormat.JPEG, jpegQuality = 80, baseName = "page")
+        val pngs = PdfConvert.pdfToImages(edited, pagesDir, dpi = 60, format = ImageFormat.PNG, jpegQuality = 80, baseName = "page")
+        check("pages export as images", (jpegs + pngs).size == 4 && (jpegs + pngs).all { ImageFiles.decode(it) != null })
+        val fromImages = File(dir, "from-images.pdf")
+        PdfConvert.imagesToPdf(jpegs + pngs, ImageFiles::decode, fromImages, ImagesToPdfOptions())
+        check("images become a PDF", PdfOps.readMeta(fromImages).pageCount == 4)
+        val smaller = File(dir, "smaller.pdf")
+        val smart = PdfConvert.compressSmart(fromImages, smaller, jpegQuality = 0.4f, maxImageDimension = 200)
+        check("compression keeps every page and never grows a file", PdfOps.readMeta(smaller).pageCount == 4 && smart.compressedBytes <= smart.originalBytes)
+        val flat = File(dir, "flat.pdf")
+        PdfConvert.compressByRasterizing(edited, flat, dpi = 60, jpegQuality = 0.5f)
+        check("rasterizing compression keeps every page", PdfOps.readMeta(flat).pageCount == 2)
+        val merged = File(dir, "merged.pdf")
+        PdfOps.merge(listOf(source, edited), merged)
+        check("merge joins documents", PdfOps.readMeta(merged).pageCount == 4)
+        val parts = PdfOps.splitToFiles(merged, File(dir, "parts"), listOf(0..0, 1..3), "part")
+        check("split makes one file per range", parts.map { PdfOps.readMeta(it).pageCount } == listOf(1, 3))
+        val signed = File(dir, "signed.pdf")
+        val ink = BufferedImage(120, 40, BufferedImage.TYPE_INT_ARGB).apply { setRGB(10, 10, 0xFF000000.toInt()) }
+        PdfOps.stampImages(source, signed, listOf(ImageStamp(pageIndex = 1, bitmap = ink, centerXRatio = 0.5f, centerYRatio = 0.8f, widthRatio = 0.3f)))
+        check("a signature is stamped", PdfOps.load(signed).use { it.getPage(1).resources.xObjectNames.any() })
 
         dir.deleteRecursively()
         if (failures.isEmpty()) {
