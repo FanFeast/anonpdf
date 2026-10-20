@@ -229,6 +229,22 @@ that backup stays off. CI also builds the minified release bundle on every pull
 request and checks its permissions, so a shrinker or manifest regression shows
 up before a release is tagged.
 
+### Desktop downloads (in progress)
+
+```bash
+./gradlew :desktop:createReleaseDistributable            # shrunk app + trimmed Java runtime
+desktop/packaging/linux/build-appimage.sh 1.0.0 dist     # -> dist/AnonPDF-1.0.0-linux-x86_64.tar.gz
+pwsh desktop/packaging/windows/build-zip.ps1 -Version 1.0.0 -Out dist   # on Windows
+desktop/build/compose/binaries/main-release/app/AnonPDF/bin/AnonPDF --self-test
+```
+
+Both downloads are portable: nothing is installed. Linux gets an AppImage inside
+a `.tar.gz`, because tar keeps the executable bit that browsers strip, so it is
+extract and double-click. The AppImage uses the static runtime, so it needs no
+`libfuse2`, and its build tools are pinned by checksum. `--self-test` runs the
+engine's riskiest paths inside the packaged app; CI runs it on every pull
+request, on Linux and Windows, against the exact files it builds.
+
 ### Release builds
 
 Signing is opt-in. Create `keystore.properties` in the project root (gitignored):

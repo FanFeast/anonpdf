@@ -118,6 +118,38 @@ jobs:
         shell: bash
         run: ./gradlew :desktop-engine:test :desktop:test
 
+      # The download is shrunk with ProGuard, and PDFBox reaches some of its code
+      # only by name, so an over-eager rule breaks features without breaking the
+      # build. --self-test runs the riskiest paths inside the packaged app itself.
+      - name: Package the release build
+        shell: bash
+        run: ./gradlew :desktop:createReleaseDistributable
+
+      - name: Self-test and build the Linux download
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          desktop/packaging/linux/build-appimage.sh "dev-${GITHUB_SHA::7}" dist
+          mkdir unpacked && tar -C unpacked -xzf dist/*.tar.gz
+          # CI runners have no FUSE; on a desktop the AppImage mounts itself.
+          APPIMAGE_EXTRACT_AND_RUN=1 unpacked/*/AnonPDF.AppImage --self-test
+
+      - name: Self-test and build the Windows download
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $exe = "desktop/build/compose/binaries/main-release/app/AnonPDF/AnonPDF.exe"
+          $run = Start-Process -FilePath $exe -ArgumentList "--self-test" -Wait -PassThru -NoNewWindow
+          if ($run.ExitCode -ne 0) { throw "Self-test failed with exit code $($run.ExitCode)" }
+          ./desktop/packaging/windows/build-zip.ps1 -Version "dev-$($env:GITHUB_SHA.Substring(0,7))" -Out dist
+
+      - name: Keep the downloads with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonpdf-desktop-${{ runner.os }}
+          path: dist/*
+          if-no-files-found: error
+
   instrumented:
     name: Instrumented tests (API ${{ matrix.api }})
     runs-on: ubuntu-latest

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=AnonPDF
+GenericName=PDF editor
+Comment=Private PDF editor. Nothing leaves your computer.
+Exec=AnonPDF %f
+Icon=anonpdf
+Terminal=false
+Categories=Office;Viewer;
+MimeType=application/pdf;

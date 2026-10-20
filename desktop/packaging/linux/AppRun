@@ -1,0 +1,4 @@
+#!/bin/sh
+# AppImage entry point: start the bundled app, passing any file to open.
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/AnonPDF/bin/AnonPDF" "$@"
