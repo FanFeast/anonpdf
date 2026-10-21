@@ -269,6 +269,20 @@ flatpak run org.flatpak.Builder --user --install --force-clean builddir flatpak/
 The build runs `--self-test` inside the sandbox, so a broken Flatpak fails to
 build rather than failing for a user.
 
+### Snap
+
+`snap/snapcraft.yaml` packages the release build for the Snap Store, which is
+what Ubuntu's App Center lists. It is strictly confined with no network plug;
+it gets `home` (not hidden files) and `removable-media`. CI builds it, installs
+it with that confinement, fails on any `network*` plug, and runs `--self-test`
+inside it.
+
+```bash
+./gradlew :desktop:createReleaseDistributable
+snapcraft pack        # builds in LXD; the version comes from the release build
+sudo snap install --dangerous anonpdf_*.snap
+```
+
 ### Release builds
 
 Signing is opt-in. Create `keystore.properties` in the project root (gitignored):
