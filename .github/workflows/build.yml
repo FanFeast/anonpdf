@@ -177,6 +177,48 @@ jobs:
             exit 1
           }
 
+  snap:
+    # The snap packages the same release build as the downloads. It is installed
+    # here with its real confinement, so the self-test runs inside the sandbox
+    # users get, and the sandbox is checked for any way onto the network.
+    name: Snap
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Package the release build
+        run: ./gradlew :desktop:createReleaseDistributable
+
+      - name: Build the snap
+        id: snap
+        uses: snapcore/action-build@v1
+
+      - name: Install it and self-test inside its sandbox
+        run: |
+          set -euo pipefail
+          sudo snap install --dangerous "${{ steps.snap.outputs.snap }}"
+          snap connections anonpdf
+          if snap connections anonpdf | awk 'NR > 1 { print $1 }' | grep -E '^network'; then
+            echo "The snap can reach the network."; exit 1
+          fi
+          anonpdf --self-test
+
+      - name: Keep the snap with the run
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonpdf-snap
+          path: ${{ steps.snap.outputs.snap }}
+          if-no-files-found: error
+
   instrumented:
     name: Instrumented tests (API ${{ matrix.api }})
     runs-on: ubuntu-latest
