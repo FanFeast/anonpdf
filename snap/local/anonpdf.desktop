@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AnonPDF
+GenericName=PDF editor
+Comment=Private PDF editor. Nothing leaves your computer.
+Exec=anonpdf %f
+Icon=${SNAP}/meta/gui/icon.png
+Terminal=false
+Categories=Office;Viewer;
+Keywords=PDF;merge;split;compress;sign;rotate;
+MimeType=application/pdf;
