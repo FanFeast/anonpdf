@@ -227,3 +227,71 @@ jobs:
         with:
           files: dist/*
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  snap:
+    # The snap, attached to the release and, once the store credential is set,
+    # published to the Snap Store: candidates (v1.2.0-rc.1) to the candidate
+    # channel, releases to stable.
+    #
+    #   SNAPCRAFT_STORE_CREDENTIALS   from `snapcraft export-login`, limited to
+    #                                 the anonpdf snap
+    name: Snap
+    needs: release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      HAS_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Package the release build
+        run: |
+          # jpackage takes plain numbers only, and the snap's version comes from it.
+          NUMERIC="$(echo "${GITHUB_REF_NAME#v}" | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+' || echo 1.0.0)"
+          ./gradlew :desktop:createReleaseDistributable -PappVersion="$NUMERIC"
+
+      - name: Build the snap
+        id: snap
+        uses: snapcore/action-build@v1
+
+      - name: Install it and self-test inside its sandbox
+        run: |
+          set -euo pipefail
+          sudo snap install --dangerous "${{ steps.snap.outputs.snap }}"
+          if snap connections anonpdf | awk 'NR > 1 { print $1 }' | grep -E '^network'; then
+            echo "The snap can reach the network."; exit 1
+          fi
+          anonpdf --self-test
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: anonpdf-snap
+          path: ${{ steps.snap.outputs.snap }}
+          if-no-files-found: error
+
+      - name: Attach to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.snap.outputs.snap }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+
+      - name: Publish to the Snap Store
+        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_STORE_CREDENTIALS == 'true'
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.snap.outputs.snap }}
+          release: ${{ contains(github.ref_name, '-') && 'candidate' || 'stable' }}

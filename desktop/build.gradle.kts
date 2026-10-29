@@ -44,7 +44,7 @@ compose.desktop {
         nativeDistributions {
             packageName = "AnonPDF"
             // CI passes the tag's version; jpackage needs plain numbers (no "v", no suffix).
-            packageVersion = (findProperty("appVersion") as String?) ?: "1.0.0"
+            packageVersion = (findProperty("appVersion") as String?) ?: "1.1.0"
             description = "Private PDF editor. Nothing leaves your computer."
             vendor = "AnonPDF"
             // Only what the app uses, beyond java.base and java.desktop, which are
