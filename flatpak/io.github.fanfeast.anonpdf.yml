@@ -41,7 +41,17 @@ modules:
         :desktop:createReleaseDistributable
       - mkdir -p /app/lib /app/bin
       - cp -a desktop/build/compose/binaries/main-release/app/AnonPDF /app/lib/AnonPDF
-      - ln -s /app/lib/AnonPDF/bin/AnonPDF /app/bin/anonpdf
+      # The bundled runtime has no java command, since the packager's launcher
+      # loads the JVM itself. Rebuild it with the same modules plus that command,
+      # and start the app through it: see make-launcher.sh.
+      - >-
+        modules=$(sed -n 's/^MODULES="\(.*\)"/\1/p' /app/lib/AnonPDF/lib/runtime/release | tr ' ' ,)
+        && rm -rf /app/lib/AnonPDF/lib/runtime
+        && jlink --add-modules "$modules" --strip-debug --no-header-files --no-man-pages
+        --output /app/lib/AnonPDF/lib/runtime
+        && find /app/lib/AnonPDF/lib/runtime/bin -type f ! -name java -delete
+      - sh flatpak/make-launcher.sh /app/lib/AnonPDF > /app/bin/anonpdf
+      - chmod 755 /app/bin/anonpdf
       # ProGuard can break PDFBox without breaking the build; this runs the
       # riskiest paths in the installed app.
       - /app/bin/anonpdf --self-test
