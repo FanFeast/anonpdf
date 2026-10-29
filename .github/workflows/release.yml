@@ -5,16 +5,23 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
-# Signing material comes from repository secrets, which must be set before this
-# workflow can produce an uploadable bundle:
+# Signing material comes from repository secrets. Two keys, because Play signs
+# the copy it installs with the app signing key it holds, and takes uploads
+# signed with a separate upload key that it can reset if that one is lost:
 #
-#   KEYSTORE_BASE64   base64 of your upload keystore  (base64 -w0 upload.jks)
-#   KEYSTORE_PASSWORD store password
-#   KEY_ALIAS         key alias
-#   KEY_PASSWORD      key password
+#   KEYSTORE_BASE64   the app signing key (base64 -w0 upload.jks). It signs the
+#   KEYSTORE_PASSWORD APK attached to the GitHub release, so that APK and the
+#   KEY_ALIAS         Play copy are the same app and update each other. Play
+#   KEY_PASSWORD      holds the same key.
 #
-# Without them the job still runs and produces an unsigned APK, which is fine
-# for testing but cannot be uploaded to Play.
+#   PLAY_UPLOAD_KEYSTORE_BASE64   the upload key, which signs the bundle (.aab)
+#   PLAY_UPLOAD_KEYSTORE_PASSWORD that goes to Play.
+#   PLAY_UPLOAD_KEY_ALIAS
+#   PLAY_UPLOAD_KEY_PASSWORD
+#
+# Without the app signing key the job still runs and produces an unsigned APK,
+# which is fine for testing but cannot be uploaded to Play. Without the upload
+# key the bundle is signed with the app signing key.
 
 jobs:
   release:
@@ -26,6 +33,7 @@ jobs:
       # The `secrets` context is not usable directly in a step-level `if`, so
       # reduce it to a job-level boolean here.
       HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      HAS_UPLOAD_KEY: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -47,9 +55,26 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload.jks"
-          cat > keystore.properties <<EOF
-          storeFile=$RUNNER_TEMP/upload.jks
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/app-signing.jks"
+          cat > "$RUNNER_TEMP/app-signing.properties" <<EOF
+          storeFile=$RUNNER_TEMP/app-signing.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Restore the Play upload key
+        if: env.HAS_UPLOAD_KEY == 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/play-upload.jks"
+          cat > "$RUNNER_TEMP/play-upload.properties" <<EOF
+          storeFile=$RUNNER_TEMP/play-upload.jks
           storePassword=$KEYSTORE_PASSWORD
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
@@ -58,8 +83,38 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDebugUnitTest
 
+      # The build reads keystore.properties when it starts, so each output gets
+      # its own run with its own key.
       - name: Build bundle and APK
-        run: ./gradlew bundleRelease assembleRelease
+        run: |
+          set -euo pipefail
+          use_key() { if [ -f "$1" ]; then cp "$1" keystore.properties; fi; }
+          use_key "$RUNNER_TEMP/app-signing.properties"
+          use_key "$RUNNER_TEMP/play-upload.properties"
+          ./gradlew bundleRelease
+          rm -f keystore.properties
+          use_key "$RUNNER_TEMP/app-signing.properties"
+          ./gradlew assembleRelease
+
+      # A swapped key fails nothing else: Play would just reject the upload, or the
+      # GitHub APK would stop updating the Play copy. The fingerprints are public.
+      - name: Confirm which key signed what
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          set -euo pipefail
+          APP_KEY=04:D8:41:F0:9D:DC:BE:14:B0:95:64:20:66:F0:08:5C:FF:5B:08:1A:7E:28:9B:CF:24:3D:7E:C9:EE:C6:24:FE
+          UPLOAD_KEY=9E:E2:69:BD:6C:41:E8:76:27:03:4C:1A:D0:E3:14:A8:B6:12:2C:58:85:7F:96:A4:9A:8C:FF:B9:A2:2C:4A:C0
+          # The APK has only v2/v3 signatures, which keytool can't read; the
+          # bundle is JAR-signed, which apksigner won't read.
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -1)
+          APK=$("$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk \
+            | sed -n 's/.*certificate SHA-256 digest: //p' | head -1 | sed 's/../&:/g; s/:$//' | tr a-f A-F)
+          AAB=$(keytool -printcert -jarfile app/build/outputs/bundle/release/app-release.aab \
+            | sed -n 's/^\s*SHA256: //p' | head -1)
+          [ "$APK" = "$APP_KEY" ] || { echo "The APK is not signed with the app signing key: $APK"; exit 1; }
+          if [ "$HAS_UPLOAD_KEY" = true ]; then WANT=$UPLOAD_KEY; else WANT=$APP_KEY; fi
+          [ "$AAB" = "$WANT" ] || { echo "The bundle is signed with the wrong key: $AAB"; exit 1; }
+          echo "APK: app signing key. Bundle: $([ "$WANT" = "$UPLOAD_KEY" ] && echo upload || echo 'app signing') key."
 
       - name: Confirm the release build has no network access
         run: |
@@ -82,7 +137,7 @@ jobs:
 
       - name: Remove signing material
         if: always()
-        run: rm -f keystore.properties "$RUNNER_TEMP/upload.jks"
+        run: rm -f keystore.properties "$RUNNER_TEMP"/*.jks "$RUNNER_TEMP"/*.properties
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
