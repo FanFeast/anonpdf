@@ -1,0 +1,60 @@
+# AnonPDF as a snap, for the Snap Store and Ubuntu's App Center. It packages
+# the release build, so build that first:
+#
+#   ./gradlew :desktop:createReleaseDistributable -PappVersion=1.1.0
+#   snapcraft pack --destructive-mode    # on Ubuntu 24.04, which core24 is
+name: anonpdf
+title: AnonPDF
+summary: Edit PDFs without them leaving your computer
+description: |
+  A PDF editor that does its work on your computer and nowhere else. No ads, no
+  accounts, no tracking, no paid tier, and no network access: the snap is given
+  none, so it cannot upload your files.
+
+  Stack up as many changes as you like, watch the real output update as you go,
+  and write a new file once at the end. The original is never modified.
+
+  - Rotate, reorder, delete, crop and resize pages
+  - Add pages from other PDFs, then keep editing them like any other page
+  - Fill, highlight, draw, add text, a watermark or page numbers
+  - Merge, split, extract pages and compress
+  - Turn pages into pictures, or pictures into a PDF
+  - Pull out the text, sign a page, add or remove a password
+
+  Every change can be undone until you save. Files you open are copied into a
+  private scratch folder that is deleted when the app closes.
+license: MIT
+website: https://github.com/FanFeast/anonpdf
+source-code: https://github.com/FanFeast/anonpdf
+issues: https://github.com/FanFeast/anonpdf/issues
+icon: desktop/packaging/anonpdf.png
+base: core24
+grade: stable
+confinement: strict
+# The version the release build was made with (-PappVersion), so the snap
+# can't disagree with the app it carries.
+adopt-info: anonpdf
+
+apps:
+  anonpdf:
+    command: AnonPDF/bin/AnonPDF
+    desktop: AnonPDF/anonpdf.desktop
+    # The libraries Java's toolkit draws with (X11, fonts), from the shared
+    # GNOME runtime snap. The extension adds display access, not the network.
+    extensions: [gnome]
+    # No network plug: the app has no network at all. Documents can be anywhere
+    # in the home folder (not hidden files) or on a USB drive.
+    plugs:
+      - home
+      - removable-media
+
+parts:
+  anonpdf:
+    plugin: dump
+    source: desktop/build/compose/binaries/main-release/app
+    override-build: |
+      craftctl default
+      install -Dm644 "$CRAFT_PROJECT_DIR/snap/local/anonpdf.desktop" \
+        "$CRAFT_PART_INSTALL/AnonPDF/anonpdf.desktop"
+      craftctl set version="$(sed -n 's:.*<app-version>\(.*\)</app-version>.*:\1:p' \
+        AnonPDF/lib/app/.jpackage.xml)"
