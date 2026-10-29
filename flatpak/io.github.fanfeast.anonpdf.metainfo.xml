@@ -71,7 +71,7 @@
   </provides>
 
   <releases>
-    <release version="1.1.0" date="2026-10-20">
+    <release version="1.1.0" date="2026-10-29">
       <description>
         <p>The first desktop release: the editor and every tool, in a window of its own.</p>
       </description>
