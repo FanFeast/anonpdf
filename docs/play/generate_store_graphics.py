@@ -109,11 +109,15 @@ def build_feature_graphic() -> None:
 
     title = "AnonPDF"
     subtitle = "Read and edit PDFs, entirely on your phone"
-    chips = ["NO ADS", "NO ACCOUNTS", "NO PERMISSIONS"]
+    chips = ["NO ADS", "NO ACCOUNTS", "NO INTERNET"]
+    # Play lists the storage permission on the listing, so the banner says what
+    # it is rather than claiming there are none.
+    note = "Only permission: optional storage access, to list your PDFs"
 
     title_font = fitted(title, FONT_BOLD, 96 * SS)
     subtitle_font = fitted(subtitle, FONT_REGULAR, 34 * SS)
     chip_font = ImageFont.truetype(FONT_BOLD, 24 * SS)
+    note_font = fitted(note, FONT_REGULAR, 20 * SS)
 
     pad_x, pad_y, gap = 16 * SS, 10 * SS, 12 * SS
     while chip_font.size > 10:
@@ -126,7 +130,9 @@ def build_feature_graphic() -> None:
     subtitle_h = draw.textbbox((0, 0), subtitle, font=subtitle_font)[3]
     chip_h = draw.textbbox((0, 0), "X", font=chip_font)[3] + pad_y * 2
 
-    top = (height * SS - (title_h + 22 * SS + subtitle_h + 34 * SS + chip_h)) // 2
+    note_h = draw.textbbox((0, 0), note, font=note_font)[3]
+
+    top = (height * SS - (title_h + 22 * SS + subtitle_h + 34 * SS + chip_h + 22 * SS + note_h)) // 2
 
     draw.text((text_x, top), title, font=title_font, fill=WHITE)
     y = top + title_h + 22 * SS
@@ -141,6 +147,8 @@ def build_feature_graphic() -> None:
         )
         draw.text((x + pad_x, y + pad_y - 3 * SS), chip, font=chip_font, fill=WHITE)
         x += chip_w + pad_x * 2 + gap
+
+    draw.text((text_x, y + chip_h + 22 * SS), note, font=note_font, fill=MUTED)
 
     canvas.resize((width, height), Image.LANCZOS).save(
         OUT / "feature-graphic-1024x500.png",
