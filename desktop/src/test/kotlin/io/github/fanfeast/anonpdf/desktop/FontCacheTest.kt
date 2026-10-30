@@ -14,9 +14,9 @@ class FontCacheTest {
     }
 
     @Test
-    fun `the Flatpak's own cache folder is used`() {
-        val dir = linux("HOME" to "/home/ada", "XDG_CACHE_HOME" to "/home/ada/.var/app/io.github.fanfeast.anonpdf/cache")
-        assertEquals(File("/home/ada/.var/app/io.github.fanfeast.anonpdf/cache/anonpdf"), dir)
+    fun `XDG_CACHE_HOME is used when it is set`() {
+        val dir = linux("HOME" to "/home/ada", "XDG_CACHE_HOME" to "/home/ada/caches")
+        assertEquals(File("/home/ada/caches/anonpdf"), dir)
     }
 
     @Test
