@@ -6,10 +6,10 @@ import java.io.File
  * Tells PDFBox where to keep its list of the installed fonts.
  *
  * Left alone, PDFBox writes `.pdfbox.cache` straight into the home folder. That is
- * clutter on a plain install, and inside the snap and Flatpak sandboxes, which don't
- * let the app write there, it rebuilds the list on every start and logs a stack
- * trace. The platform's cache folder is the right place, and each sandbox gives the
- * app a writable one of its own.
+ * clutter on a plain install, and inside the snap's sandbox, which doesn't let the
+ * app write there, it rebuilds the list on every start and logs a stack trace. The
+ * platform's cache folder is the right place, and the snap gives the app a writable
+ * one of its own.
  */
 object FontCache {
     private const val PROPERTY = "pdfbox.fontcache"
@@ -28,8 +28,8 @@ object FontCache {
             val local = env["LOCALAPPDATA"]?.takeIf { it.isNotBlank() } ?: "$userHome\\AppData\\Local"
             return File(local, "AnonPDF\\cache")
         }
-        // XDG_CACHE_HOME first: the Flatpak points it into the app's own folder. A
-        // snap points HOME into its own folder, while user.home stays the real one.
+        // XDG_CACHE_HOME first, as the spec says. A snap points HOME into its own
+        // folder, while user.home stays the real one.
         val cache = env["XDG_CACHE_HOME"]?.takeIf { it.startsWith("/") }
             ?: "${env["HOME"]?.takeIf { it.startsWith("/") } ?: userHome}/.cache"
         return File(cache, "anonpdf")
