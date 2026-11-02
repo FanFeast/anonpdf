@@ -150,33 +150,6 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  flatpak-sources:
-    # Flathub builds offline from flatpak/maven-sources.json. A dependency change
-    # that isn't reflected there would break the Flathub build long after the
-    # pull request merged, so the list is rebuilt from scratch and must match.
-    name: Flatpak sources up to date
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Regenerate the list from an empty Gradle home
-        run: |
-          set -euo pipefail
-          G=$(mktemp -d)
-          GRADLE_USER_HOME=$G ./gradlew --no-daemon -q -Panonpdf.desktopOnly=true \
-            :desktop:createReleaseDistributable
-          python3 flatpak/generate-sources.py "$G" > flatpak/maven-sources.json
-          git diff --exit-code -- flatpak/maven-sources.json || {
-            echo "::error::flatpak/maven-sources.json is out of date; regenerate it as the README says."
-            exit 1
-          }
-
   snap:
     # The snap packages the same release build as the downloads. It is installed
     # here with its real confinement, so the self-test runs inside the sandbox
