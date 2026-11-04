@@ -119,3 +119,7 @@ Play rejects a screenshot whose long side is more than twice its short side,
 and the emulator's are 1080x2400. Each one is fitted onto the icon's navy at
 1200x2400, scaled to a height of 2240 with rounded corners, so nothing is
 cropped.
+
+The document in the editor shots is `sample-report.pdf`, written by
+`docs/screenshots/make_sample_pdf.py`. Its text describes the app, so keep it
+true when the app changes, then retake the shots.
