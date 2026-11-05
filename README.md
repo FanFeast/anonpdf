@@ -15,6 +15,18 @@ of those. It cannot upload your files, because it has no permission to reach the
 network — that is not a promise in a privacy policy, it is a fact enforced by the
 operating system.
 
+## Get it
+
+- **Android:** the APK on the [latest release](https://github.com/FanFeast/anonpdf/releases/latest). A Google Play listing is on the way.
+- **Linux:** `sudo snap install anonpdf` from the [Snap Store](https://snapcraft.io/anonpdf), or the portable
+  `AnonPDF-…-linux-x86_64.tar.gz` from the [latest release](https://github.com/FanFeast/anonpdf/releases/latest):
+  extract it and double-click `AnonPDF.AppImage`. Nothing is installed.
+- **Windows:** the portable `AnonPDF-…-windows-x64.zip` from the [latest release](https://github.com/FanFeast/anonpdf/releases/latest):
+  extract it and run `AnonPDF.exe`.
+
+The desktop app is the same engine and editor in a native window, with the
+same rule: no network access.
+
 | Library | Reading | Your files |
 |---|---|---|
 | ![Home](docs/screenshots/home.png) | ![Viewer](docs/screenshots/viewer.png) | ![Browse](docs/screenshots/browse.png) |
@@ -285,8 +297,8 @@ artifact.
 
 Kotlin, Jetpack Compose, no dependency-injection framework and no architecture
 ceremony beyond what the size justifies. The PDF engine and the editor screens
-and tool screens are shared with a desktop app for Linux and Windows, which is
-built and tested on every change but not released yet.
+and tool screens are shared with the desktop app for Linux and Windows, which is
+built and tested on every change and released alongside Android.
 
 ```
 shared-engine/src/     The engine, shared by Android and desktop. File in, file out.
