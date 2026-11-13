@@ -9,6 +9,7 @@ import androidx.compose.ui.window.MenuBar
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.ui.common.choosePdfs
 import io.github.fanfeast.anonpdf.ui.theme.AnonPdfTheme
 import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
@@ -31,23 +32,23 @@ fun main(args: Array<String>) {
         ) {
             LaunchedEffect(Unit) { window.minimumSize = Dimension(960, 640) }
             MenuBar {
-                Menu("File", mnemonic = 'F') {
+                Menu(S.file, mnemonic = 'F') {
                     Item(
-                        "Open PDF to edit…",
+                        S.openPdfToEdit,
                         shortcut = KeyShortcut(Key.O, ctrl = true),
                         onClick = { choosePdfs(multiple = false).firstOrNull()?.let(navigator::edit) },
                     )
                     Item(
-                        "Close document",
+                        S.closeDocument,
                         enabled = navigator.hasEditorSession,
                         shortcut = KeyShortcut(Key.W, ctrl = true),
                         onClick = navigator::closeEditor,
                     )
                     Separator()
-                    Item("Quit", shortcut = KeyShortcut(Key.Q, ctrl = true), onClick = ::exitApplication)
+                    Item(S.quit, shortcut = KeyShortcut(Key.Q, ctrl = true), onClick = ::exitApplication)
                 }
-                Menu("Tools", mnemonic = 'T') {
-                    Item("Edit PDF", onClick = { navigator.show(Pane.Editor) })
+                Menu(S.tools, mnemonic = 'T') {
+                    Item(S.editPdf, onClick = { navigator.show(Pane.Editor) })
                     ToolCatalog.grouped.forEach { (_, tools) ->
                         Separator()
                         tools.forEach { tool -> Item(tool.title, onClick = { navigator.show(Pane.Tool(tool.id)) }) }

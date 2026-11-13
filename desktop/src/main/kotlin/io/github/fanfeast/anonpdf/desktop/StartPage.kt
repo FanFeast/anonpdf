@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.ui.common.choosePdfs
 import io.github.fanfeast.anonpdf.ui.components.InfoNote
 import io.github.fanfeast.anonpdf.ui.components.readableWidth
@@ -49,7 +50,7 @@ internal fun StartPage(
             .readableWidth(maxWidth = 960.dp, gutter = 32.dp),
     ) {
         Spacer(Modifier.height(32.dp))
-        Text("What would you like to do?", style = MaterialTheme.typography.headlineSmall)
+        Text(S.whatWouldYouLikeToDo, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(20.dp))
 
         Surface(
@@ -62,12 +63,10 @@ internal fun StartPage(
                 Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(32.dp))
                 Spacer(Modifier.width(16.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Edit a PDF", style = MaterialTheme.typography.titleMedium)
+                    Text(S.editAPdf, style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Rotate, reorder, delete or crop pages, add pages from other PDFs, " +
-                            "fill, highlight, draw, add text, a watermark or page numbers. " +
-                            "See every change before you save a new copy.",
+                        S.desktopEditBody,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -75,7 +74,7 @@ internal fun StartPage(
                 Button(onClick = { choosePdfs(multiple = false).firstOrNull()?.let(onEdit) }) {
                     Icon(Icons.Filled.FolderOpen, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Open a PDF…")
+                    Text(S.openAPdfEllipsis)
                 }
             }
         }
@@ -93,10 +92,7 @@ internal fun StartPage(
 
         Spacer(Modifier.height(28.dp))
         InfoNote(
-            "AnonPDF works on this computer only. A file you open is copied into a " +
-                "private scratch folder that only you can read, and that folder is " +
-                "deleted when the app closes. Nothing is uploaded, and nothing is " +
-                "written back to your files until you choose where to save.",
+            S.desktopPrivacy,
         )
         Spacer(Modifier.height(32.dp))
     }

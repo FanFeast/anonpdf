@@ -3,6 +3,7 @@ package io.github.fanfeast.anonpdf.ui.tools
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.ImageFormat
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PdfPageSizePreset
@@ -24,35 +25,40 @@ data class InputDoc(
     val isReady: Boolean get() = localFile != null && !needsPassword && error == null
 }
 
-enum class CompressMode(val label: String, val explanation: String) {
-    SMART(
-        "Keep text",
-        "Re-encodes the pictures inside the PDF and leaves text and vector " +
-            "artwork alone. The document stays selectable and searchable.",
-    ),
-    RASTERIZE(
-        "Smallest file",
-        "Redraws every page as a flat image. This gives the biggest saving, but " +
-            "text stops being selectable or searchable afterwards.",
-    ),
+enum class CompressMode {
+    SMART,
+    RASTERIZE,
+    ;
+
+    val label: String get() = if (this == SMART) S.keepText else S.smallestFile
+    val explanation: String get() = if (this == SMART) S.keepTextHint else S.smallestFileHint
 }
 
-enum class CompressStrength(val label: String, val quality: Float, val maxEdge: Int, val dpi: Int) {
-    LIGHT("Light", 0.85f, 2400, 200),
-    BALANCED("Balanced", 0.70f, 1600, 150),
-    STRONG("Strong", 0.50f, 1100, 110),
+enum class CompressStrength(private val text: () -> String, val quality: Float, val maxEdge: Int, val dpi: Int) {
+    LIGHT({ S.strengthLight }, 0.85f, 2400, 200),
+    BALANCED({ S.strengthBalanced }, 0.70f, 1600, 150),
+    STRONG({ S.strengthStrong }, 0.50f, 1100, 110),
+    ;
+
+    val label: String get() = text()
 }
 
-enum class SplitMode(val label: String) {
-    RANGES("By page ranges"),
-    EVERY("Every N pages"),
+enum class SplitMode(private val text: () -> String) {
+    RANGES({ S.byPageRanges }),
+    EVERY({ S.everyNPages }),
+    ;
+
+    val label: String get() = text()
 }
 
-enum class CropPreset(val label: String, val inset: Float) {
-    NONE("None", 0f),
-    SLIM("Slim", 0.03f),
-    MEDIUM("Medium", 0.06f),
-    WIDE("Wide", 0.10f),
+enum class CropPreset(private val text: () -> String, val inset: Float) {
+    NONE({ S.marginNone }, 0f),
+    SLIM({ S.marginSlim }, 0.03f),
+    MEDIUM({ S.marginMedium }, 0.06f),
+    WIDE({ S.marginWide }, 0.10f),
+    ;
+
+    val label: String get() = text()
 }
 
 /**
