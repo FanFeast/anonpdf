@@ -195,6 +195,7 @@ internal object StringsFr : Strings() {
         "Tracez un cadre sur ce que vous voulez enlever. Ce qu'il couvre est supprimé définitivement : " +
             "cette page est enregistrée comme image, son texte ne peut donc plus être sélectionné ni " +
             "recherché. Pour changer un texte, couvrez-le et écrivez le vôtre par-dessus."
+    override val charactersNotDrawable = "Certains de ces caractères ne peuvent pas être tracés avec les polices PDF intégrées et apparaîtront comme ?."
     override val startAgain = "Recommencer"
     override val drawHint = "Zoomez avec + ou choisissez Déplacer la page pour pincer et faire défiler. Reprendre l'édition pour dessiner."
     override val thickness = "Épaisseur"

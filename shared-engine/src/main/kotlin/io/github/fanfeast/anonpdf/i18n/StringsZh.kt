@@ -181,6 +181,7 @@ internal object StringsZh : Strings() {
     override val whiteoutHint =
         "在要移除的内容上拖出一个框。框住的内容会被永久删除：此页会保存为图片，其中的文字将无法再选择或搜索。" +
             "要修改文字，请先遮住，再在上面添加自己的文字。"
+    override val charactersNotDrawable = "内置 PDF 字体无法显示其中部分字符，它们会显示为 ?。目前只能写入拉丁字母。"
     override val startAgain = "重新开始"
     override val drawHint = "用 + 放大，或选择“移动页面”来双指缩放和平移。选择“继续编辑”即可手绘。"
     override val thickness = "粗细"

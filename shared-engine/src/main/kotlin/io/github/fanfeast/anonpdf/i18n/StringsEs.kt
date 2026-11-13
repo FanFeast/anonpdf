@@ -190,6 +190,7 @@ internal object StringsEs : Strings() {
         "Arrastra un cuadro sobre lo que quieres quitar. Lo que cubre se elimina para siempre: " +
             "esta página se guarda como imagen, así que su texto ya no se puede seleccionar ni " +
             "buscar. Para cambiar un texto, tápalo y escribe el tuyo encima."
+    override val charactersNotDrawable = "Algunos de estos caracteres no se pueden dibujar con las fuentes PDF incorporadas y saldrán como ?."
     override val startAgain = "Volver a empezar"
     override val drawHint = "Acerca con + o elige Mover la página para pellizcar y desplazar. Pulsa Seguir editando para dibujar."
     override val thickness = "Grosor"

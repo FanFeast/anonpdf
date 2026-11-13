@@ -190,6 +190,7 @@ internal object StringsDe : Strings() {
         "Ziehe einen Kasten über das, was weg soll. Was er abdeckt, wird endgültig gelöscht: Diese " +
             "Seite wird als Bild gespeichert, ihr Text lässt sich also nicht mehr auswählen oder " +
             "durchsuchen. Um Text zu ändern, deck ihn ab und schreib deinen eigenen darüber."
+    override val charactersNotDrawable = "Einige dieser Zeichen können die eingebauten PDF-Schriften nicht darstellen; sie erscheinen als ?."
     override val startAgain = "Neu anfangen"
     override val drawHint = "Mit + vergrößern oder „Seite bewegen“ wählen, um zu zoomen und zu verschieben. „Weiter bearbeiten“ zum Zeichnen."
     override val thickness = "Strichstärke"

@@ -190,6 +190,7 @@ internal object StringsPt : Strings() {
         "Arraste uma caixa sobre o que quer remover. O que ela cobre é apagado para sempre: esta " +
             "página é salva como imagem, então o texto dela não pode mais ser selecionado nem " +
             "pesquisado. Para mudar um texto, cubra-o e escreva o seu por cima."
+    override val charactersNotDrawable = "Alguns destes caracteres não podem ser desenhados com as fontes PDF embutidas e vão aparecer como ?."
     override val startAgain = "Começar de novo"
     override val drawHint = "Use + para dar zoom ou escolha Mover a página para pinçar e arrastar. Voltar a editar para desenhar."
     override val thickness = "Espessura"

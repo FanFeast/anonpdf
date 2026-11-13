@@ -214,6 +214,7 @@ open class Strings {
         "Drag a box over what you want to remove. What it covers is permanently deleted: this " +
             "page is saved as an image, so its text can no longer be selected or searched. To " +
             "change wording, cover it and add your own text on top."
+    open val charactersNotDrawable = "Some of these characters cannot be drawn by the built-in PDF fonts and will show as ?."
     open val startAgain = "Start again"
     open val drawHint = "Zoom with + or choose Move page to pinch and pan. Resume editing to draw."
     open val thickness = "Thickness"

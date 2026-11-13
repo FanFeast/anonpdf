@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.CropInsets
+import io.github.fanfeast.anonpdf.pdf.FieldFormat
 import io.github.fanfeast.anonpdf.pdf.MarkRect
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PageOrientation
@@ -269,6 +270,7 @@ fun WatermarkPanel(
             onValueChange = { onChange(options.copy(text = it)) },
             label = { Text(S.text) },
             singleLine = true,
+            supportingText = undrawableHint(options.text),
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(12.dp))
@@ -325,7 +327,9 @@ fun PageNumbersPanel(
         )
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("{n}", "{n} / {total}", S.numberPresetPage).forEach { preset ->
+            // A translated "Page {n}" is only offered if the built-in fonts can
+            // stamp it: "Страница {n}" would come out as question marks.
+            listOfNotNull("{n}", "{n} / {total}", S.numberPresetPage.takeIf(::isDrawable)).forEach { preset ->
                 OutlinedButton(onClick = { onChange(options.copy(format = preset)) }) {
                     Text(preset, style = MaterialTheme.typography.labelMedium)
                 }
@@ -394,6 +398,7 @@ fun TextPanel(
             label = { Text(S.text) },
             minLines = 2,
             maxLines = 4,
+            supportingText = undrawableHint(mark.text),
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(10.dp))
@@ -595,6 +600,16 @@ fun PendingEditsDialog(
 }
 
 private fun pct(value: Float) = "${(value * 100).roundToInt()}%"
+
+/** Whether the built-in PDF fonts can draw all of [text]. */
+private fun isDrawable(text: String) = FieldFormat.drawable(text) == text
+
+/**
+ * Says so while the user types, when some of what they typed will be drawn as
+ * "?": the built-in PDF fonts cover Western European letters only.
+ */
+private fun undrawableHint(text: String): (@Composable () -> Unit)? =
+    if (isDrawable(text)) null else ({ Text(S.charactersNotDrawable) })
 
 /** Where merged-in pages land, relative to the document as it now stands. */
 enum class InsertPosition(private val text: () -> String) {
