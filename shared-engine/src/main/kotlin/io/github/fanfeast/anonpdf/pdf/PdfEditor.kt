@@ -132,6 +132,17 @@ data class RemoveMark(val id: Long) : EditOp {
     override fun describe() = "Remove added content"
 }
 
+/**
+ * Fills in form fields, by fully qualified name. Later values for the same field
+ * replace earlier ones. [flatten] locks the whole form when the file is written.
+ */
+data class FillForm(val values: Map<String, String>, val flatten: Boolean) : EditOp {
+    override fun describe(): String {
+        val filled = "Fill ${values.size} field${if (values.size == 1) "" else "s"}"
+        return if (flatten) "$filled · lock the form" else filled
+    }
+}
+
 /** What one output page looks like: where it came from and what was done to it. */
 data class PageState(
     val sourceIndex: Int,
@@ -154,6 +165,10 @@ data class EditPlan(
     val pageNumbers: PageNumberOptions? = null,
     /** Content added on top of pages, in the order it was added. */
     val marks: List<PageMark> = emptyList(),
+    /** Form field values to set, by fully qualified field name. */
+    val formValues: Map<String, String> = emptyMap(),
+    /** Burn the form into the pages on export, so its answers cannot be changed. */
+    val flattenForm: Boolean = false,
     /**
      * How many pages the plan started with. Defaults to the page count at
      * construction, and survives every [copy], which is what lets [hasChanges]
@@ -168,6 +183,7 @@ data class EditPlan(
 
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || marks.isNotEmpty() ||
+            formValues.isNotEmpty() || flattenForm ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
@@ -236,6 +252,8 @@ object EditPlanBuilder {
             marks = plan.marks.map { if (it.id == op.mark.id) op.mark else it },
         )
         is RemoveMark -> plan.copy(marks = plan.marks.filterNot { it.id == op.id })
+
+        is FillForm -> plan.copy(formValues = plan.formValues + op.values, flattenForm = op.flatten)
     }
 
     private fun EditPlan.mapTargets(
@@ -297,6 +315,9 @@ object PdfEditor {
         try {
             val document = PdfOps.load(sources[0].file, sources[0].password)
                 .also { open += it }
+            // Before merging: the plan names fields as the original document
+            // names them, and a merge may rename clashing ones.
+            PdfForms.apply(document, plan.formValues)
 
             // Append every inserted document to the end, in the order they were
             // registered. The combined page list then lines up exactly with the
@@ -310,6 +331,9 @@ object PdfEditor {
                 merger.appendDocument(document, extra)
                 onProgress(0.25f * (index + 1f) / (sources.size - 1f))
             }
+
+            // While every page is still attached, so each field is drawn onto its own.
+            if (plan.flattenForm) PdfForms.flatten(document)
 
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             originals.forEach { PdfOps.pinInheritedAttributes(it) }
@@ -454,6 +478,10 @@ object PdfEditor {
         val resolved = owner ?: return false
 
         PdfOps.load(resolved.file, resolved.password).use { document ->
+            // The same steps as the export, in the same order.
+            if (resolved === sources.first()) PdfForms.apply(document, plan.formValues)
+            if (plan.flattenForm) PdfForms.flatten(document)
+
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             val page = originals.getOrNull(localIndex) ?: return false
             originals.forEach { PdfOps.pinInheritedAttributes(it) }
