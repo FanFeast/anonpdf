@@ -13,7 +13,7 @@ class EditorToolPagesTest {
 
     @Test
     fun `every tool is reachable exactly once`() {
-        val placed = toolPages(currentPageDeleted = false).flatMap { it.tools }
+        val placed = toolPages(currentPageDeleted = false, hasForm = true).flatMap { it.tools }
         // Restore stands in for Delete on a deleted page, so it is the one tool
         // that is absent from this arrangement.
         val expected = EditorTool.entries - EditorTool.RESTORE
@@ -47,7 +47,7 @@ class EditorToolPagesTest {
 
     @Test
     fun `without one-shot tools every in-editor tool is still reachable`() {
-        val placed = toolPages(currentPageDeleted = false, includeHandOffs = false).flatMap { it.tools }
+        val placed = toolPages(currentPageDeleted = false, includeHandOffs = false, hasForm = true).flatMap { it.tools }
         val expected = EditorTool.entries.filterNot { it.handsOff } - EditorTool.RESTORE
 
         assertEquals(expected.toSet(), placed.toSet())
@@ -55,8 +55,14 @@ class EditorToolPagesTest {
     }
 
     @Test
+    fun `fill form is offered only for a document with a form`() {
+        assertTrue(EditorTool.FILL_FORM !in toolPages(currentPageDeleted = false).flatMap { it.tools })
+        assertTrue(EditorTool.FILL_FORM in toolPages(currentPageDeleted = false, hasForm = true).flatMap { it.tools })
+    }
+
+    @Test
     fun `no page holds more tools than a row of four can show twice`() {
-        toolPages(currentPageDeleted = false).forEach { page ->
+        toolPages(currentPageDeleted = false, hasForm = true).forEach { page ->
             assertTrue(
                 "${page.title} has ${page.tools.size} tools, which will not fit",
                 page.tools.size <= 8,

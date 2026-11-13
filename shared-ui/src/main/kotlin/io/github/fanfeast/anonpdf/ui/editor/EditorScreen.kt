@@ -69,6 +69,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -98,7 +99,10 @@ import io.github.fanfeast.anonpdf.pdf.CropPages
 import io.github.fanfeast.anonpdf.pdf.DeletePages
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.EditPlan
+import io.github.fanfeast.anonpdf.pdf.FillForm
 import io.github.fanfeast.anonpdf.pdf.FillMark
+import io.github.fanfeast.anonpdf.pdf.FormField
+import io.github.fanfeast.anonpdf.pdf.FormInfo
 import io.github.fanfeast.anonpdf.pdf.InkMark
 import io.github.fanfeast.anonpdf.pdf.InsertPages
 import io.github.fanfeast.anonpdf.pdf.MarkRect
@@ -109,6 +113,7 @@ import io.github.fanfeast.anonpdf.pdf.PaperSize
 import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.SizeF
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
+import io.github.fanfeast.anonpdf.pdf.PdfForms
 import io.github.fanfeast.anonpdf.pdf.PreviewPage
 import io.github.fanfeast.anonpdf.pdf.RemoveMark
 import io.github.fanfeast.anonpdf.pdf.ResizePages
@@ -210,6 +215,16 @@ internal sealed interface EditorMode {
         val widthRatio: Float,
     ) : EditorMode
     data class Inserting(val where: InsertPosition) : EditorMode
+
+    /**
+     * Answers given so far, by field name, on top of those already in the plan.
+     * [focused] is the field being answered, outlined on the page.
+     */
+    data class FillingForm(
+        val values: Map<String, String>,
+        val flatten: Boolean,
+        val focused: String? = null,
+    ) : EditorMode
 
     /** True when the user works directly on the page, so page paging gets out of the way. */
     val interactsWithPage: Boolean
@@ -410,6 +425,13 @@ fun EditorScreen(
     /** The original document plus everything merged in, in global-index order. */
     val allSources = listOf(document) + extraSources
 
+    // Only the opened document's form is filled: a merged-in document's fields
+    // may share its names, and a merge renames them.
+    val formInfo by produceState<FormInfo?>(null, document) {
+        value = runCatching { PdfForms.read(document.sourceFile, document.password) }
+            .getOrDefault(FormInfo(emptyList()))
+    }
+
     /** Which document a global page index belongs to, and the page's index there. */
     fun resolveSource(global: Int): Pair<DocumentSession, Int>? {
         var first = 0
@@ -452,6 +474,10 @@ fun EditorScreen(
             )
             is EditorMode.Watermarking -> plan.copy(watermark = current.options)
             is EditorMode.Numbering -> plan.copy(pageNumbers = current.options)
+            is EditorMode.FillingForm -> plan.copy(
+                formValues = plan.formValues + current.values,
+                flattenForm = current.flatten,
+            )
             else -> plan
         }
     }
@@ -609,6 +635,8 @@ fun EditorScreen(
                 )
             }
 
+            EditorTool.FILL_FORM -> openMode(EditorMode.FillingForm(emptyMap(), plan.flattenForm))
+
             EditorTool.WHITEOUT -> if (page != null) {
                 openMode(EditorMode.Filling(false, null, WhiteoutColours.first().second))
             }
@@ -747,6 +775,7 @@ fun EditorScreen(
                     shown = effectiveSizes.getOrNull(state.position),
                 ),
                 mode = mode,
+                fieldBoxes = fieldBoxes(mode, formInfo, kept.getOrNull(state.position)),
                 onModeChange = { mode = it },
                 onWidthChange = { previewWidthPx = it },
                 stepper = if (kept.size > 1 && !mode.interactsWithPage) {
@@ -769,6 +798,7 @@ fun EditorScreen(
                 thumbnails = thumbnails,
                 currentSource = currentSource,
                 insertDocs = insertReady.map { it.name to it.pageCount },
+                formInfo = formInfo,
                 onModeChange = { mode = it },
                 onExitMode = { mode = EditorMode.Normal },
                 onPickTool = ::pick,
@@ -927,6 +957,8 @@ internal fun PreviewArea(
     onWidthChange: (Int) -> Unit,
     stepper: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
+    /** Form fields to outline on the page, and which of them is being answered. */
+    fieldBoxes: FieldBoxes? = null,
 ) {
     val density = LocalDensity.current
     var zoom by remember(pageKey) { mutableStateOf(1f) }
@@ -1045,6 +1077,9 @@ internal fun PreviewArea(
                         onModeChange = onModeChange,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    fieldBoxes?.let { boxes ->
+                        FieldBoxesOverlay(boxes.all, boxes.focused, Modifier.fillMaxSize())
+                    }
                 }
 
                 else -> CircularProgressIndicator()
@@ -1244,6 +1279,7 @@ private fun DrawerBody(
     thumbnails: LruCache<Int, PageImage>,
     currentSource: Int?,
     insertDocs: List<Pair<String, Int>>,
+    formInfo: FormInfo?,
     onModeChange: (EditorMode) -> Unit,
     onExitMode: () -> Unit,
     onPickTool: (EditorTool) -> Unit,
@@ -1287,9 +1323,21 @@ private fun DrawerBody(
                         state.apply(MovePage(sourceIndex, offset))
                     },
                 )
+                val hasForm = formInfo != null && (!formInfo.isEmpty || formInfo.xfaOnly)
+                // A form is usually why the file was opened, and on a phone its
+                // tool sits a swipe away; say so up front until it is used.
+                if (hasForm && plan.formValues.isEmpty()) {
+                    AssistChip(
+                        onClick = { onPickTool(EditorTool.FILL_FORM) },
+                        label = { Text("This PDF has a form: fill it in") },
+                        leadingIcon = { Icon(EditorTool.FILL_FORM.icon, contentDescription = null) },
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                    )
+                }
                 ScopeRow(state)
                 val pages = toolPages(
                     includeHandOffs = includeHandOffs,
+                    hasForm = hasForm,
                     currentPageDeleted = currentSource?.let { source ->
                         plan.pages.firstOrNull { it.sourceIndex == source }?.deleted
                     } ?: false,
@@ -1297,6 +1345,7 @@ private fun DrawerBody(
                 val highlighted = buildSet {
                     if (plan.watermark != null) add(EditorTool.WATERMARK)
                     if (plan.pageNumbers != null) add(EditorTool.PAGE_NUMBERS)
+                    if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
                 }
                 if (stacked) {
                     ToolList(pages = pages, highlighted = highlighted, onPick = onPickTool)
@@ -1432,6 +1481,36 @@ private fun DrawerBody(
                 onExitMode()
             },
         )
+
+        is EditorMode.FillingForm -> {
+            val fields = formInfo?.fields.orEmpty()
+            // Pages are named by where they sit now, and only kept ones count.
+            val withFields = plan.kept.mapIndexedNotNull { position, page ->
+                position.takeIf { fields.any { field -> field.widgets.any { it.sourceIndex == page.sourceIndex } } }
+            }
+            fun valueOf(field: FormField) =
+                current.values[field.name] ?: plan.formValues[field.name] ?: field.value
+            FormPanel(
+                info = formInfo,
+                pageFields = fields.filter { field -> field.widgets.any { it.sourceIndex == currentSource } },
+                pageNumber = state.position + 1,
+                previousPage = withFields.lastOrNull { it < state.position }?.plus(1),
+                nextPage = withFields.firstOrNull { it > state.position }?.plus(1),
+                valueOf = ::valueOf,
+                flatten = current.flatten,
+                hasChanges = current.values.isNotEmpty() || current.flatten != plan.flattenForm,
+                onValue = { field, value -> onModeChange(current.copy(values = current.values + (field.name to value))) },
+                onFocus = { field -> if (current.focused != field.name) onModeChange(current.copy(focused = field.name)) },
+                onFlattenChange = { onModeChange(current.copy(flatten = it)) },
+                onPreviousPage = { withFields.lastOrNull { it < state.position }?.let(state::goTo) },
+                onNextPage = { withFields.firstOrNull { it > state.position }?.let(state::goTo) },
+                onCancel = onExitMode,
+                onApply = {
+                    state.apply(FillForm(current.values, current.flatten))
+                    onExitMode()
+                },
+            )
+        }
 
         is EditorMode.Inking -> InkPanel(
             strokeCount = current.strokes.size,
@@ -1902,4 +1981,28 @@ private fun Thumbnail(
 private fun bucket(px: Int): Int {
     val bucketed = ((px + PREVIEW_BUCKET_PX - 1) / PREVIEW_BUCKET_PX) * PREVIEW_BUCKET_PX
     return bucketed.coerceIn(PREVIEW_BUCKET_PX, PREVIEW_MAX_PX)
+}
+
+/** What [FieldBoxesOverlay] draws. */
+internal class FieldBoxes(val all: List<MarkRect>, val focused: List<MarkRect>)
+
+/**
+ * The field boxes to outline while filling the form, on the page shown.
+ *
+ * Only on a page whose shape the plan leaves alone: the boxes are where the
+ * fields sit on the page as it arrived, and after a crop or a turn they would
+ * be drawn in the wrong place.
+ */
+private fun fieldBoxes(mode: EditorMode, info: FormInfo?, page: PageState?): FieldBoxes? {
+    val filling = mode as? EditorMode.FillingForm ?: return null
+    if (info == null || page == null) return null
+    if (page.rotationDelta != 0 || !page.crop.isEmpty || page.scale != 1f || page.resize != null) return null
+    val onPage = info.fields.flatMap { field ->
+        field.widgets.filter { it.sourceIndex == page.sourceIndex }.map { field.name to it.rect }
+    }
+    if (onPage.isEmpty()) return null
+    return FieldBoxes(
+        all = onPage.map { it.second },
+        focused = onPage.filter { it.first == filling.focused }.map { it.second },
+    )
 }

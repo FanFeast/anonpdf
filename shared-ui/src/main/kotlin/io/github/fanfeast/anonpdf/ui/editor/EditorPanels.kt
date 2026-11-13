@@ -47,7 +47,7 @@ import kotlin.math.roundToInt
  * user needs to watch while dragging a slider.
  */
 @Composable
-private fun PanelFrame(
+internal fun PanelFrame(
     title: String,
     subtitle: String?,
     onCancel: () -> Unit,
