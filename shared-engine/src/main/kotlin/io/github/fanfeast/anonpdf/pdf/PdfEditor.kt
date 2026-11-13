@@ -478,7 +478,12 @@ object PdfEditor {
         PdfOps.load(resolved.file, resolved.password).use { document ->
             // The same steps as the export, in the same order.
             if (resolved === sources.first()) PdfForms.apply(document, plan.formValues)
-            if (plan.flattenForm) PdfForms.flatten(document)
+            // Then the form is always burned into the page here, locked or not:
+            // Android's renderer before Android 15 skips form fields entirely, so
+            // a live field would preview blank. Flattening draws each field's own
+            // appearance, which is exactly what a viewer shows for the saved file.
+            // A form too broken to flatten still previews, just without it.
+            runCatching { PdfForms.flatten(document) }
 
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             val page = originals.getOrNull(localIndex) ?: return false
