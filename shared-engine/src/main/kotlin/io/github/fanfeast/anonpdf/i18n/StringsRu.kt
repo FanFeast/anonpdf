@@ -450,7 +450,7 @@ internal object StringsRu : Strings() {
 
     override val openAPdf = "Открыть PDF"
     override val myFiles = "Мои файлы"
-    override val editPages = "Править страницы"
+    override val editPages = "Правка"
     override val recent = "Недавние"
     override val homeTagline = "Без рекламы, аналитики, аккаунта и доступа к сети. Открытый код."
     override val nothingLeavesPhone = "Ничего не покидает телефон"

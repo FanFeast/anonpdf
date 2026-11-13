@@ -438,7 +438,7 @@ internal object StringsFr : Strings() {
 
     override val openAPdf = "Ouvrir un PDF"
     override val myFiles = "Mes fichiers"
-    override val editPages = "Modifier les pages"
+    override val editPages = "Modifier"
     override val recent = "Récents"
     override val homeTagline = "Sans pub, sans statistiques, sans compte, sans permission réseau. Open source."
     override val nothingLeavesPhone = "Rien ne quitte ce téléphone"

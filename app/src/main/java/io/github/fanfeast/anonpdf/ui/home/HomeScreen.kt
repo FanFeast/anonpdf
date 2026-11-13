@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.data.AppPreferences
 import io.github.fanfeast.anonpdf.i18n.S
@@ -123,7 +124,8 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(S.myFiles)
+                        // One line: a wrapped label is clipped by the button's height.
+                        Text(S.myFiles, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     OutlinedButton(
                         onClick = onEditDocument,
@@ -137,7 +139,7 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(S.editPages)
+                        Text(S.editPages, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
