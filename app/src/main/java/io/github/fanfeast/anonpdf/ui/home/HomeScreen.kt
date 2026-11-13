@@ -10,11 +10,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.data.AppPreferences
@@ -114,9 +117,12 @@ fun HomeScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(
                         onClick = onBrowse,
+                        // At least the usual height, taller when a label needs two
+                        // lines: on a 320dp phone half the width is not much.
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp),
+                            .heightIn(min = 46.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Icon(
                             Icons.Filled.Storage,
@@ -124,14 +130,16 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        // One line: a wrapped label is clipped by the button's height.
-                        Text(S.myFiles, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(S.myFiles, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                     }
                     OutlinedButton(
                         onClick = onEditDocument,
+                        // At least the usual height, taller when a label needs two
+                        // lines: on a 320dp phone half the width is not much.
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp),
+                            .heightIn(min = 46.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Icon(
                             Icons.Filled.Edit,
@@ -139,7 +147,7 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(S.editPages, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(S.editPages, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                     }
                 }
             }
