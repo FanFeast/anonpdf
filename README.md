@@ -173,6 +173,12 @@ advertising ID.
 - Protect with AES-256 password, or remove a password you know
 - Sign: draw your signature and place it on a page
 
+**When you save**
+- Optionally remove the hidden info a PDF carries: author, the app that made it,
+  dates, title and keywords, XMP metadata, attached files, scripts, and the names
+  on comments. The save card lists what this file actually has, and offers
+  nothing when it has none. Off by default, since some people want a title kept.
+
 ## Deliberately not included
 
 Being honest about the edges rather than shipping something that half-works:
