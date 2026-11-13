@@ -48,12 +48,13 @@ fun ResultCard(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val hiddenInfo = rememberHiddenInfoChoice(result)
 
     fun saveOne(single: ToolResult.One) {
         val destination = chooseSaveFile(single.suggestedName, if (single.isText) "txt" else "pdf")
             ?: return
         scope.launch {
-            runCatching { store.export(single.file, destination) }
+            runCatching { store.export(hiddenInfo.fileFor(single.file, store), destination) }
                 .onSuccess { onMessage("Saved to ${destination.name}.") }
                 .onFailure { onMessage(it.friendlyMessage("Could not save the file.")) }
         }
@@ -62,7 +63,7 @@ fun ResultCard(
     fun saveMany(many: ToolResult.Many) {
         val folder = chooseFolder() ?: return
         scope.launch {
-            runCatching { many.files.forEach { store.export(it, File(folder, it.name)) } }
+            runCatching { many.files.forEach { store.export(hiddenInfo.fileFor(it, store), File(folder, it.name)) } }
                 .onSuccess { onMessage("Saved ${many.files.size} files.") }
                 .onFailure { onMessage(it.friendlyMessage("Could not save to that folder.")) }
         }
@@ -85,6 +86,8 @@ fun ResultCard(
                 Spacer(Modifier.height(8.dp))
                 Text(note, style = MaterialTheme.typography.bodyMedium)
             }
+
+            HiddenInfoOption(hiddenInfo)
 
             Spacer(Modifier.height(16.dp))
 
