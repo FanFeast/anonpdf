@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Draw
+import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.Highlight
@@ -64,6 +65,7 @@ enum class EditorTool(val label: String, val icon: ImageVector, val handsOff: Bo
     RESTORE("Restore", Icons.Filled.RestoreFromTrash),
     REVERSE("Reverse", Icons.Filled.SwapVert),
 
+    FILL_FORM("Fill form", Icons.Filled.EditNote),
     TEXT("Text", Icons.Filled.TextFields),
     WHITEOUT("White-out", Icons.Filled.FormatColorFill),
     HIGHLIGHT("Highlight", Icons.Filled.Highlight),
@@ -100,11 +102,13 @@ data class ToolPage(val title: String, val tools: List<EditorTool>)
 fun toolPages(
     currentPageDeleted: Boolean,
     includeHandOffs: Boolean = true,
-): List<ToolPage> = allToolPages(currentPageDeleted)
+    /** Whether the document has a form, so Fill form is worth a place. */
+    hasForm: Boolean = false,
+): List<ToolPage> = allToolPages(currentPageDeleted, hasForm)
     .map { page -> if (includeHandOffs) page else page.copy(tools = page.tools.filterNot { it.handsOff }) }
     .filter { it.tools.isNotEmpty() }
 
-private fun allToolPages(currentPageDeleted: Boolean): List<ToolPage> = listOf(
+private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<ToolPage> = listOf(
     ToolPage(
         "Pages",
         listOf(
@@ -118,7 +122,8 @@ private fun allToolPages(currentPageDeleted: Boolean): List<ToolPage> = listOf(
     ),
     ToolPage(
         "Content",
-        listOf(
+        listOfNotNull(
+            EditorTool.FILL_FORM.takeIf { hasForm },
             EditorTool.TEXT,
             EditorTool.WHITEOUT,
             EditorTool.HIGHLIGHT,

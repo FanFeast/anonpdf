@@ -153,6 +153,8 @@ advertising ID.
 - Resize: scale by percentage, or refit onto A3, A4, A5, Letter, Legal or Tabloid
 - Reorder page by page, or reverse the whole document
 - Merge other PDFs in at any position, then edit their pages like any other
+- Fill in PDF forms: text boxes, checkboxes, radio buttons and dropdowns, previewed
+  as you type, with an option to lock the answers into the page when you save
 - Add text; remove content with a white-out block (the page is flattened, so it is really gone); highlight; draw freehand
 - Text watermark: diagonal, centred, tiled, top or bottom
 - Page numbers with a format template, position, start number, and cover-skipping
@@ -181,6 +183,9 @@ Being honest about the edges rather than shipping something that half-works:
   large bundled download or a server. Scanned pages are detected and the app
   says they contain no extractable text rather than silently returning nothing.
 - **Cloud sync, accounts, sharing links.** The entire point is that nothing leaves.
+- **XFA forms.** Some government forms are built in XFA, a format only Adobe's
+  own apps fill in. The editor says so when it meets one, rather than showing an
+  empty form.
 - **Cryptographic digital signatures.** "Sign PDF" places an image of your
   signature on the page. It is ink on paper, not a certificate, and the app says
   so on screen.

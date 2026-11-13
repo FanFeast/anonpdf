@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import io.github.fanfeast.anonpdf.pdf.FormInfo
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
 
@@ -22,6 +23,9 @@ class EditorHolder : ViewModel() {
 
     var session by mutableStateOf<DocumentSession?>(null)
     var editor by mutableStateOf<EditorState?>(null)
+
+    /** The opened document's form, read along with it. Null until a document is open. */
+    var formInfo by mutableStateOf<FormInfo?>(null)
 
     /**
      * Documents merged into this session, in the order they arrived. Their pages
