@@ -92,13 +92,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.AddMark
 import io.github.fanfeast.anonpdf.pdf.CropInsets
 import io.github.fanfeast.anonpdf.pdf.CropPages
 import io.github.fanfeast.anonpdf.pdf.DeletePages
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.EditPlan
+import io.github.fanfeast.anonpdf.pdf.FillForm
 import io.github.fanfeast.anonpdf.pdf.FillMark
+import io.github.fanfeast.anonpdf.pdf.FormField
+import io.github.fanfeast.anonpdf.pdf.FormInfo
 import io.github.fanfeast.anonpdf.pdf.InkMark
 import io.github.fanfeast.anonpdf.pdf.InsertPages
 import io.github.fanfeast.anonpdf.pdf.MarkRect
@@ -109,6 +113,7 @@ import io.github.fanfeast.anonpdf.pdf.PaperSize
 import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.SizeF
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
+import io.github.fanfeast.anonpdf.pdf.PdfForms
 import io.github.fanfeast.anonpdf.pdf.PreviewPage
 import io.github.fanfeast.anonpdf.pdf.RemoveMark
 import io.github.fanfeast.anonpdf.pdf.ResizePages
@@ -211,6 +216,16 @@ internal sealed interface EditorMode {
     ) : EditorMode
     data class Inserting(val where: InsertPosition) : EditorMode
 
+    /**
+     * Answers given so far, by field name, on top of those already in the plan.
+     * [focused] is the field being answered, outlined on the page.
+     */
+    data class FillingForm(
+        val values: Map<String, String>,
+        val flatten: Boolean,
+        val focused: String? = null,
+    ) : EditorMode
+
     /** True when the user works directly on the page, so page paging gets out of the way. */
     val interactsWithPage: Boolean
         get() = this is Cropping || this is Filling || this is Inking || this is AddingText
@@ -274,6 +289,14 @@ fun EditorScreen(
             pendingUri = uri
             when (val outcome = openDocumentSession(store, uri, password, session?.sourceFile)) {
                 is OpenOutcome.Ready -> {
+                    // Only the opened document's form is filled: a merged-in
+                    // document's fields may share its names, and a merge renames
+                    // them. Read before the session is published, and published
+                    // with it, so the editor never shows a document whose form it
+                    // has not looked at yet.
+                    val form = runCatching {
+                        PdfForms.read(outcome.session.sourceFile, outcome.session.password)
+                    }.getOrDefault(FormInfo(emptyList()))
                     session?.close()
                     extraSources.forEach { it.close() }
                     extraSources.clear()
@@ -282,6 +305,7 @@ fun EditorScreen(
                     insertQueue = emptyList()
                     thumbnails.evictAll()
                     session = outcome.session
+                    holder.formInfo = form
                     editor = EditorState(outcome.session.pageCount)
                     preview = null
                     previewPage?.close()
@@ -367,13 +391,13 @@ fun EditorScreen(
         }
         when {
             dropped.pdfs.isEmpty() -> if (session == null) {
-                error = "Only PDFs can be opened here."
+                error = S.onlyPdfsOpen
             } else {
-                tell("Only PDFs can be added here.")
+                tell(S.onlyPdfsAdd)
             }
             session == null -> if (!loading) load(dropped.pdfs.first(), null)
             mode != EditorMode.Normal || busyMessage != null || insertQueue.isNotEmpty() ->
-                tell("Finish what you're doing first, then drop the file again.")
+                tell(S.finishFirst)
             else -> {
                 insertQueue = dropped.pdfs
                 processInsertQueue()
@@ -409,6 +433,9 @@ fun EditorScreen(
 
     /** The original document plus everything merged in, in global-index order. */
     val allSources = listOf(document) + extraSources
+
+    // Read when the document was opened, with it; see load().
+    val formInfo = holder.formInfo
 
     /** Which document a global page index belongs to, and the page's index there. */
     fun resolveSource(global: Int): Pair<DocumentSession, Int>? {
@@ -452,6 +479,10 @@ fun EditorScreen(
             )
             is EditorMode.Watermarking -> plan.copy(watermark = current.options)
             is EditorMode.Numbering -> plan.copy(pageNumbers = current.options)
+            is EditorMode.FillingForm -> plan.copy(
+                formValues = plan.formValues + current.values,
+                flattenForm = current.flatten,
+            )
             else -> plan
         }
     }
@@ -520,7 +551,7 @@ fun EditorScreen(
                 openTool(tool, document.uri)
                 return@launch
             }
-            busyMessage = "Applying your edits first…"
+            busyMessage = S.applyingEditsFirst
             progress = 0f
             val staged = try {
                 store.newOutputFile(
@@ -536,7 +567,7 @@ fun EditorScreen(
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                error = t.friendlyMessage("Could not prepare the document.")
+                error = t.friendlyMessage(S.couldNotPrepare)
                 null
             } finally {
                 busyMessage = null
@@ -609,6 +640,8 @@ fun EditorScreen(
                 )
             }
 
+            EditorTool.FILL_FORM -> openMode(EditorMode.FillingForm(emptyMap(), plan.flattenForm))
+
             EditorTool.WHITEOUT -> if (page != null) {
                 openMode(EditorMode.Filling(false, null, WhiteoutColours.first().second))
             }
@@ -643,7 +676,7 @@ fun EditorScreen(
 
     fun save() {
         scope.launch {
-            busyMessage = "Writing the document…"
+            busyMessage = S.writingDocument
             progress = 0f
             error = null
             try {
@@ -657,15 +690,12 @@ fun EditorScreen(
                 result = ToolResult.One(
                     file = output,
                     suggestedName = "$stem-edited.pdf",
-                    note = "${plan.kept.size} page" +
-                        (if (plan.kept.size == 1) "" else "s") +
-                        ", ${state.ops.size} edit" +
-                        (if (state.ops.size == 1) "" else "s") + " applied.",
+                    note = S.savedNote(plan.kept.size, state.ops.size),
                 )
             } catch (e: CancellationException) {
                 throw e
             } catch (t: Throwable) {
-                error = t.friendlyMessage("Could not save the document.")
+                error = t.friendlyMessage(S.couldNotSave)
             } finally {
                 busyMessage = null
             }
@@ -710,10 +740,10 @@ fun EditorScreen(
         topBar = {
             AnonTopBar(title = document.name, onBack = onBack) {
                 IconButton(onClick = { state.undo() }, enabled = state.canUndo) {
-                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = "Undo")
+                    Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = S.undo)
                 }
                 IconButton(onClick = { state.redo() }, enabled = state.canRedo) {
-                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = "Redo")
+                    Icon(Icons.AutoMirrored.Filled.Redo, contentDescription = S.redo)
                 }
                 IconButton(
                     onClick = {
@@ -722,7 +752,7 @@ fun EditorScreen(
                         mode = EditorMode.Normal
                     },
                     enabled = state.canUndo,
-                ) { Icon(Icons.Filled.Restore, contentDescription = "Revert all") }
+                ) { Icon(Icons.Filled.Restore, contentDescription = S.revertAll) }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHost) },
@@ -747,6 +777,7 @@ fun EditorScreen(
                     shown = effectiveSizes.getOrNull(state.position),
                 ),
                 mode = mode,
+                fieldBoxes = fieldBoxes(mode, formInfo, kept.getOrNull(state.position)),
                 onModeChange = { mode = it },
                 onWidthChange = { previewWidthPx = it },
                 stepper = if (kept.size > 1 && !mode.interactsWithPage) {
@@ -769,6 +800,7 @@ fun EditorScreen(
                 thumbnails = thumbnails,
                 currentSource = currentSource,
                 insertDocs = insertReady.map { it.name to it.pageCount },
+                formInfo = formInfo,
                 onModeChange = { mode = it },
                 onExitMode = { mode = EditorMode.Normal },
                 onPickTool = ::pick,
@@ -889,8 +921,7 @@ fun EditorScreen(
 
     if (insertNeedsPassword) {
         PasswordDialog(
-            message = "A PDF you picked is protected. Enter its password to merge it, " +
-                "or cancel to skip that file.",
+            message = S.mergePasswordPrompt,
             error = insertPasswordError,
             onDismiss = {
                 insertNeedsPassword = false
@@ -927,6 +958,8 @@ internal fun PreviewArea(
     onWidthChange: (Int) -> Unit,
     stepper: (@Composable () -> Unit)?,
     modifier: Modifier = Modifier,
+    /** Form fields to outline on the page, and which of them is being answered. */
+    fieldBoxes: FieldBoxes? = null,
 ) {
     val density = LocalDensity.current
     var zoom by remember(pageKey) { mutableStateOf(1f) }
@@ -1003,7 +1036,7 @@ internal fun PreviewArea(
 
             when {
                 empty -> Text(
-                    "Every page is deleted.\nRestore one to carry on.",
+                    S.everyPageDeleted,
                     style = MaterialTheme.typography.bodyMedium,
                     textAlign = TextAlign.Center,
                 )
@@ -1020,7 +1053,7 @@ internal fun PreviewArea(
                 ) {
                     Image(
                         bitmap = bitmap.toImageBitmap(),
-                        contentDescription = "Page preview",
+                        contentDescription = S.pagePreview,
                         contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .fillMaxSize()
@@ -1045,6 +1078,9 @@ internal fun PreviewArea(
                         onModeChange = onModeChange,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    fieldBoxes?.let { boxes ->
+                        FieldBoxesOverlay(boxes.all, boxes.focused, Modifier.fillMaxSize())
+                    }
                 }
 
                 else -> CircularProgressIndicator()
@@ -1089,19 +1125,19 @@ internal fun PreviewArea(
                 IconButton(
                     onClick = { zoom = ZOOM_STEPS.lastOrNull { it < zoom - 0.01f } ?: 1f },
                     enabled = zoom > 1f,
-                ) { Icon(Icons.Filled.ZoomOut, contentDescription = "Zoom out") }
+                ) { Icon(Icons.Filled.ZoomOut, contentDescription = S.zoomOut) }
                 TextButton(onClick = { zoom = 1f; pan = Offset.Zero }) {
                     Text("${(zoom * 100).roundToInt()}%")
                 }
                 IconButton(
                     onClick = { zoom = ZOOM_STEPS.firstOrNull { it > zoom + 0.01f } ?: MAX_ZOOM },
                     enabled = zoom < MAX_ZOOM,
-                ) { Icon(Icons.Filled.ZoomIn, contentDescription = "Zoom in") }
+                ) { Icon(Icons.Filled.ZoomIn, contentDescription = S.zoomIn) }
                 if (mode.interactsWithPage) {
                     FilterChip(
                         selected = moving,
                         onClick = { moving = !moving },
-                        label = { Text(if (moving) "Resume editing" else "Move page") },
+                        label = { Text(if (moving) S.resumeEditing else S.movePage) },
                     )
                 }
             }
@@ -1211,12 +1247,12 @@ private fun PageStepper(position: Int, total: Int, onStep: (Int) -> Unit) {
         IconButton(onClick = { onStep(-1) }, enabled = position > 0) {
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                contentDescription = "Previous page",
+                contentDescription = S.previousPage,
             )
         }
         Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface) {
             Text(
-                "page ${position + 1} / $total",
+                S.pageOf(position + 1, total),
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
             )
@@ -1224,7 +1260,7 @@ private fun PageStepper(position: Int, total: Int, onStep: (Int) -> Unit) {
         IconButton(onClick = { onStep(1) }, enabled = position < total - 1) {
             Icon(
                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = "Next page",
+                contentDescription = S.nextPage,
             )
         }
     }
@@ -1244,6 +1280,7 @@ private fun DrawerBody(
     thumbnails: LruCache<Int, PageImage>,
     currentSource: Int?,
     insertDocs: List<Pair<String, Int>>,
+    formInfo: FormInfo?,
     onModeChange: (EditorMode) -> Unit,
     onExitMode: () -> Unit,
     onPickTool: (EditorTool) -> Unit,
@@ -1287,9 +1324,21 @@ private fun DrawerBody(
                         state.apply(MovePage(sourceIndex, offset))
                     },
                 )
+                val hasForm = formInfo != null && (!formInfo.isEmpty || formInfo.xfaOnly)
+                // A form is usually why the file was opened, and on a phone its
+                // tool sits a swipe away; say so up front until it is used.
+                if (hasForm && plan.formValues.isEmpty()) {
+                    AssistChip(
+                        onClick = { onPickTool(EditorTool.FILL_FORM) },
+                        label = { Text(S.hasFormPrompt) },
+                        leadingIcon = { Icon(EditorTool.FILL_FORM.icon, contentDescription = null) },
+                        modifier = Modifier.padding(horizontal = 10.dp),
+                    )
+                }
                 ScopeRow(state)
                 val pages = toolPages(
                     includeHandOffs = includeHandOffs,
+                    hasForm = hasForm,
                     currentPageDeleted = currentSource?.let { source ->
                         plan.pages.firstOrNull { it.sourceIndex == source }?.deleted
                     } ?: false,
@@ -1297,6 +1346,7 @@ private fun DrawerBody(
                 val highlighted = buildSet {
                     if (plan.watermark != null) add(EditorTool.WATERMARK)
                     if (plan.pageNumbers != null) add(EditorTool.PAGE_NUMBERS)
+                    if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
                 }
                 if (stacked) {
                     ToolList(pages = pages, highlighted = highlighted, onPick = onPickTool)
@@ -1433,6 +1483,36 @@ private fun DrawerBody(
             },
         )
 
+        is EditorMode.FillingForm -> {
+            val fields = formInfo?.fields.orEmpty()
+            // Pages are named by where they sit now, and only kept ones count.
+            val withFields = plan.kept.mapIndexedNotNull { position, page ->
+                position.takeIf { fields.any { field -> field.widgets.any { it.sourceIndex == page.sourceIndex } } }
+            }
+            fun valueOf(field: FormField) =
+                current.values[field.name] ?: plan.formValues[field.name] ?: field.value
+            FormPanel(
+                info = formInfo,
+                pageFields = fields.filter { field -> field.widgets.any { it.sourceIndex == currentSource } },
+                pageNumber = state.position + 1,
+                previousPage = withFields.lastOrNull { it < state.position }?.plus(1),
+                nextPage = withFields.firstOrNull { it > state.position }?.plus(1),
+                valueOf = ::valueOf,
+                flatten = current.flatten,
+                hasChanges = current.values.isNotEmpty() || current.flatten != plan.flattenForm,
+                onValue = { field, value -> onModeChange(current.copy(values = current.values + (field.name to value))) },
+                onFocus = { field -> if (current.focused != field.name) onModeChange(current.copy(focused = field.name)) },
+                onFlattenChange = { onModeChange(current.copy(flatten = it)) },
+                onPreviousPage = { withFields.lastOrNull { it < state.position }?.let(state::goTo) },
+                onNextPage = { withFields.firstOrNull { it > state.position }?.let(state::goTo) },
+                onCancel = onExitMode,
+                onApply = {
+                    state.apply(FillForm(current.values, current.flatten))
+                    onExitMode()
+                },
+            )
+        }
+
         is EditorMode.Inking -> InkPanel(
             strokeCount = current.strokes.size,
             colour = current.colour,
@@ -1497,9 +1577,9 @@ private fun ScopeRow(state: EditorState) {
         }
         if (state.scope == ApplyScope.SELECTION) {
             if (state.selection.isEmpty()) {
-                TextButton(onClick = { state.selectAll() }) { Text("All") }
+                TextButton(onClick = { state.selectAll() }) { Text(S.all) }
             } else {
-                TextButton(onClick = { state.clearSelection() }) { Text("None") }
+                TextButton(onClick = { state.clearSelection() }) { Text(S.none) }
             }
         }
     }
@@ -1520,11 +1600,7 @@ private fun SaveRow(
             onClick = onShowPending,
             label = {
                 Text(
-                    if (state.ops.isEmpty()) {
-                        "No edits yet"
-                    } else {
-                        "${state.ops.size} edit${if (state.ops.size == 1) "" else "s"}"
-                    },
+                    if (state.ops.isEmpty()) S.noEditsYet else S.edits(state.ops.size),
                 )
             },
         )
@@ -1533,7 +1609,7 @@ private fun SaveRow(
             onClick = onSave,
             enabled = plan.hasChanges && plan.kept.isNotEmpty(),
             modifier = Modifier.weight(1f),
-        ) { Text("Save as…") }
+        ) { Text(S.saveAs) }
     }
 }
 
@@ -1585,7 +1661,7 @@ private fun effectiveSize(base: SizeF, state: PageState): SizeF {
 private fun describeResult(size: SizeF?): String = if (size == null) {
     ""
 } else {
-    "Result: ${size.width.roundToInt()} × ${size.height.roundToInt()} pt"
+    S.resultSize(size.width.roundToInt(), size.height.roundToInt())
 }
 
 @Composable
@@ -1595,7 +1671,7 @@ private fun EmptyEditor(
     onPick: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Scaffold(topBar = { AnonTopBar(title = "Edit PDF", onBack = onBack) }) { padding ->
+    Scaffold(topBar = { AnonTopBar(title = S.editPdf, onBack = onBack) }) { padding ->
         Column(
             Modifier
                 .padding(padding)
@@ -1603,16 +1679,14 @@ private fun EmptyEditor(
                 .padding(16.dp),
         ) {
             Text(
-                "Rotate, crop, resize, delete and reorder pages, add text, white-out, " +
-                    "highlights or drawings, and reach every other tool from here — all " +
-                    "with a preview of the real result. Nothing is written until you save.",
+                S.editorIntro,
                 style = MaterialTheme.typography.bodyMedium,
             )
             Spacer(Modifier.height(20.dp))
             OutlinedButton(onClick = onPick, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.Description, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
-                Text("Choose a PDF")
+                Text(S.choosePdf)
             }
             error?.let {
                 Spacer(Modifier.height(16.dp))
@@ -1789,11 +1863,7 @@ private fun PageStrip(
             }
         }
         Text(
-            if (selecting) {
-                "Tap to select. Press and hold, then drag to reorder."
-            } else {
-                "Press and hold a page, then drag it to reorder."
-            },
+            if (selecting) S.tapToSelect else S.holdToReorder,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(start = 12.dp),
@@ -1850,7 +1920,7 @@ private fun Thumbnail(
             bitmap?.let {
                 Image(
                     bitmap = it.toImageBitmap(),
-                    contentDescription = position?.let { "Page $it" } ?: "Deleted page",
+                    contentDescription = position?.let { S.pageTitle(it) } ?: S.deletedPage,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier
                         .fillMaxSize()
@@ -1860,7 +1930,7 @@ private fun Thumbnail(
             if (page.deleted) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Deleted",
+                    contentDescription = S.deleted,
                     tint = MaterialTheme.colorScheme.error,
                     modifier = Modifier.size(16.dp),
                 )
@@ -1902,4 +1972,28 @@ private fun Thumbnail(
 private fun bucket(px: Int): Int {
     val bucketed = ((px + PREVIEW_BUCKET_PX - 1) / PREVIEW_BUCKET_PX) * PREVIEW_BUCKET_PX
     return bucketed.coerceIn(PREVIEW_BUCKET_PX, PREVIEW_MAX_PX)
+}
+
+/** What [FieldBoxesOverlay] draws. */
+internal class FieldBoxes(val all: List<MarkRect>, val focused: List<MarkRect>)
+
+/**
+ * The field boxes to outline while filling the form, on the page shown.
+ *
+ * Only on a page whose shape the plan leaves alone: the boxes are where the
+ * fields sit on the page as it arrived, and after a crop or a turn they would
+ * be drawn in the wrong place.
+ */
+private fun fieldBoxes(mode: EditorMode, info: FormInfo?, page: PageState?): FieldBoxes? {
+    val filling = mode as? EditorMode.FillingForm ?: return null
+    if (info == null || page == null) return null
+    if (page.rotationDelta != 0 || !page.crop.isEmpty || page.scale != 1f || page.resize != null) return null
+    val onPage = info.fields.flatMap { field ->
+        field.widgets.filter { it.sourceIndex == page.sourceIndex }.map { field.name to it.rect }
+    }
+    if (onPage.isEmpty()) return null
+    return FieldBoxes(
+        all = onPage.map { it.second },
+        focused = onPage.filter { it.first == filling.focused }.map { it.second },
+    )
 }

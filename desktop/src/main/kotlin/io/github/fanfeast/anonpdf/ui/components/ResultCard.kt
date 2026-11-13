@@ -25,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.ui.tools.ToolResult
 import kotlinx.coroutines.launch
@@ -48,23 +49,24 @@ fun ResultCard(
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
+    val hiddenInfo = rememberHiddenInfoChoice(result)
 
     fun saveOne(single: ToolResult.One) {
         val destination = chooseSaveFile(single.suggestedName, if (single.isText) "txt" else "pdf")
             ?: return
         scope.launch {
-            runCatching { store.export(single.file, destination) }
-                .onSuccess { onMessage("Saved to ${destination.name}.") }
-                .onFailure { onMessage(it.friendlyMessage("Could not save the file.")) }
+            runCatching { store.export(hiddenInfo.fileFor(single.file, store), destination) }
+                .onSuccess { onMessage(S.savedTo(destination.name)) }
+                .onFailure { onMessage(it.friendlyMessage(S.couldNotSaveFile)) }
         }
     }
 
     fun saveMany(many: ToolResult.Many) {
         val folder = chooseFolder() ?: return
         scope.launch {
-            runCatching { many.files.forEach { store.export(it, File(folder, it.name)) } }
-                .onSuccess { onMessage("Saved ${many.files.size} files.") }
-                .onFailure { onMessage(it.friendlyMessage("Could not save to that folder.")) }
+            runCatching { many.files.forEach { store.export(hiddenInfo.fileFor(it, store), File(folder, it.name)) } }
+                .onSuccess { onMessage(S.savedFiles(many.files.size)) }
+                .onFailure { onMessage(it.friendlyMessage(S.couldNotSaveToFolder)) }
         }
     }
 
@@ -78,7 +80,7 @@ fun ResultCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("Done", style = MaterialTheme.typography.titleMedium)
+                Text(S.done, style = MaterialTheme.typography.titleMedium)
             }
 
             result.note?.let { note ->
@@ -86,29 +88,31 @@ fun ResultCard(
                 Text(note, style = MaterialTheme.typography.bodyMedium)
             }
 
+            HiddenInfoOption(hiddenInfo)
+
             Spacer(Modifier.height(16.dp))
 
             when (result) {
                 is ToolResult.One -> Button(onClick = { saveOne(result) }, modifier = Modifier.fillMaxWidth()) {
                     Icon(Icons.Filled.Save, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Save as…")
+                    Text(S.saveAs)
                 }
 
                 is ToolResult.Many -> {
-                    Text("${result.files.size} files", style = MaterialTheme.typography.bodyMedium)
+                    Text(S.files(result.files.size), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(8.dp))
                     Button(onClick = { saveMany(result) }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Filled.FolderOpen, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Save all to folder…")
+                        Text(S.saveAllToFolder)
                     }
                 }
             }
 
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = onStartOver, modifier = Modifier.weight(1f)) { Text("Start over") }
+                OutlinedButton(onClick = onStartOver, modifier = Modifier.weight(1f)) { Text(S.startOver) }
             }
         }
     }
@@ -116,7 +120,7 @@ fun ResultCard(
 
 /** The platform's own save dialog; adds [extension] if the user typed a bare name. */
 private fun chooseSaveFile(suggestedName: String, extension: String): File? {
-    val dialog = FileDialog(null as Frame?, "Save as", FileDialog.SAVE).apply {
+    val dialog = FileDialog(null as Frame?, S.saveAsDialog, FileDialog.SAVE).apply {
         file = suggestedName
         isVisible = true
     }
@@ -127,7 +131,7 @@ private fun chooseSaveFile(suggestedName: String, extension: String): File? {
 
 private fun chooseFolder(): File? {
     val chooser = JFileChooser().apply {
-        dialogTitle = "Save all to folder"
+        dialogTitle = S.saveAllDialog
         fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
     }
     return if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) chooser.selectedFile else null

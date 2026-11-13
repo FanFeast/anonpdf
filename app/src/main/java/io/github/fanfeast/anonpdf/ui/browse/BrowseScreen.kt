@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.storage.DeviceFile
 import io.github.fanfeast.anonpdf.storage.DeviceFiles
 import io.github.fanfeast.anonpdf.storage.StorageAccess
@@ -60,9 +61,12 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.util.concurrent.TimeUnit
 
-private enum class BrowseMode(val label: String) {
-    ALL("All PDFs"),
-    FOLDERS("Folders"),
+private enum class BrowseMode(private val text: () -> String) {
+    ALL({ S.allPdfs }),
+    FOLDERS({ S.folders }),
+    ;
+
+    val label: String get() = text()
 }
 
 /**
@@ -130,10 +134,10 @@ fun BrowseScreen(
 
     Scaffold(
         topBar = {
-            AnonTopBar(title = "Browse", onBack = onBack) {
+            AnonTopBar(title = S.browse, onBack = onBack) {
                 if (accessLevel == StorageAccessLevel.ALL_FILES) {
                     IconButton(onClick = { rescan() }, enabled = !scanning) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Rescan")
+                        Icon(Icons.Filled.Refresh, contentDescription = S.rescan)
                     }
                 }
             }
@@ -148,11 +152,7 @@ fun BrowseScreen(
             if (accessLevel != StorageAccessLevel.ALL_FILES) {
                 Column(Modifier.padding(16.dp)) {
                     InfoNote(
-                        "To list the PDFs on your device, AnonPDF needs Android's " +
-                            "\"All files access\". It is a switch in Settings rather than " +
-                            "a normal permission prompt.\n\nThis only lets the app read " +
-                            "files. It still has no network permission, so nothing can " +
-                            "leave this device either way.",
+                        S.needFileAccess,
                     )
                     Spacer(Modifier.height(16.dp))
                     Button(
@@ -166,18 +166,18 @@ fun BrowseScreen(
                             if (!opened) {
                                 scope.launch {
                                     snackbarHost.showSnackbar(
-                                        "Could not open Settings on this device.",
+                                        S.couldNotOpenSettings,
                                     )
                                 }
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Open Settings and allow file access") }
+                    ) { Text(S.openSettingsAllow) }
                     Spacer(Modifier.height(10.dp))
                     OutlinedButton(
                         onClick = { pickViaSaf.launch(arrayOf("application/pdf")) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Just pick one file instead") }
+                    ) { Text(S.justPickOne) }
                 }
                 return@Column
             }
@@ -200,16 +200,16 @@ fun BrowseScreen(
                         OutlinedTextField(
                             value = query,
                             onValueChange = { query = it },
-                            label = { Text("Search by name") },
+                            label = { Text(S.searchByName) },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         Spacer(Modifier.height(4.dp))
                         Text(
                             when {
-                                scanning -> "Looking…"
-                                visible.isEmpty() && query.isNotBlank() -> "No matches"
-                                else -> "${visible.size} PDF${if (visible.size == 1) "" else "s"}"
+                                scanning -> S.looking
+                                visible.isEmpty() && query.isNotBlank() -> S.noMatches
+                                else -> S.pdfCount(visible.size)
                             },
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -278,7 +278,7 @@ fun BrowseScreen(
                         if (subfolders.isEmpty() && folderPdfs.isEmpty()) {
                             item {
                                 Text(
-                                    "Nothing here.",
+                                    S.nothingHere,
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(16.dp),
@@ -348,17 +348,17 @@ private fun FolderRow(name: String, onClick: () -> Unit) {
 
 /** "3 days ago", good enough to tell one download from another. */
 private fun relativeTime(epochMillis: Long): String {
-    if (epochMillis <= 0L) return "unknown date"
+    if (epochMillis <= 0L) return S.unknownDate
     val elapsed = System.currentTimeMillis() - epochMillis
-    if (elapsed < 0) return "just now"
+    if (elapsed < 0) return S.justNow
     val minutes = TimeUnit.MILLISECONDS.toMinutes(elapsed)
-    if (minutes < 1) return "just now"
-    if (minutes < 60) return "$minutes min ago"
+    if (minutes < 1) return S.justNow
+    if (minutes < 60) return S.minutesAgo(minutes)
     val hours = TimeUnit.MILLISECONDS.toHours(elapsed)
-    if (hours < 24) return "$hours hour${if (hours == 1L) "" else "s"} ago"
+    if (hours < 24) return S.hoursAgo(hours)
     val days = TimeUnit.MILLISECONDS.toDays(elapsed)
-    if (days < 30) return "$days day${if (days == 1L) "" else "s"} ago"
+    if (days < 30) return S.daysAgo(days)
     val months = days / 30
-    if (months < 12) return "$months month${if (months == 1L) "" else "s"} ago"
-    return "${days / 365} year${if (days / 365 == 1L) "" else "s"} ago"
+    if (months < 12) return S.monthsAgo(months)
+    return S.yearsAgo(days / 365)
 }

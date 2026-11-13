@@ -7,6 +7,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toAwtImage
 import androidx.compose.ui.graphics.toComposeImageBitmap
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImageFiles
 import io.github.fanfeast.anonpdf.pdf.PageImage
@@ -45,7 +46,7 @@ fun rememberOpenImages(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
     val callback by rememberUpdatedState(onPicked)
     return remember {
         {
-            chooseFiles(multiple = true, title = "Add images", extensions = ImageFiles.extensions)
+            chooseFiles(multiple = true, title = S.addImages, extensions = ImageFiles.extensions)
                 .takeIf { it.isNotEmpty() }
                 ?.let(callback)
         }
@@ -53,7 +54,7 @@ fun rememberOpenImages(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
 }
 
 /** Shows the platform's own open dialog. Blocks until the user closes it. */
-fun choosePdfs(multiple: Boolean, title: String = "Open a PDF"): List<File> =
+fun choosePdfs(multiple: Boolean, title: String = S.openAPdf): List<File> =
     chooseFiles(multiple, title, setOf("pdf"))
 
 private fun chooseFiles(multiple: Boolean, title: String, extensions: Set<String>): List<File> {

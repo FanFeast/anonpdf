@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.ui.tools.ToolResult
 import kotlinx.coroutines.Dispatchers
@@ -58,6 +59,7 @@ fun ResultCard(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val hiddenInfo = rememberHiddenInfoChoice(result)
 
     val createPdf = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/pdf"),
@@ -65,9 +67,9 @@ fun ResultCard(
         if (destination == null) return@rememberLauncherForActivityResult
         val single = result as? ToolResult.One ?: return@rememberLauncherForActivityResult
         scope.launch {
-            runCatching { store.export(single.file, destination) }
-                .onSuccess { onMessage("Saved.") }
-                .onFailure { onMessage(it.friendlyMessage("Could not save the file.")) }
+            runCatching { store.export(hiddenInfo.fileFor(single.file, store), destination) }
+                .onSuccess { onMessage(S.saved) }
+                .onFailure { onMessage(it.friendlyMessage(S.couldNotSaveFile)) }
         }
     }
 
@@ -77,9 +79,9 @@ fun ResultCard(
         if (destination == null) return@rememberLauncherForActivityResult
         val single = result as? ToolResult.One ?: return@rememberLauncherForActivityResult
         scope.launch {
-            runCatching { store.export(single.file, destination) }
-                .onSuccess { onMessage("Saved.") }
-                .onFailure { onMessage(it.friendlyMessage("Could not save the file.")) }
+            runCatching { store.export(hiddenInfo.fileFor(single.file, store), destination) }
+                .onSuccess { onMessage(S.saved) }
+                .onFailure { onMessage(it.friendlyMessage(S.couldNotSaveFile)) }
         }
     }
 
@@ -91,18 +93,18 @@ fun ResultCard(
         scope.launch {
             runCatching {
                 val tree = DocumentFile.fromTreeUri(context, treeUri)
-                    ?: error("That folder is not writable.")
+                    ?: error(S.folderNotWritable)
                 withContext(Dispatchers.IO) {
                     many.files.forEach { file ->
                         val mime = mimeFor(file)
                         val created = tree.createFile(mime, file.name)
-                            ?: error("Could not create ${file.name}.")
-                        store.export(file, created.uri)
+                            ?: error(S.couldNotCreate(file.name))
+                        store.export(hiddenInfo.fileFor(file, store), created.uri)
                     }
                 }
             }
-                .onSuccess { onMessage("Saved ${many.files.size} files.") }
-                .onFailure { onMessage(it.friendlyMessage("Could not save to that folder.")) }
+                .onSuccess { onMessage(S.savedFiles(many.files.size)) }
+                .onFailure { onMessage(it.friendlyMessage(S.couldNotSaveToFolder)) }
         }
     }
 
@@ -120,13 +122,15 @@ fun ResultCard(
                     modifier = Modifier.size(22.dp),
                 )
                 Spacer(Modifier.width(10.dp))
-                Text("Done", style = MaterialTheme.typography.titleMedium)
+                Text(S.done, style = MaterialTheme.typography.titleMedium)
             }
 
             result.note?.let { note ->
                 Spacer(Modifier.height(8.dp))
                 Text(note, style = MaterialTheme.typography.bodyMedium)
             }
+
+            HiddenInfoOption(hiddenInfo)
 
             Spacer(Modifier.height(16.dp))
 
@@ -144,13 +148,13 @@ fun ResultCard(
                     ) {
                         Icon(Icons.Filled.Save, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Save as…")
+                        Text(S.saveAs)
                     }
                 }
 
                 is ToolResult.Many -> {
                     Text(
-                        "${result.files.size} files",
+                        S.files(result.files.size),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Spacer(Modifier.height(8.dp))
@@ -160,7 +164,7 @@ fun ResultCard(
                     ) {
                         Icon(Icons.Filled.FolderOpen, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Save all to folder…")
+                        Text(S.saveAllToFolder)
                     }
                 }
             }
@@ -168,17 +172,23 @@ fun ResultCard(
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = { shareResult(context, result, onMessage) },
+                    onClick = {
+                        scope.launch {
+                            runCatching { hiddenInfo.resolve(store) }
+                                .onSuccess { shareResult(context, it, onMessage) }
+                                .onFailure { onMessage(it.friendlyMessage(S.couldNotRemoveHiddenInfo)) }
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.Share, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Share")
+                    Text(S.share)
                 }
                 OutlinedButton(
                     onClick = onStartOver,
                     modifier = Modifier.weight(1f),
-                ) { Text("Start over") }
+                ) { Text(S.startOver) }
             }
         }
     }
@@ -211,9 +221,9 @@ private fun shareResult(
             }
         }
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(intent, "Share"))
+        context.startActivity(Intent.createChooser(intent, S.share))
     }.onFailure {
-        onMessage(it.friendlyMessage("Nothing on this device can receive that file."))
+        onMessage(it.friendlyMessage(S.nothingCanReceive))
     }
 }
 

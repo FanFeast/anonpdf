@@ -1,5 +1,6 @@
 package io.github.fanfeast.anonpdf.ui.tools
 
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
 import io.github.fanfeast.anonpdf.pdf.PageRanges
@@ -34,13 +35,13 @@ class ToolRunner(private val store: DocumentStore) {
         ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
         ToolId.PROTECT -> runProtect(docs.single(), options, onProgress)
         ToolId.UNLOCK -> runUnlock(docs.single(), onProgress)
-        ToolId.SIGN -> error("${spec.title} has its own screen and does not run here.")
+        ToolId.SIGN -> error(S.hasOwnScreen(spec.title))
     }
 
     private suspend fun runMerge(docs: List<InputDoc>, onProgress: Progress): ToolResult {
-        require(docs.size >= 2) { "Pick at least two PDFs to merge." }
+        require(docs.size >= 2) { S.pickTwoPdfs }
         docs.firstOrNull { it.password != null }?.let {
-            error("Remove the password from \"${it.name}\" first, then merge.")
+            error(S.removePasswordFirst(it.name))
         }
         val inputs = docs.map { it.requireFile() }
         val output = store.newOutputFile("merged", "pdf")
@@ -48,7 +49,7 @@ class ToolRunner(private val store: DocumentStore) {
         return ToolResult.One(
             file = output,
             suggestedName = "merged.pdf",
-            note = "${docs.size} files joined into ${formatBytes(output.length())}.",
+            note = S.mergedNote(docs.size, formatBytes(output.length())),
         )
     }
 
@@ -62,8 +63,7 @@ class ToolRunner(private val store: DocumentStore) {
             SplitMode.EVERY -> {
                 val size = options.splitEvery.coerceAtLeast(1)
                 require(size < doc.pageCount) {
-                    "Splitting every $size page${if (size == 1) "" else "s"} would " +
-                        "not divide a ${doc.pageCount}-page document."
+                    S.splitDoesNotDivide(size, doc.pageCount)
                 }
                 (0 until doc.pageCount step size).map { start ->
                     start..minOf(start + size - 1, doc.pageCount - 1)
@@ -82,7 +82,7 @@ class ToolRunner(private val store: DocumentStore) {
         )
         return ToolResult.Many(
             files = files,
-            note = "${files.size} file${if (files.size == 1) "" else "s"} ready.",
+            note = S.filesReady(files.size),
         )
     }
 
@@ -97,7 +97,7 @@ class ToolRunner(private val store: DocumentStore) {
         return ToolResult.One(
             file = output,
             suggestedName = "${DocumentStore.stem(doc.name)}-pages.pdf",
-            note = "Kept page${if (pages.size == 1) "" else "s"} ${PageRanges.describe(pages)}.",
+            note = S.keptPages(pages.size, PageRanges.describe(pages)),
         )
     }
 
@@ -128,17 +128,13 @@ class ToolRunner(private val store: DocumentStore) {
             )
         }
         val note = if (result.savedPercent <= 0) {
-            "No saving available in this mode — the file is already lean. " +
-                "${formatBytes(result.compressedBytes)}." +
-                if (options.compressMode == CompressMode.SMART) {
-                    " Try \"Smallest file\" if you do not need selectable text."
-                } else {
-                    ""
-                }
+            S.alreadyLean(formatBytes(result.compressedBytes), smart = options.compressMode == CompressMode.SMART)
         } else {
-            "${formatBytes(result.originalBytes)} → " +
-                "${formatBytes(result.compressedBytes)} " +
-                "(${result.savedPercent}% smaller)."
+            S.compressedNote(
+                formatBytes(result.originalBytes),
+                formatBytes(result.compressedBytes),
+                result.savedPercent,
+            )
         }
         return ToolResult.One(
             file = output,
@@ -166,8 +162,7 @@ class ToolRunner(private val store: DocumentStore) {
         )
         return ToolResult.Many(
             files = files,
-            note = "${files.size} image${if (files.size == 1) "" else "s"} at " +
-                "${options.exportDpi} dpi.",
+            note = S.imagesAtDpi(files.size, options.exportDpi),
         )
     }
 
@@ -176,7 +171,7 @@ class ToolRunner(private val store: DocumentStore) {
         options: ToolOptionsState,
         onProgress: Progress,
     ): ToolResult {
-        require(images.isNotEmpty()) { "Pick at least one image." }
+        require(images.isNotEmpty()) { S.pickOneImage }
         val output = store.newOutputFile("images", "pdf")
         PdfConvert.imagesToPdf(
             images = images,
@@ -191,8 +186,7 @@ class ToolRunner(private val store: DocumentStore) {
         return ToolResult.One(
             file = output,
             suggestedName = "images.pdf",
-            note = "${images.size} image${if (images.size == 1) "" else "s"} → " +
-                formatBytes(output.length()) + ".",
+            note = S.imagesToPdfNote(images.size, formatBytes(output.length())),
         )
     }
 
@@ -202,10 +196,9 @@ class ToolRunner(private val store: DocumentStore) {
         val output = store.newOutputFile("$stem-text", "txt")
         output.writeText(text)
         val note = if (text.isBlank() || text.count { it.isLetterOrDigit() } < 20) {
-            "Almost no text found. These pages are probably scans — images of " +
-                "text rather than text itself."
+            S.probablyScans
         } else {
-            "${text.length} characters extracted."
+            S.charactersExtracted(text.length)
         }
         return ToolResult.One(
             file = output,
@@ -220,9 +213,9 @@ class ToolRunner(private val store: DocumentStore) {
         options: ToolOptionsState,
         onProgress: Progress,
     ): ToolResult {
-        require(options.protectPassword.isNotEmpty()) { "Choose a password." }
+        require(options.protectPassword.isNotEmpty()) { S.choosePassword }
         require(options.protectPassword == options.protectConfirm) {
-            "The two passwords do not match."
+            S.passwordsDoNotMatch
         }
         val output = store.newOutputFile("${DocumentStore.stem(doc.name)}-protected", "pdf")
         PdfOps.protect(
@@ -240,23 +233,22 @@ class ToolRunner(private val store: DocumentStore) {
         return ToolResult.One(
             file = output,
             suggestedName = "${DocumentStore.stem(doc.name)}-protected.pdf",
-            note = "Encrypted with AES-256. There is no recovery if you forget " +
-                "this password — nothing about it leaves your device.",
+            note = S.protectedNote,
         )
     }
 
     private suspend fun runUnlock(doc: InputDoc, onProgress: Progress): ToolResult {
         val password = doc.password
-            ?: error("Open the file with its password first.")
+            ?: error(S.openWithPasswordFirst)
         val output = store.newOutputFile("${DocumentStore.stem(doc.name)}-unlocked", "pdf")
         PdfOps.unlock(doc.requireFile(), output, password, onProgress)
         return ToolResult.One(
             file = output,
             suggestedName = "${DocumentStore.stem(doc.name)}-unlocked.pdf",
-            note = "Password removed. Keep the new file somewhere safe.",
+            note = S.unlockedNote,
         )
     }
 
     private fun InputDoc.requireFile() =
-        localFile ?: error("\"$name\" is still being prepared.")
+        localFile ?: error(S.stillPreparing(name))
 }

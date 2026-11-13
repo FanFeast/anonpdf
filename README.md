@@ -1,5 +1,7 @@
 # AnonPDF
 
+**English** · [Deutsch](docs/readme/README.de.md) · [Español](docs/readme/README.es.md) · [Français](docs/readme/README.fr.md) · [हिन्दी](docs/readme/README.hi.md) · [Português](docs/readme/README.pt-BR.md) · [Русский](docs/readme/README.ru.md) · [中文](docs/readme/README.zh-CN.md)
+
 [![Build](https://github.com/FanFeast/anonpdf/actions/workflows/build.yml/badge.svg)](https://github.com/FanFeast/anonpdf/actions/workflows/build.yml)
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 [![Android 12+](https://img.shields.io/badge/Android-12%2B-3DDC84.svg)](#requirements)
@@ -153,6 +155,8 @@ advertising ID.
 - Resize: scale by percentage, or refit onto A3, A4, A5, Letter, Legal or Tabloid
 - Reorder page by page, or reverse the whole document
 - Merge other PDFs in at any position, then edit their pages like any other
+- Fill in PDF forms: text boxes, checkboxes, radio buttons and dropdowns, previewed
+  as you type, with an option to lock the answers into the page when you save
 - Add text; remove content with a white-out block (the page is flattened, so it is really gone); highlight; draw freehand
 - Text watermark: diagonal, centred, tiled, top or bottom
 - Page numbers with a format template, position, start number, and cover-skipping
@@ -171,6 +175,19 @@ advertising ID.
 - Protect with AES-256 password, or remove a password you know
 - Sign: draw your signature and place it on a page
 
+**Languages**
+- English, German, Spanish, French, Hindi, Brazilian Portuguese, Russian and
+  simplified Chinese, following the device's language (or, on Android 13+, a
+  language chosen for this app alone). The translations were written with
+  machine help; corrections are welcome as issues or pull requests, and live in
+  `shared-engine/src/main/kotlin/io/github/fanfeast/anonpdf/i18n/`.
+
+**When you save**
+- Optionally remove the hidden info a PDF carries: author, the app that made it,
+  dates, title and keywords, XMP metadata, attached files, scripts, and the names
+  on comments. The save card lists what this file actually has, and offers
+  nothing when it has none. Off by default, since some people want a title kept.
+
 ## Deliberately not included
 
 Being honest about the edges rather than shipping something that half-works:
@@ -181,6 +198,9 @@ Being honest about the edges rather than shipping something that half-works:
   large bundled download or a server. Scanned pages are detected and the app
   says they contain no extractable text rather than silently returning nothing.
 - **Cloud sync, accounts, sharing links.** The entire point is that nothing leaves.
+- **XFA forms.** Some government forms are built in XFA, a format only Adobe's
+  own apps fill in. The editor says so when it meets one, rather than showing an
+  empty form.
 - **Cryptographic digital signatures.** "Sign PDF" places an image of your
   signature on the page. It is ink on paper, not a certificate, and the app says
   so on screen.

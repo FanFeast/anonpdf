@@ -57,6 +57,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
+import io.github.fanfeast.anonpdf.i18n.S
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -71,7 +72,7 @@ fun AnonTopBar(
         navigationIcon = {
             if (onBack != null) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = S.back)
                 }
             }
         },
@@ -242,8 +243,8 @@ fun BusyOverlay(progress: Float?, message: String) {
 
 @Composable
 fun PasswordDialog(
-    title: String = "Password needed",
-    message: String = "This PDF is protected. Enter its password to continue.",
+    title: String = S.passwordNeeded,
+    message: String = S.passwordPrompt,
     error: String? = null,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
@@ -259,7 +260,7 @@ fun PasswordDialog(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
+                    label = { Text(S.password) },
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(
@@ -276,10 +277,10 @@ fun PasswordDialog(
             TextButton(
                 onClick = { onConfirm(password) },
                 enabled = password.isNotEmpty(),
-            ) { Text("Unlock") }
+            ) { Text(S.unlock) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(S.cancel) }
         },
     )
 }
@@ -313,20 +314,21 @@ fun RemovableRow(
         }
         if (onRemove != null) {
             IconButton(onClick = onRemove) {
-                Icon(Icons.Filled.Close, contentDescription = "Remove")
+                Icon(Icons.Filled.Close, contentDescription = S.remove)
             }
         }
     }
 }
 
 fun formatBytes(bytes: Long): String {
-    if (bytes < 0) return "unknown size"
-    if (bytes < 1024) return "$bytes B"
+    if (bytes < 0) return S.unknownSize
+    if (bytes < 1024) return "$bytes ${S.bytesUnit}"
+    // The reader's own decimal separator: 1.5 MB in English, 1,5 Mo in French.
     val kilobytes = bytes / 1024.0
-    if (kilobytes < 1024) return String.format(Locale.US, "%.0f KB", kilobytes)
+    if (kilobytes < 1024) return String.format(Locale.getDefault(), "%.0f %s", kilobytes, S.kilobytesUnit)
     val megabytes = kilobytes / 1024.0
-    if (megabytes < 1024) return String.format(Locale.US, "%.1f MB", megabytes)
-    return String.format(Locale.US, "%.2f GB", megabytes / 1024.0)
+    if (megabytes < 1024) return String.format(Locale.getDefault(), "%.1f %s", megabytes, S.megabytesUnit)
+    return String.format(Locale.getDefault(), "%.2f %s", megabytes / 1024.0, S.gigabytesUnit)
 }
 
 /**

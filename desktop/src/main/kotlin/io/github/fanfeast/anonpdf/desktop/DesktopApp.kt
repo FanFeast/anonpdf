@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.ImageFiles
 import io.github.fanfeast.anonpdf.ui.common.DropInbox
 import io.github.fanfeast.anonpdf.ui.common.Dropped
@@ -200,14 +201,14 @@ private fun PaneContent(navigator: DesktopNavigator) {
 
 /** What dropping onto [pane] will do, shown while files are dragged over the window. */
 private fun dropHint(pane: Pane): String = when (pane) {
-    Pane.Start -> "Drop a PDF to edit it, several to merge them, or pictures to make a PDF"
-    Pane.Editor -> "Drop a PDF to open it, or to add its pages to the one open"
+    Pane.Start -> S.dropStart
+    Pane.Editor -> S.dropEditor
     is Pane.Tool -> {
         val spec = ToolCatalog.spec(pane.id)
         when (spec.input) {
-            ToolInput.SINGLE_PDF -> "Drop a PDF for ${spec.title}"
-            ToolInput.MULTIPLE_PDF -> "Drop PDFs to add them to ${spec.title}"
-            ToolInput.IMAGES -> "Drop pictures to add them"
+            ToolInput.SINGLE_PDF -> S.dropForTool(spec.title)
+            ToolInput.MULTIPLE_PDF -> S.dropToAdd(spec.title)
+            ToolInput.IMAGES -> S.dropPictures
         }
     }
 }

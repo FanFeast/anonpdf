@@ -13,6 +13,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
+import io.github.fanfeast.anonpdf.i18n.S
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -34,11 +35,10 @@ sealed interface EditOp {
 }
 
 private fun scopeOf(targets: Set<Int>): String =
-    if (targets.isEmpty()) "no pages" else "page${if (targets.size == 1) "" else "s"} " +
-        PageRanges.describe(targets.toList())
+    if (targets.isEmpty()) S.noPages else S.pagesScope(targets.size, PageRanges.describe(targets.toList()))
 
 data class RotatePages(val degrees: Int, val targets: Set<Int>) : EditOp {
-    override fun describe() = "Rotate ${degrees}° · ${scopeOf(targets)}"
+    override fun describe() = S.editRotate(degrees, scopeOf(targets))
 }
 
 data class CropPages(val insets: CropInsets, val targets: Set<Int>) : EditOp {
@@ -48,40 +48,42 @@ data class CropPages(val insets: CropInsets, val targets: Set<Int>) : EditOp {
         val amount = if (even) {
             "${(insets.left * 100).toInt()}%"
         } else {
-            "L${(insets.left * 100).toInt()} T${(insets.top * 100).toInt()} " +
-                "R${(insets.right * 100).toInt()} B${(insets.bottom * 100).toInt()}"
+            S.cropEdges(
+                "${(insets.left * 100).toInt()}%",
+                "${(insets.top * 100).toInt()}%",
+                "${(insets.right * 100).toInt()}%",
+                "${(insets.bottom * 100).toInt()}%",
+            )
         }
-        return "Crop $amount · ${scopeOf(targets)}"
+        return S.editCrop(amount, scopeOf(targets))
     }
 }
 
 data class ScalePages(val factor: Float, val targets: Set<Int>) : EditOp {
-    override fun describe() = "Scale ${(factor * 100).toInt()}% · ${scopeOf(targets)}"
+    override fun describe() = S.editScale((factor * 100).toInt(), scopeOf(targets))
 }
 
 data class ResizePages(val target: ResizeTarget, val targets: Set<Int>) : EditOp {
     override fun describe(): String {
-        val how = if (target.fill) "fill" else "fit"
         val orientation = when (target.orientation) {
-            PageOrientation.AUTO -> ""
-            PageOrientation.PORTRAIT -> " portrait"
-            PageOrientation.LANDSCAPE -> " landscape"
+            PageOrientation.AUTO -> null
+            PageOrientation.PORTRAIT -> S.portraitLower
+            PageOrientation.LANDSCAPE -> S.landscapeLower
         }
-        return "Resize to ${target.paper.label}$orientation ($how) · ${scopeOf(targets)}"
+        return S.editResize(target.paper.label, orientation, target.fill, scopeOf(targets))
     }
 }
 
 data class DeletePages(val targets: Set<Int>) : EditOp {
-    override fun describe() = "Delete · ${scopeOf(targets)}"
+    override fun describe() = S.editDelete(scopeOf(targets))
 }
 
 data class RestorePages(val targets: Set<Int>) : EditOp {
-    override fun describe() = "Restore · ${scopeOf(targets)}"
+    override fun describe() = S.editRestore(scopeOf(targets))
 }
 
 data class MovePage(val sourceIndex: Int, val offset: Int) : EditOp {
-    override fun describe() =
-        "Move page ${sourceIndex + 1} ${if (offset < 0) "earlier" else "later"}"
+    override fun describe() = S.editMove(sourceIndex + 1, earlier = offset < 0)
 }
 
 /**
@@ -100,36 +102,43 @@ data class InsertPages(
     val position: Int,
     val label: String,
 ) : EditOp {
-    override fun describe() =
-        "Insert \"$label\" ($count page${if (count == 1) "" else "s"})"
+    override fun describe() = S.editInsert(label, count)
 }
 
 data object ReversePages : EditOp {
-    override fun describe() = "Reverse page order"
+    override fun describe() = S.editReverse
 }
 
 data class SetWatermark(val options: WatermarkOptions?) : EditOp {
     override fun describe() =
-        options?.let { "Watermark \"${it.text}\"" } ?: "Remove watermark"
+        options?.let { S.editWatermark(it.text) } ?: S.editRemoveWatermark
 }
 
 data class SetPageNumbers(val options: PageNumberOptions?) : EditOp {
     override fun describe() =
-        options?.let { "Page numbers \"${it.format}\"" } ?: "Remove page numbers"
+        options?.let { S.editPageNumbers(it.format) } ?: S.editRemovePageNumbers
 }
 
 /** Adds content on top of a page: text, a white-out block, a highlight, ink. */
 data class AddMark(val mark: PageMark) : EditOp {
-    override fun describe() = "Add ${mark.describe()}"
+    override fun describe() = S.editAdd(mark.describe())
 }
 
 /** Replaces a mark with the same id — moving it, retyping it, restyling it. */
 data class UpdateMark(val mark: PageMark) : EditOp {
-    override fun describe() = "Edit ${mark.describe()}"
+    override fun describe() = S.editEdit(mark.describe())
 }
 
 data class RemoveMark(val id: Long) : EditOp {
-    override fun describe() = "Remove added content"
+    override fun describe() = S.editRemoveContent
+}
+
+/**
+ * Fills in form fields, by fully qualified name. Later values for the same field
+ * replace earlier ones. [flatten] locks the whole form when the file is written.
+ */
+data class FillForm(val values: Map<String, String>, val flatten: Boolean) : EditOp {
+    override fun describe() = S.editFillForm(values.size, flatten)
 }
 
 /** What one output page looks like: where it came from and what was done to it. */
@@ -154,6 +163,10 @@ data class EditPlan(
     val pageNumbers: PageNumberOptions? = null,
     /** Content added on top of pages, in the order it was added. */
     val marks: List<PageMark> = emptyList(),
+    /** Form field values to set, by fully qualified field name. */
+    val formValues: Map<String, String> = emptyMap(),
+    /** Burn the form into the pages on export, so its answers cannot be changed. */
+    val flattenForm: Boolean = false,
     /**
      * How many pages the plan started with. Defaults to the page count at
      * construction, and survives every [copy], which is what lets [hasChanges]
@@ -168,6 +181,7 @@ data class EditPlan(
 
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || marks.isNotEmpty() ||
+            formValues.isNotEmpty() || flattenForm ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
@@ -236,6 +250,8 @@ object EditPlanBuilder {
             marks = plan.marks.map { if (it.id == op.mark.id) op.mark else it },
         )
         is RemoveMark -> plan.copy(marks = plan.marks.filterNot { it.id == op.id })
+
+        is FillForm -> plan.copy(formValues = plan.formValues + op.values, flattenForm = op.flatten)
     }
 
     private fun EditPlan.mapTargets(
@@ -290,13 +306,16 @@ object PdfEditor {
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
         val kept = plan.kept
-        require(kept.isNotEmpty()) { "Keep at least one page." }
-        require(sources.isNotEmpty()) { "No document to work on." }
+        require(kept.isNotEmpty()) { S.keepOnePage }
+        require(sources.isNotEmpty()) { S.noDocument }
 
         val open = mutableListOf<PDDocument>()
         try {
             val document = PdfOps.load(sources[0].file, sources[0].password)
                 .also { open += it }
+            // Before merging: the plan names fields as the original document
+            // names them, and a merge may rename clashing ones.
+            PdfForms.apply(document, plan.formValues)
 
             // Append every inserted document to the end, in the order they were
             // registered. The combined page list then lines up exactly with the
@@ -311,6 +330,9 @@ object PdfEditor {
                 onProgress(0.25f * (index + 1f) / (sources.size - 1f))
             }
 
+            // While every page is still attached, so each field is drawn onto its own.
+            if (plan.flattenForm) PdfForms.flatten(document)
+
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             originals.forEach { PdfOps.pinInheritedAttributes(it) }
             // Detach everything, then re-attach only what the plan keeps, in order.
@@ -321,7 +343,7 @@ object PdfEditor {
             val droppedAnnotations = mutableSetOf<COSBase>()
             kept.forEachIndexed { position, state ->
                 val page = originals.getOrNull(state.sourceIndex)
-                    ?: error("Page ${state.sourceIndex + 1} is not in this document.")
+                    ?: error(S.pageNotInDocument(state.sourceIndex + 1))
                 applyPageState(document, page, state)
                 // Marks go on after the page geometry is settled, so an opaque
                 // white-out lands exactly where the user drew it.
@@ -454,6 +476,15 @@ object PdfEditor {
         val resolved = owner ?: return false
 
         PdfOps.load(resolved.file, resolved.password).use { document ->
+            // The same steps as the export, in the same order.
+            if (resolved === sources.first()) PdfForms.apply(document, plan.formValues)
+            // Then the form is always burned into the page here, locked or not:
+            // Android's renderer before Android 15 skips form fields entirely, so
+            // a live field would preview blank. Flattening draws each field's own
+            // appearance, which is exactly what a viewer shows for the saved file.
+            // A form too broken to flatten still previews, just without it.
+            runCatching { PdfForms.flatten(document) }
+
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             val page = originals.getOrNull(localIndex) ?: return false
             originals.forEach { PdfOps.pinInheritedAttributes(it) }

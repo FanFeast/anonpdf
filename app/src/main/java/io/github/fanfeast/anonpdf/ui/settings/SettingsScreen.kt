@@ -2,6 +2,10 @@
 
 package io.github.fanfeast.anonpdf.ui.settings
 
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.data.AppPreferences
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.InfoNote
@@ -50,7 +55,7 @@ fun SettingsScreen(onBack: () -> Unit) {
     val keepScreenOn by preferences.keepScreenOn.collectAsState(initial = false)
 
     Scaffold(
-        topBar = { AnonTopBar(title = "Settings", onBack = onBack) },
+        topBar = { AnonTopBar(title = S.settings, onBack = onBack) },
         snackbarHost = { SnackbarHost(snackbarHost) },
     ) { padding ->
         Column(
@@ -60,17 +65,16 @@ fun SettingsScreen(onBack: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         ) {
-            SectionLabel("Reading")
+            SectionLabel(S.reading)
             SwitchRow(
-                title = "Invert page colours",
-                subtitle = "Dark background for night reading. Only changes how pages " +
-                    "are drawn, never the file.",
+                title = S.invertPageColours,
+                subtitle = S.invertPageColoursHint,
                 checked = invertColors,
                 onChange = { scope.launch { preferences.setInvertPdfColors(it) } },
             )
             SwitchRow(
-                title = "Keep the screen on while reading",
-                subtitle = "Stops the display sleeping in the viewer.",
+                title = S.keepScreenOn,
+                subtitle = S.keepScreenOnHint,
                 checked = keepScreenOn,
                 onChange = { scope.launch { preferences.setKeepScreenOn(it) } },
             )
@@ -79,11 +83,10 @@ fun SettingsScreen(onBack: () -> Unit) {
             HorizontalDivider()
             Spacer(Modifier.height(12.dp))
 
-            SectionLabel("Privacy")
+            SectionLabel(S.privacy)
             SwitchRow(
-                title = "Remember recent files",
-                subtitle = "Keeps up to 20 file names on this device so you can reopen " +
-                    "them quickly. Switch this off and the list is deleted immediately.",
+                title = S.rememberRecent,
+                subtitle = S.rememberRecentHint,
                 checked = rememberRecents,
                 onChange = { scope.launch { preferences.setRememberRecents(it) } },
             )
@@ -93,29 +96,52 @@ fun SettingsScreen(onBack: () -> Unit) {
                 onClick = {
                     scope.launch {
                         preferences.clearRecents()
-                        snackbarHost.showSnackbar("Recent files cleared.")
+                        snackbarHost.showSnackbar(S.recentCleared)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Clear recent files") }
+            ) { Text(S.clearRecent) }
 
             Spacer(Modifier.height(10.dp))
             OutlinedButton(
                 onClick = {
                     scope.launch {
                         store.clearWorkspace()
-                        snackbarHost.showSnackbar("Temporary files deleted.")
+                        snackbarHost.showSnackbar(S.tempDeleted)
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Delete temporary working files") }
+            ) { Text(S.deleteTemp) }
+
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+            SectionLabel(S.language)
+            Text(
+                S.languageHint,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            // Android 13 added a per-app language; before it the app follows the device.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_APP_LOCALE_SETTINGS,
+                                    Uri.fromParts("package", context.packageName, null),
+                                ),
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(S.chooseLanguage) }
+            }
 
             Spacer(Modifier.height(20.dp))
-            InfoNote(
-                "There is nothing else to configure, because there is nothing else " +
-                    "to switch off. AnonPDF has no account, no sync, no ads and no " +
-                    "network permission.",
-            )
+            InfoNote(S.nothingElseToConfigure)
             Spacer(Modifier.height(32.dp))
         }
     }
