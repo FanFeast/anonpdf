@@ -69,7 +69,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -289,6 +288,14 @@ fun EditorScreen(
             pendingUri = uri
             when (val outcome = openDocumentSession(store, uri, password, session?.sourceFile)) {
                 is OpenOutcome.Ready -> {
+                    // Only the opened document's form is filled: a merged-in
+                    // document's fields may share its names, and a merge renames
+                    // them. Read before the session is published, and published
+                    // with it, so the editor never shows a document whose form it
+                    // has not looked at yet.
+                    val form = runCatching {
+                        PdfForms.read(outcome.session.sourceFile, outcome.session.password)
+                    }.getOrDefault(FormInfo(emptyList()))
                     session?.close()
                     extraSources.forEach { it.close() }
                     extraSources.clear()
@@ -297,6 +304,7 @@ fun EditorScreen(
                     insertQueue = emptyList()
                     thumbnails.evictAll()
                     session = outcome.session
+                    holder.formInfo = form
                     editor = EditorState(outcome.session.pageCount)
                     preview = null
                     previewPage?.close()
@@ -425,12 +433,8 @@ fun EditorScreen(
     /** The original document plus everything merged in, in global-index order. */
     val allSources = listOf(document) + extraSources
 
-    // Only the opened document's form is filled: a merged-in document's fields
-    // may share its names, and a merge renames them.
-    val formInfo by produceState<FormInfo?>(null, document) {
-        value = runCatching { PdfForms.read(document.sourceFile, document.password) }
-            .getOrDefault(FormInfo(emptyList()))
-    }
+    // Read when the document was opened, with it; see load().
+    val formInfo = holder.formInfo
 
     /** Which document a global page index belongs to, and the page's index there. */
     fun resolveSource(global: Int): Pair<DocumentSession, Int>? {
