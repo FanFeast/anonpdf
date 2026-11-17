@@ -1,5 +1,7 @@
 package io.github.fanfeast.anonpdf.pdf
 
+import io.github.fanfeast.anonpdf.i18n.S
+
 /**
  * Parses the "1-3, 5, 9-12" notation people already expect from print dialogs.
  *
@@ -10,9 +12,9 @@ object PageRanges {
 
     /** @throws IllegalArgumentException with a message fit to show the user. */
     fun parse(text: String, pageCount: Int): List<IntRange> {
-        require(pageCount > 0) { "This document has no pages." }
+        require(pageCount > 0) { S.noPagesInDocument }
         val trimmed = text.trim()
-        require(trimmed.isNotEmpty()) { "Enter which pages you want, for example 1-3, 5." }
+        require(trimmed.isNotEmpty()) { S.enterPages }
 
         return trimmed.split(',').mapNotNull { rawPart ->
             val part = rawPart.trim()
@@ -20,25 +22,25 @@ object PageRanges {
 
             if (part.contains('-')) {
                 val halves = part.split('-')
-                require(halves.size == 2) { "\"$part\" is not a page range." }
+                require(halves.size == 2) { S.notARange(part) }
                 val start = halves[0].trim().toIntOrNull()
                 val end = halves[1].trim().toIntOrNull()
-                require(start != null && end != null) { "\"$part\" is not a page range." }
+                require(start != null && end != null) { S.notARange(part) }
                 require(start in 1..pageCount && end in 1..pageCount) {
-                    "This document only has $pageCount page${if (pageCount == 1) "" else "s"}."
+                    S.onlyHasPages(pageCount)
                 }
-                require(start <= end) { "\"$part\" runs backwards." }
+                require(start <= end) { S.runsBackwards(part) }
                 (start - 1)..(end - 1)
             } else {
                 val single = part.toIntOrNull()
-                require(single != null) { "\"$part\" is not a page number." }
+                require(single != null) { S.notAPageNumber(part) }
                 require(single in 1..pageCount) {
-                    "This document only has $pageCount page${if (pageCount == 1) "" else "s"}."
+                    S.onlyHasPages(pageCount)
                 }
                 (single - 1)..(single - 1)
             }
         }.also {
-            require(it.isNotEmpty()) { "Enter which pages you want, for example 1-3, 5." }
+            require(it.isNotEmpty()) { S.enterPages }
         }
     }
 
@@ -51,7 +53,7 @@ object PageRanges {
 
     /** Renders 0-based indices back into human notation, collapsing runs. */
     fun describe(pages: List<Int>): String {
-        if (pages.isEmpty()) return "none"
+        if (pages.isEmpty()) return S.rangeNone
         val sorted = pages.distinct().sorted()
         val parts = mutableListOf<String>()
         var start = sorted.first()

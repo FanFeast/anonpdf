@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.FieldKind
 import io.github.fanfeast.anonpdf.pdf.FormField
 import io.github.fanfeast.anonpdf.pdf.FormInfo
@@ -71,20 +72,16 @@ fun FormPanel(
     onApply: () -> Unit,
 ) {
     PanelFrame(
-        title = "Fill form",
-        subtitle = "page $pageNumber",
+        title = S.toolFillForm,
+        subtitle = S.pageNumber(pageNumber),
         onCancel = onCancel,
         onApply = onApply,
         applyEnabled = hasChanges,
     ) {
         when {
-            info == null -> Hint("Reading the form…")
-            info.xfaOnly -> Hint(
-                "This form is built with XFA, a format only Adobe's apps can fill in. " +
-                    "It has no fields AnonPDF can fill. To fill it here, cover the blanks " +
-                    "with text instead.",
-            )
-            pageFields.isEmpty() -> Hint("No fields on this page.")
+            info == null -> Hint(S.readingForm)
+            info.xfaOnly -> Hint(S.xfaOnly)
+            pageFields.isEmpty() -> Hint(S.noFieldsHere)
             else -> pageFields.forEach { field ->
                 FieldInput(
                     field = field,
@@ -99,10 +96,10 @@ fun FormPanel(
         if (previousPage != null || nextPage != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (previousPage != null) {
-                    OutlinedButton(onClick = onPreviousPage) { Text("Fields on page $previousPage") }
+                    OutlinedButton(onClick = onPreviousPage) { Text(S.fieldsOnPage(previousPage)) }
                 }
                 if (nextPage != null) {
-                    OutlinedButton(onClick = onNextPage) { Text("Fields on page $nextPage") }
+                    OutlinedButton(onClick = onNextPage) { Text(S.fieldsOnPage(nextPage)) }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -119,8 +116,8 @@ fun FormPanel(
             ) {
                 Checkbox(checked = flatten, onCheckedChange = null, modifier = Modifier.padding(12.dp))
                 Column(Modifier.padding(top = 12.dp)) {
-                    Text("Lock the answers when saving", style = MaterialTheme.typography.bodyMedium)
-                    Hint("They become part of the page, and nobody can change them afterwards, in any app.")
+                    Text(S.lockAnswers, style = MaterialTheme.typography.bodyMedium)
+                    Hint(S.lockAnswersHint)
                 }
             }
         }
@@ -191,7 +188,7 @@ private fun FieldInput(
                 onFocus()
                 if (!field.readOnly) onValue(it)
             },
-            optionLabel = { if (it == FormField.OFF) "None" else it },
+            optionLabel = { if (it == FormField.OFF) S.none else it },
         )
 
         FieldKind.CHOICE -> {
@@ -206,7 +203,7 @@ private fun FieldInput(
                         onFocus()
                         if (!field.readOnly) onValue(it)
                     },
-                    optionLabel = { if (it.isEmpty()) "None" else labelOf(it) },
+                    optionLabel = { if (it.isEmpty()) S.none else labelOf(it) },
                 )
             } else {
                 var open by remember { mutableStateOf(false) }
@@ -222,7 +219,7 @@ private fun FieldInput(
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(
-                                if (value.isEmpty()) "Choose…" else labelOf(value),
+                                if (value.isEmpty()) S.choose else labelOf(value),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),

@@ -15,6 +15,7 @@ import com.tom_roush.pdfbox.pdmodel.graphics.image.LosslessFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.state.PDExtendedGraphicsState
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.util.Matrix
+import io.github.fanfeast.anonpdf.i18n.S
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -93,7 +94,7 @@ object PdfOps {
         output: File,
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
-        require(inputs.size >= 2) { "Pick at least two PDFs to merge." }
+        require(inputs.size >= 2) { S.pickTwoPdfs }
         val merger = PDFMergerUtility()
         merger.destinationFileName = output.absolutePath
         inputs.forEachIndexed { index, file ->
@@ -117,7 +118,7 @@ object PdfOps {
         password: String? = null,
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
-        require(plan.isNotEmpty()) { "A PDF needs at least one page." }
+        require(plan.isNotEmpty()) { S.pdfNeedsAPage }
         load(input, password).use { doc ->
             val originals = (0 until doc.numberOfPages).map { doc.getPage(it) }
             originals.forEach { pinInheritedAttributes(it) }
@@ -127,7 +128,7 @@ object PdfOps {
 
             plan.forEachIndexed { index, item ->
                 val page = originals.getOrNull(item.sourceIndex)
-                    ?: error("Page ${item.sourceIndex + 1} is not in this document.")
+                    ?: error(S.pageNotInDocument(item.sourceIndex + 1))
                 page.rotation = normalizeRotation(page.rotation + item.rotationDelta)
                 doc.addPage(page)
                 onProgress((index + 1f) / plan.size)
@@ -175,13 +176,13 @@ object PdfOps {
         password: String? = null,
         onProgress: Progress = {},
     ): List<File> = withContext(Dispatchers.IO) {
-        require(ranges.isNotEmpty()) { "Describe at least one page range." }
+        require(ranges.isNotEmpty()) { S.describeRange }
         outputDir.mkdirs()
         ranges.mapIndexed { index, range ->
             val target = File(outputDir, "${FileNames.sanitize(baseName)}-${index + 1}.pdf")
             load(input, password).use { doc ->
                 val keep = range.filter { it in 0 until doc.numberOfPages }
-                require(keep.isNotEmpty()) { "Range ${index + 1} does not cover any pages." }
+                require(keep.isNotEmpty()) { S.rangeCoversNothing(index + 1) }
                 val originals = (0 until doc.numberOfPages).map { doc.getPage(it) }
                 originals.forEach { pinInheritedAttributes(it) }
                 originals.forEach { doc.pages.remove(it) }
@@ -222,11 +223,11 @@ object PdfOps {
         password: String? = null,
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
-        require(options.text.isNotBlank()) { "Enter some watermark text." }
+        require(options.text.isNotBlank()) { S.enterWatermark }
         load(input, password).use { doc ->
             val font = PdfDraw.watermarkFont(options)
             val text = PdfDraw.sanitizeForFont(options.text, font)
-            if (text.isBlank()) error("That text cannot be drawn with the built-in fonts.")
+            if (text.isBlank()) error(S.cannotDrawText)
 
             for (index in 0 until doc.numberOfPages) {
                 PdfDraw.watermarkPage(doc, doc.getPage(index), options, text, font)
@@ -292,7 +293,7 @@ object PdfOps {
         password: String? = null,
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
-        require(stamps.isNotEmpty()) { "Nothing to place." }
+        require(stamps.isNotEmpty()) { S.nothingToPlace }
         load(input, password).use { doc ->
             stamps.forEachIndexed { index, stamp ->
                 val page = doc.getPage(stamp.pageIndex)
@@ -332,7 +333,7 @@ object PdfOps {
         password: String? = null,
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
-        require(options.userPassword.isNotEmpty()) { "Choose a password." }
+        require(options.userPassword.isNotEmpty()) { S.choosePassword }
         load(input, password).use { doc ->
             onProgress(0.3f)
             val permissions = AccessPermission().apply {
@@ -375,7 +376,7 @@ object PdfOps {
     ) = withContext(Dispatchers.IO) {
         load(input, password).use { doc ->
             onProgress(0.4f)
-            if (!doc.isEncrypted) error("This PDF is not password protected.")
+            if (!doc.isEncrypted) error(S.notProtected)
             doc.isAllSecurityToBeRemoved = true
             onProgress(0.7f)
             doc.save(output)
@@ -398,7 +399,7 @@ object PdfOps {
     ): String = withContext(Dispatchers.IO) {
         load(input, password).use { doc ->
             if (doc.isEncrypted && !doc.currentAccessPermission.canExtractContent()) {
-                error("This PDF does not allow text extraction.")
+                error(S.noTextExtraction)
             }
             val builder = StringBuilder()
             val stripper = PDFTextStripper().apply { sortByPosition = true }

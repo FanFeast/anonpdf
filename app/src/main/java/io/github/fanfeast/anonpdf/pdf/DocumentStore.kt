@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.provider.OpenableColumns
+import io.github.fanfeast.anonpdf.i18n.S
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -36,7 +37,7 @@ class DocumentStore(private val context: Context) {
             val target = File(workDir, "${System.nanoTime()}-${sanitize(fileName)}")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 target.outputStream().use { output -> input.copyTo(output, DEFAULT_BUFFER_SIZE) }
-            } ?: error("Could not open the selected file.")
+            } ?: error(S.couldNotOpenFile)
             target
         }
 
@@ -54,7 +55,7 @@ class DocumentStore(private val context: Context) {
     suspend fun export(source: File, destination: Uri) = withContext(Dispatchers.IO) {
         context.contentResolver.openOutputStream(destination, "wt")?.use { output ->
             source.inputStream().use { input -> input.copyTo(output, DEFAULT_BUFFER_SIZE) }
-        } ?: error("Could not write to the selected location.")
+        } ?: error(S.couldNotSaveFile)
     }
 
     suspend fun displayName(uri: Uri): String = withContext(Dispatchers.IO) {

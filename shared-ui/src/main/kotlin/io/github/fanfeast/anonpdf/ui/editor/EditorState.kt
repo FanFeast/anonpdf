@@ -4,16 +4,20 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.EditOp
 import io.github.fanfeast.anonpdf.pdf.EditPlan
 import io.github.fanfeast.anonpdf.pdf.EditPlanBuilder
 import io.github.fanfeast.anonpdf.pdf.PageRanges
 
 /** Which pages the next operation lands on. */
-enum class ApplyScope(val label: String) {
-    PAGE("This page"),
-    SELECTION("Selected"),
-    ALL("All pages"),
+enum class ApplyScope(private val text: () -> String) {
+    PAGE({ S.scopeThisPage }),
+    SELECTION({ S.scopeSelected }),
+    ALL({ S.scopeAllPages }),
+    ;
+
+    val label: String get() = text()
 }
 
 /**
@@ -165,10 +169,10 @@ class EditorState(val pageCount: Int) {
             plan.pages.indexOfFirst { it.sourceIndex == target }.takeIf { it >= 0 }
         }.sorted()
         return when {
-            positions.isEmpty() -> "no pages"
-            positions.size == plan.pages.size -> "all ${positions.size} pages"
-            positions.size == 1 -> "page ${positions.first() + 1}"
-            else -> "pages " + PageRanges.describe(positions)
+            positions.isEmpty() -> S.noPages
+            positions.size == plan.pages.size -> S.allPages(positions.size)
+            positions.size == 1 -> S.pageNumber(positions.first() + 1)
+            else -> S.pagesList(PageRanges.describe(positions))
         }
     }
 

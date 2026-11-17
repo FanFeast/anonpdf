@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
 
 /** Everything AnonPDF does, one click away: the desktop's answer to the phone's home screen. */
@@ -50,10 +51,10 @@ internal fun Sidebar(
                     style = MaterialTheme.typography.titleLarge,
                     modifier = Modifier.padding(start = 12.dp, bottom = 12.dp),
                 )
-                SidebarItem("Start", Icons.Filled.Home, selected = current == Pane.Start) {
+                SidebarItem(S.start, Icons.Filled.Home, selected = current == Pane.Start) {
                     onShow(Pane.Start)
                 }
-                SidebarItem("Edit PDF", Icons.Filled.Edit, selected = current == Pane.Editor) {
+                SidebarItem(S.editPdf, Icons.Filled.Edit, selected = current == Pane.Editor) {
                     onShow(Pane.Editor)
                 }
                 ToolCatalog.grouped.forEach { (group, tools) ->
@@ -84,7 +85,7 @@ internal fun Sidebar(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "Files stay on this computer",
+                    S.filesStayOnComputer,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

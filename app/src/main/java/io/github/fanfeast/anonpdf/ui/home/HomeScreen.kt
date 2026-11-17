@@ -10,11 +10,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,8 +49,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.data.AppPreferences
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.SectionLabel
 import io.github.fanfeast.anonpdf.ui.tools.ToolCatalog
@@ -81,10 +86,10 @@ fun HomeScreen(
         topBar = {
             AnonTopBar(title = "AnonPDF") {
                 IconButton(onClick = onOpenSettings) {
-                    Icon(Icons.Filled.Settings, contentDescription = "Settings")
+                    Icon(Icons.Filled.Settings, contentDescription = S.settings)
                 }
                 IconButton(onClick = onOpenAbout) {
-                    Icon(Icons.Filled.Info, contentDescription = "About")
+                    Icon(Icons.Filled.Info, contentDescription = S.about)
                 }
             }
         },
@@ -106,15 +111,18 @@ fun HomeScreen(
                 ) {
                     Icon(Icons.Filled.FolderOpen, contentDescription = null)
                     Spacer(Modifier.width(10.dp))
-                    Text("Open a PDF", style = MaterialTheme.typography.titleMedium)
+                    Text(S.openAPdf, style = MaterialTheme.typography.titleMedium)
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(
                         onClick = onBrowse,
+                        // At least the usual height, taller when a label needs two
+                        // lines: on a 320dp phone half the width is not much.
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp),
+                            .heightIn(min = 46.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Icon(
                             Icons.Filled.Storage,
@@ -122,13 +130,16 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("My files")
+                        Text(S.myFiles, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                     }
                     OutlinedButton(
                         onClick = onEditDocument,
+                        // At least the usual height, taller when a label needs two
+                        // lines: on a 320dp phone half the width is not much.
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp),
+                            .heightIn(min = 46.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     ) {
                         Icon(
                             Icons.Filled.Edit,
@@ -136,7 +147,7 @@ fun HomeScreen(
                             modifier = Modifier.size(18.dp),
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text("Edit pages")
+                        Text(S.editPages, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
                     }
                 }
             }
@@ -148,10 +159,10 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        SectionLabel("Recent", Modifier.weight(1f))
+                        SectionLabel(S.recent, Modifier.weight(1f))
                         TextButton(
                             onClick = { scope.launch { preferences.clearRecents() } },
-                        ) { Text("Clear") }
+                        ) { Text(S.clear) }
                     }
                 }
                 items(recents.size) { index ->
@@ -183,8 +194,7 @@ fun HomeScreen(
             item {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "No ads, no analytics, no account, no network permission. " +
-                        "Open source.",
+                    S.homeTagline,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -211,13 +221,11 @@ private fun PrivacyBanner() {
             Spacer(Modifier.width(14.dp))
             Column {
                 Text(
-                    "Nothing leaves this phone",
+                    S.nothingLeavesPhone,
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    "AnonPDF has no network permission at all, so Android will not " +
-                        "let it upload your documents even if something tried. " +
-                        "No account, no ads, no tracking.",
+                    S.nothingLeavesPhoneBody,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
@@ -240,11 +248,9 @@ private fun EditorPromo(onClick: () -> Unit) {
             Icon(Icons.Filled.Edit, contentDescription = null, modifier = Modifier.size(24.dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text("Edit a PDF", style = MaterialTheme.typography.titleMedium)
+                Text(S.editAPdf, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Every tool in one place: rotate, crop, resize, delete and reorder " +
-                        "pages, add text, white-out, highlights or drawings — several at " +
-                        "once, with a live preview of the real result before you save.",
+                    S.editAPdfBody,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

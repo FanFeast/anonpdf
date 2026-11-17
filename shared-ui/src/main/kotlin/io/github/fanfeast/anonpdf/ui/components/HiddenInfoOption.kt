@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.HiddenInfo
 import io.github.fanfeast.anonpdf.pdf.HiddenInfoCleaner
@@ -110,7 +111,7 @@ fun HiddenInfoOption(choice: HiddenInfoChoice, modifier: Modifier = Modifier) {
     ) {
         Checkbox(checked = choice.remove, onCheckedChange = null, modifier = Modifier.padding(12.dp))
         Column(Modifier.padding(top = 12.dp, bottom = 8.dp)) {
-            Text("Remove hidden info", style = MaterialTheme.typography.titleSmall)
+            Text(S.removeHiddenInfo, style = MaterialTheme.typography.titleSmall)
             Text(
                 describeHiddenInfo(found).joinToString(" · "),
                 style = MaterialTheme.typography.bodySmall,
@@ -122,28 +123,22 @@ fun HiddenInfoOption(choice: HiddenInfoChoice, modifier: Modifier = Modifier) {
 /** One short phrase per kind of hidden information, most identifying first. */
 fun describeHiddenInfo(info: HiddenInfo, formatDate: (Long) -> String = ::mediumDate): List<String> =
     buildList {
-        info.author?.let { add("Author: $it") }
+        info.author?.let { add(S.hiddenAuthor(it)) }
         if (info.commentAuthors.isNotEmpty()) {
-            add("Comment authors: ${info.commentAuthors.joinToString(", ")}")
+            add(S.hiddenCommentAuthors(info.commentAuthors.joinToString(", ")))
         }
-        info.creatorApp?.let { add("Made with: $it") }
-        if (info.producerApp != null && info.producerApp != info.creatorApp) {
-            add("PDF by: ${info.producerApp}")
-        }
-        info.created?.let { add("Created ${formatDate(it)}") }
-        info.modified?.let { add("Modified ${formatDate(it)}") }
-        info.title?.let { add("Title: $it") }
-        info.subject?.let { add("Subject: $it") }
-        info.keywords?.let { add("Keywords: $it") }
-        if (info.customProperties > 0) {
-            add(plural(info.customProperties, "other property", "other properties"))
-        }
-        if (info.attachments > 0) add(plural(info.attachments, "attached file", "attached files"))
-        if (info.scripts > 0) add(plural(info.scripts, "script", "scripts"))
-        if (info.hasXmp) add("XMP metadata")
-        if (info.hasPrivateData) add("editor data")
+        info.creatorApp?.let { add(S.hiddenMadeWith(it)) }
+        info.producerApp?.takeIf { it != info.creatorApp }?.let { add(S.hiddenPdfBy(it)) }
+        info.created?.let { add(S.hiddenCreated(formatDate(it))) }
+        info.modified?.let { add(S.hiddenModified(formatDate(it))) }
+        info.title?.let { add(S.hiddenTitle(it)) }
+        info.subject?.let { add(S.hiddenSubject(it)) }
+        info.keywords?.let { add(S.hiddenKeywords(it)) }
+        if (info.customProperties > 0) add(S.hiddenOtherProperties(info.customProperties))
+        if (info.attachments > 0) add(S.hiddenAttachments(info.attachments))
+        if (info.scripts > 0) add(S.hiddenScripts(info.scripts))
+        if (info.hasXmp) add(S.hiddenXmp)
+        if (info.hasPrivateData) add(S.hiddenEditorData)
     }
-
-private fun plural(count: Int, one: String, many: String) = "$count ${if (count == 1) one else many}"
 
 private fun mediumDate(millis: Long): String = DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(millis))

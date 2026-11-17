@@ -9,6 +9,7 @@ import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import com.tom_roush.pdfbox.pdmodel.graphics.image.JPEGFactory
 import com.tom_roush.pdfbox.pdmodel.graphics.image.PDImageXObject
+import io.github.fanfeast.anonpdf.i18n.S
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayInputStream
@@ -244,11 +245,11 @@ object PdfConvert {
         options: ImagesToPdfOptions,
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
-        require(images.isNotEmpty()) { "Pick at least one image." }
+        require(images.isNotEmpty()) { S.pickOneImage }
         PDDocument().use { doc ->
             images.forEachIndexed { index, source ->
                 val bitmap = decode(source)
-                    ?: error("Could not read image ${index + 1}.")
+                    ?: error(S.couldNotReadImage(index + 1))
                 val flattened = bitmap.flattenedOntoWhite()
 
                 val pageBox = PdfOps.presetRectangle(

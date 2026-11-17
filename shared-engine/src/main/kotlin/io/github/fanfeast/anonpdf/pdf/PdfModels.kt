@@ -1,5 +1,6 @@
 package io.github.fanfeast.anonpdf.pdf
 
+import io.github.fanfeast.anonpdf.i18n.S
 
 /** Reports 0f..1f completion so long operations can drive a progress bar. */
 typealias Progress = (Float) -> Unit
@@ -24,7 +25,18 @@ data class PagePlan(
     val rotationDelta: Int = 0,
 )
 
-enum class WatermarkLayout { DIAGONAL, CENTER, TILED, TOP, BOTTOM }
+enum class WatermarkLayout {
+    DIAGONAL, CENTER, TILED, TOP, BOTTOM;
+
+    val label: String
+        get() = when (this) {
+            DIAGONAL -> S.layoutDiagonal
+            CENTER -> S.layoutCenter
+            TILED -> S.layoutTiled
+            TOP -> S.layoutTop
+            BOTTOM -> S.layoutBottom
+        }
+}
 
 data class WatermarkOptions(
     val text: String,
@@ -37,7 +49,17 @@ data class WatermarkOptions(
 
 enum class NumberPosition {
     TOP_LEFT, TOP_CENTER, TOP_RIGHT,
-    BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT,
+    BOTTOM_LEFT, BOTTOM_CENTER, BOTTOM_RIGHT;
+
+    val label: String
+        get() = when (this) {
+            TOP_LEFT -> S.positionTopLeft
+            TOP_CENTER -> S.positionTopCenter
+            TOP_RIGHT -> S.positionTopRight
+            BOTTOM_LEFT -> S.positionBottomLeft
+            BOTTOM_CENTER -> S.positionBottomCenter
+            BOTTOM_RIGHT -> S.positionBottomRight
+        }
 }
 
 data class PageNumberOptions(
@@ -105,7 +127,7 @@ enum class PdfPageSizePreset { FIT_IMAGE, A4, LETTER }
  * are used. Values match the ISO 216 and ANSI definitions PDFBox uses.
  */
 enum class PaperSize(
-    val label: String,
+    private val code: String,
     val widthPoints: Float,
     val heightPoints: Float,
     /** Physical size, for the "210 × 297 mm" hint under the picker. */
@@ -117,13 +139,31 @@ enum class PaperSize(
     LETTER("Letter", 612f, 792f, "8.5 × 11 in"),
     LEGAL("Legal", 612f, 1008f, "8.5 × 14 in"),
     TABLOID("Tabloid", 792f, 1224f, "11 × 17 in"),
+    ;
+
+    /** The ISO names are the same everywhere; the American ones are not. */
+    val label: String
+        get() = when (this) {
+            LETTER -> S.paperLetter
+            LEGAL -> S.paperLegal
+            TABLOID -> S.paperTabloid
+            else -> code
+        }
 }
 
-enum class PageOrientation(val label: String) {
+enum class PageOrientation {
     /** Keep whichever way round the page already is. */
-    AUTO("Match page"),
-    PORTRAIT("Portrait"),
-    LANDSCAPE("Landscape"),
+    AUTO,
+    PORTRAIT,
+    LANDSCAPE,
+    ;
+
+    val label: String
+        get() = when (this) {
+            AUTO -> S.orientationAuto
+            PORTRAIT -> S.orientationPortrait
+            LANDSCAPE -> S.orientationLandscape
+        }
 }
 
 /**
@@ -167,9 +207,9 @@ data class CompressResult(
 }
 
 /** Thrown when a document needs a password we do not have. */
-class PdfPasswordRequiredException(message: String = "This PDF is password protected.") :
+class PdfPasswordRequiredException(message: String = S.passwordProtected) :
     Exception(message)
 
 /** Thrown when the supplied password does not open the document. */
-class PdfWrongPasswordException(message: String = "That password did not work.") :
+class PdfWrongPasswordException(message: String = S.wrongPassword) :
     Exception(message)

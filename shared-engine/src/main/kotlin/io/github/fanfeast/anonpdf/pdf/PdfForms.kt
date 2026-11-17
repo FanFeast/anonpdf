@@ -10,6 +10,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.form.PDField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDRadioButton
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTerminalField
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
+import io.github.fanfeast.anonpdf.i18n.S
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -61,7 +62,7 @@ data class FormInfo(
 
 /** Thrown when a value cannot be set at all, even with the characters its font lacks left out. */
 class FormValueException(val fieldLabel: String, cause: Throwable) :
-    Exception("Could not fill in \u201c$fieldLabel\u201d.", cause)
+    Exception(S.couldNotFill(fieldLabel), cause)
 
 object PdfForms {
 

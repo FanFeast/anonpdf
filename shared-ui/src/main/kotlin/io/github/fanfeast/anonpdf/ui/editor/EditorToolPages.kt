@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.github.fanfeast.anonpdf.i18n.S
 
 /**
  * Everything the editor can do, in the order the pages present them.
@@ -56,34 +57,37 @@ import androidx.compose.ui.unit.dp
  * [handsOff] tools open a separate one-shot screen with the document, rather than
  * changing the pending plan; a platform without those screens leaves them out.
  */
-enum class EditorTool(val label: String, val icon: ImageVector, val handsOff: Boolean = false) {
-    ROTATE_LEFT("Left", Icons.AutoMirrored.Filled.RotateLeft),
-    ROTATE_RIGHT("Right", Icons.AutoMirrored.Filled.RotateRight),
-    CROP("Crop", Icons.Filled.Crop),
-    RESIZE("Resize", Icons.Filled.ZoomOutMap),
-    DELETE("Delete", Icons.Filled.Delete),
-    RESTORE("Restore", Icons.Filled.RestoreFromTrash),
-    REVERSE("Reverse", Icons.Filled.SwapVert),
+enum class EditorTool(private val text: () -> String, val icon: ImageVector, val handsOff: Boolean = false) {
+    ROTATE_LEFT({ S.toolLeft }, Icons.AutoMirrored.Filled.RotateLeft),
+    ROTATE_RIGHT({ S.toolRight }, Icons.AutoMirrored.Filled.RotateRight),
+    CROP({ S.toolCrop }, Icons.Filled.Crop),
+    RESIZE({ S.toolResize }, Icons.Filled.ZoomOutMap),
+    DELETE({ S.toolDelete }, Icons.Filled.Delete),
+    RESTORE({ S.toolRestore }, Icons.Filled.RestoreFromTrash),
+    REVERSE({ S.toolReverse }, Icons.Filled.SwapVert),
 
-    FILL_FORM("Fill form", Icons.Filled.EditNote),
-    TEXT("Text", Icons.Filled.TextFields),
-    WHITEOUT("White-out", Icons.Filled.FormatColorFill),
-    HIGHLIGHT("Highlight", Icons.Filled.Highlight),
-    DRAW("Draw", Icons.Filled.Brush),
-    WATERMARK("Watermark", Icons.Filled.WaterDrop),
-    PAGE_NUMBERS("Numbers", Icons.Filled.Numbers),
+    FILL_FORM({ S.toolFillForm }, Icons.Filled.EditNote),
+    TEXT({ S.toolText }, Icons.Filled.TextFields),
+    WHITEOUT({ S.toolWhiteout }, Icons.Filled.FormatColorFill),
+    HIGHLIGHT({ S.toolHighlight }, Icons.Filled.Highlight),
+    DRAW({ S.toolDraw }, Icons.Filled.Brush),
+    WATERMARK({ S.toolWatermark }, Icons.Filled.WaterDrop),
+    PAGE_NUMBERS({ S.toolNumbers }, Icons.Filled.Numbers),
 
-    MERGE("Merge", Icons.AutoMirrored.Filled.MergeType),
-    SPLIT("Split", Icons.Filled.ContentCut, handsOff = true),
-    EXTRACT("Extract", Icons.Filled.FilterNone, handsOff = true),
-    COMPRESS("Compress", Icons.Filled.Compress, handsOff = true),
+    MERGE({ S.toolMerge }, Icons.AutoMirrored.Filled.MergeType),
+    SPLIT({ S.toolSplit }, Icons.Filled.ContentCut, handsOff = true),
+    EXTRACT({ S.toolExtract }, Icons.Filled.FilterNone, handsOff = true),
+    COMPRESS({ S.toolCompress }, Icons.Filled.Compress, handsOff = true),
 
-    TO_IMAGES("To images", Icons.Filled.Image, handsOff = true),
-    FROM_IMAGES("From images", Icons.Filled.PictureAsPdf, handsOff = true),
-    EXTRACT_TEXT("Get text", Icons.AutoMirrored.Filled.Article, handsOff = true),
-    SIGN("Sign", Icons.Filled.Draw, handsOff = true),
-    PROTECT("Protect", Icons.Filled.Lock, handsOff = true),
-    UNLOCK("Unlock", Icons.Filled.LockOpen, handsOff = true),
+    TO_IMAGES({ S.toolToImages }, Icons.Filled.Image, handsOff = true),
+    FROM_IMAGES({ S.toolFromImages }, Icons.Filled.PictureAsPdf, handsOff = true),
+    EXTRACT_TEXT({ S.toolGetText }, Icons.AutoMirrored.Filled.Article, handsOff = true),
+    SIGN({ S.toolSign }, Icons.Filled.Draw, handsOff = true),
+    PROTECT({ S.toolProtect }, Icons.Filled.Lock, handsOff = true),
+    UNLOCK({ S.toolUnlock }, Icons.Filled.LockOpen, handsOff = true),
+    ;
+
+    val label: String get() = text()
 }
 
 /**
@@ -110,7 +114,7 @@ fun toolPages(
 
 private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<ToolPage> = listOf(
     ToolPage(
-        "Pages",
+        S.groupPages,
         listOf(
             EditorTool.ROTATE_LEFT,
             EditorTool.ROTATE_RIGHT,
@@ -121,7 +125,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
         ),
     ),
     ToolPage(
-        "Content",
+        S.groupContent,
         listOfNotNull(
             EditorTool.FILL_FORM.takeIf { hasForm },
             EditorTool.TEXT,
@@ -133,7 +137,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
         ),
     ),
     ToolPage(
-        "Whole file",
+        S.groupWholeFile,
         listOf(
             EditorTool.MERGE,
             EditorTool.SPLIT,
@@ -142,7 +146,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
         ),
     ),
     ToolPage(
-        "Convert & lock",
+        S.groupConvertLock,
         listOf(
             EditorTool.TO_IMAGES,
             EditorTool.FROM_IMAGES,
