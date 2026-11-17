@@ -114,6 +114,13 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # Text in scripts the built-in PDF fonts lack is drawn with the system's
+      # fonts. Ubuntu desktops come with Noto for Hindi and Chinese; the bare
+      # runner does not, so it gets the same packages. Windows has its own.
+      - name: Fonts a Linux desktop has
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -yq fonts-noto-core fonts-noto-cjk
+
       - name: Engine and app tests
         shell: bash
         run: ./gradlew :desktop-engine:test :desktop:test
