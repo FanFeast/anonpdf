@@ -218,10 +218,21 @@ class PdfFormsTest {
             val plan = EditPlanBuilder.build(1, listOf(FillForm(mapOf("txtFirstName" to value), flatten = false)))
             PdfEditor.renderPreview(sources, plan, 0, width, workDir)!!
         }
-        // The Chinese adds ink of its own beyond "Jane"; as "??" it would add little.
+        // The Chinese adds ink of its own beyond "Jane". How much depends on the
+        // system's Chinese font, so only that it shows is checked here.
         val latin = inkInNameField(preview("Jane"), width)
         val mixed = inkInNameField(preview("Jane \u65e5\u672c\u4e2d\u6587"), width)
-        assertTrue("latin $latin, mixed $mixed", mixed > latin * 2)
+        assertTrue("latin $latin, mixed $mixed", mixed > latin + 20)
+
+        // And it is drawn as shapes, not as text in the form's font, which is where "?" came from.
+        val filled = fill(mapOf("txtFirstName" to "Jane \u65e5\u672c\u4e2d\u6587"))
+        PDDocument.load(filled).use { document ->
+            val widget = document.documentCatalog.acroForm.getField("txtFirstName").widgets.single()
+            val content = widget.appearance.normalAppearance.appearanceStream.contentStream
+                .createInputStream().use { String(it.readBytes(), Charsets.ISO_8859_1) }
+            assertFalse("text operators in: $content", content.contains("Tj") || content.contains("TJ"))
+            assertTrue("no filled shapes in: $content", Regex("""\bf\b""").containsMatchIn(content))
+        }
     }
 
     @Test
