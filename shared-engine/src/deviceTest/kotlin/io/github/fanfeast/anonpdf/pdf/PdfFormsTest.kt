@@ -222,10 +222,14 @@ class PdfFormsTest {
         val latin = inkInNameField(preview("Jane"), width)
         val mixed = inkInNameField(preview("Jane \u65e5\u672c\u4e2d\u6587"), width)
         assertTrue("latin $latin, mixed $mixed", mixed > latin * 2)
+    }
 
+    @Test
+    fun lockedAnswersInOtherScriptsHaveNoQuestionMarks() = runBlocking {
         val locked = fill(mapOf("txtFirstName" to "\u041f\u0440\u0438\u0432\u0435\u0442 \u0928\u092e\u0938\u094d\u0924\u0947"), flatten = true)
         PDDocument.load(locked).use { document ->
-            assertFalse(PDFTextStripper().getText(document).contains('?'))
+            val text = PDFTextStripper().getText(document)
+            assertFalse("got: $text", text.contains('?'))
         }
     }
 
