@@ -11,6 +11,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.form.PDAcroForm
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDTextField
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -862,7 +863,8 @@ class PdfEditorTest {
             ),
         )
         assertEquals(1, pageCountOf(output))
-        assertTrue(PdfOps.extractText(output).contains("note"))
+        // Drawn as the system's letter shapes rather than with "?" in place of the emoji.
+        assertFalse(PdfOps.extractText(output).contains("?"))
     }
 
     @Test

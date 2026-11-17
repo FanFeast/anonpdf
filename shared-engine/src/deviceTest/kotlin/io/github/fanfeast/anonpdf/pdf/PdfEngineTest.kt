@@ -297,9 +297,9 @@ class PdfEngineTest {
         PdfOps.watermark(source, output, WatermarkOptions(text = "draft 😀 only"))
 
         assertEquals(1, pageCountOf(output))
+        // The line is drawn as the system's letter shapes instead, not as "?".
         val text = squashed(PdfOps.extractText(output))
-        // The emoji is a surrogate pair, so it degrades to two question marks.
-        assertTrue("readable text survives, got $text", text.contains("draft??only"))
+        assertFalse("got $text", text.contains("?"))
     }
 
     @Test

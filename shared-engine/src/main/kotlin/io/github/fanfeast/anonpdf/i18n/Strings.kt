@@ -214,7 +214,7 @@ open class Strings {
         "Drag a box over what you want to remove. What it covers is permanently deleted: this " +
             "page is saved as an image, so its text can no longer be selected or searched. To " +
             "change wording, cover it and add your own text on top."
-    open val charactersNotDrawable = "Some of these characters cannot be drawn by the built-in PDF fonts and will show as ?."
+    open val charactersNotDrawable = "No font on this device has some of these characters; they will show as ?."
     open val startAgain = "Start again"
     open val drawHint = "Zoom with + or choose Move page to pinch and pan. Resume editing to draw."
     open val thickness = "Thickness"
@@ -304,7 +304,7 @@ open class Strings {
     open val describeRange = "Describe at least one page range."
     open fun rangeCoversNothing(index: Int) = "Range $index does not cover any pages."
     open val enterWatermark = "Enter some watermark text."
-    open val cannotDrawText = "That text cannot be drawn with the built-in fonts."
+    open val cannotDrawText = "No font on this device can draw that text."
     open val nothingToPlace = "Nothing to place."
     open val choosePassword = "Choose a password."
     open val notProtected = "This PDF is not password protected."

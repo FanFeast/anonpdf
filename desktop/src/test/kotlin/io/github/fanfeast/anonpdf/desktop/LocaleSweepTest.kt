@@ -38,6 +38,7 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm
 import org.apache.pdfbox.pdmodel.interactive.form.PDTextField
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -244,14 +245,18 @@ class LocaleSweepTest {
                     openTool(label)
                     check("panel-$name-$tag")
                     if (name == "watermark") {
-                        // Text the built-in fonts cannot draw is flagged as it is typed.
-                        onAllNodes(hasSetTextAction())[0].performTextInput("Тест 日本")
+                        // Any script the system has a font for is fine; a character
+                        // no font has is flagged as it is typed.
+                        onAllNodes(hasSetTextAction())[0].performTextInput("Тест 日本 नमस्ते")
+                        waitForIdle()
+                        assertFalse(exists(S.charactersNotDrawable))
+                        onAllNodes(hasSetTextAction())[0].performTextInput(NO_FONT_HAS_THIS)
                         waitFor(S.charactersNotDrawable)
                         check("panel-watermark-undrawable-$tag")
                     }
                     if (name == "numbers") {
-                        // Only a preset the fonts can stamp is offered.
-                        assertEquals(isDrawable(S.numberPresetPage), exists(S.numberPresetPage))
+                        // Every language's preset can be stamped now.
+                        assertTrue(exists(S.numberPresetPage))
                     }
                     if (name == "resize") {
                         click(S.sizePercent)
@@ -303,9 +308,9 @@ class LocaleSweepTest {
         assertTrue("Text cut off:\n" + overflows.joinToString("\n"), overflows.isEmpty())
     }
 
-    private fun isDrawable(text: String) = io.github.fanfeast.anonpdf.pdf.FieldFormat.drawable(text) == text
-
     private companion object {
+        /** An unassigned code point, so no font anywhere has a glyph for it. */
+        const val NO_FONT_HAS_THIS = "\u0378"
         const val TIMEOUT_MS = 20_000L
         const val WIDE = 1440
         /** The desktop sidebar plus about a phone's width for the editor. */

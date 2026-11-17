@@ -190,7 +190,7 @@ internal object StringsEs : Strings() {
         "Arrastra un cuadro sobre lo que quieres quitar. Lo que cubre se elimina para siempre: " +
             "esta página se guarda como imagen, así que su texto ya no se puede seleccionar ni " +
             "buscar. Para cambiar un texto, tápalo y escribe el tuyo encima."
-    override val charactersNotDrawable = "Algunos de estos caracteres no se pueden dibujar con las fuentes PDF incorporadas y saldrán como ?."
+    override val charactersNotDrawable = "Ninguna fuente de este dispositivo tiene algunos de estos caracteres; saldrán como ?."
     override val startAgain = "Volver a empezar"
     override val drawHint = "Acerca con + o elige Mover la página para pellizcar y desplazar. Pulsa Seguir editando para dibujar."
     override val thickness = "Grosor"
@@ -275,7 +275,7 @@ internal object StringsEs : Strings() {
     override val describeRange = "Indica al menos un intervalo de páginas."
     override fun rangeCoversNothing(index: Int) = "El intervalo $index no incluye ninguna página."
     override val enterWatermark = "Escribe el texto de la marca de agua."
-    override val cannotDrawText = "Ese texto no se puede dibujar con las fuentes incorporadas."
+    override val cannotDrawText = "Ninguna fuente de este dispositivo puede dibujar ese texto."
     override val nothingToPlace = "No hay nada que colocar."
     override val choosePassword = "Elige una contraseña."
     override val notProtected = "Este PDF no está protegido con contraseña."

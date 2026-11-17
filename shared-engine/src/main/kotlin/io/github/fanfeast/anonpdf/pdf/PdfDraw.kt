@@ -25,13 +25,16 @@ internal object PdfDraw {
 
     val labelFont: PDFont get() = PDType1Font.HELVETICA
 
-    /** Stamps [options] across one page. Text is pre-sanitised by the caller. */
+    /** The watermark's text, ready to stamp on every page. */
+    fun watermarkLine(options: WatermarkOptions): PdfText.Line =
+        PdfText.line(options.text, watermarkFont(options), options.bold, options.fontSize)
+
+    /** Stamps [options] across one page, as [line] from [watermarkLine]. */
     fun watermarkPage(
         document: PDDocument,
         page: PDPage,
         options: WatermarkOptions,
-        text: String,
-        font: PDFont,
+        line: PdfText.Line,
     ) {
         PDPageContentStream(
             document,
@@ -55,28 +58,24 @@ internal object PdfDraw {
                 blue(options.color),
             )
 
-            val textWidth = font.getStringWidth(text) / 1000f * options.fontSize
             when (options.layout) {
                 WatermarkLayout.DIAGONAL -> drawRotatedText(
-                    stream, font, text, options.fontSize,
-                    display.width / 2f, display.height / 2f, textWidth, 45.0,
+                    stream, line, options.fontSize,
+                    display.width / 2f, display.height / 2f, 45.0,
                 )
                 WatermarkLayout.CENTER -> drawRotatedText(
-                    stream, font, text, options.fontSize,
-                    display.width / 2f, display.height / 2f, textWidth, 0.0,
+                    stream, line, options.fontSize,
+                    display.width / 2f, display.height / 2f, 0.0,
                 )
                 WatermarkLayout.TOP -> drawRotatedText(
-                    stream, font, text, options.fontSize,
-                    display.width / 2f, display.height - options.fontSize * 2f,
-                    textWidth, 0.0,
+                    stream, line, options.fontSize,
+                    display.width / 2f, display.height - options.fontSize * 2f, 0.0,
                 )
                 WatermarkLayout.BOTTOM -> drawRotatedText(
-                    stream, font, text, options.fontSize,
-                    display.width / 2f, options.fontSize * 2f, textWidth, 0.0,
+                    stream, line, options.fontSize,
+                    display.width / 2f, options.fontSize * 2f, 0.0,
                 )
-                WatermarkLayout.TILED -> drawTiled(
-                    stream, font, text, options.fontSize, display, textWidth,
-                )
+                WatermarkLayout.TILED -> drawTiled(stream, line, options.fontSize, display)
             }
             stream.restoreGraphicsState()
         }
@@ -94,9 +93,9 @@ internal object PdfDraw {
         page: PDPage,
         label: String,
         options: PageNumberOptions,
-        font: PDFont,
     ) {
-        if (label.isBlank()) return
+        val line = PdfText.line(label, labelFont, bold = false, options.fontSize)
+        if (line.isBlank) return
         PDPageContentStream(
             document,
             page,
@@ -111,7 +110,7 @@ internal object PdfDraw {
                 green(options.color),
                 blue(options.color),
             )
-            val width = font.getStringWidth(label) / 1000f * options.fontSize
+            val width = line.width
             val x = when (options.position) {
                 NumberPosition.TOP_LEFT, NumberPosition.BOTTOM_LEFT ->
                     options.marginPoints
@@ -126,11 +125,7 @@ internal object PdfDraw {
                 -> display.height - options.marginPoints
                 else -> options.marginPoints
             }
-            stream.beginText()
-            stream.setFont(font, options.fontSize)
-            stream.newLineAtOffset(x, y)
-            stream.showText(label)
-            stream.endText()
+            line.draw(stream, x, y)
             stream.restoreGraphicsState()
         }
     }
@@ -263,27 +258,19 @@ internal object PdfDraw {
     ) {
         val font = if (mark.bold) PDType1Font.HELVETICA_BOLD else PDType1Font.HELVETICA
         val lines = mark.text.split('\n')
-            .map { sanitizeForFont(it, font) }
-            .dropLastWhile { it.isEmpty() }
+            .dropLastWhile { it.isBlank() }
+            .map { PdfText.line(it, font, mark.bold, mark.fontSize) }
         if (lines.isEmpty()) return
 
         stream.saveGraphicsState()
         stream.setNonStrokingColor(red(mark.color), green(mark.color), blue(mark.color))
-        stream.beginText()
-        stream.setFont(font, mark.fontSize)
         val leading = mark.fontSize * 1.2f
-        stream.setLeading(leading)
         // Drop the baseline below the anchor by roughly the cap height, so the text
         // starts where the user put the top-left corner of the box.
-        stream.newLineAtOffset(
-            mark.left * display.width,
-            display.height * (1f - mark.top) - mark.fontSize * 0.82f,
-        )
+        val firstBaseline = display.height * (1f - mark.top) - mark.fontSize * 0.82f
         lines.forEachIndexed { index, line ->
-            if (index > 0) stream.newLine()
-            if (line.isNotEmpty()) stream.showText(line)
+            line.draw(stream, mark.left * display.width, firstBaseline - index * leading)
         }
-        stream.endText()
         stream.restoreGraphicsState()
     }
 
@@ -462,7 +449,8 @@ internal object PdfDraw {
     /**
      * The 14 built-in PDF fonts cover WinAnsi only, and showText throws on
      * anything else. Swap unsupported characters for '?' so a stray emoji
-     * degrades instead of failing the whole operation.
+     * degrades instead of failing the whole operation. [PdfText.line] tries
+     * the system's letter shapes before settling for this.
      */
     fun sanitizeForFont(text: String, font: PDFont): String {
         val flattened = text.replace(Regex("[\\r\\n\\t]"), " ")
@@ -477,13 +465,11 @@ internal object PdfDraw {
 
     private fun drawTiled(
         stream: PDPageContentStream,
-        font: PDFont,
-        text: String,
+        line: PdfText.Line,
         fontSize: Float,
         display: SizeF,
-        textWidth: Float,
     ) {
-        val stepX = max(textWidth * 1.6f, fontSize * 4f)
+        val stepX = max(line.width * 1.6f, fontSize * 4f)
         val stepY = max(fontSize * 5f, 90f)
         val columns = ceil(display.width / stepX).toInt() + 1
         val rows = ceil(display.height / stepY).toInt() + 1
@@ -492,8 +478,8 @@ internal object PdfDraw {
                 // Offset alternate rows so the pattern does not read as a grid.
                 val offset = if (row % 2 == 0) 0f else stepX / 2f
                 drawRotatedText(
-                    stream, font, text, fontSize,
-                    column * stepX + offset, row * stepY, textWidth, 30.0,
+                    stream, line, fontSize,
+                    column * stepX + offset, row * stepY, 30.0,
                 )
             }
         }
@@ -501,12 +487,10 @@ internal object PdfDraw {
 
     private fun drawRotatedText(
         stream: PDPageContentStream,
-        font: PDFont,
-        text: String,
+        line: PdfText.Line,
         fontSize: Float,
         centerX: Float,
         centerY: Float,
-        textWidth: Float,
         degrees: Double,
     ) {
         stream.saveGraphicsState()
@@ -514,12 +498,8 @@ internal object PdfDraw {
         if (degrees != 0.0) {
             stream.transform(Matrix.getRotateInstance(Math.toRadians(degrees), 0f, 0f))
         }
-        stream.beginText()
-        stream.setFont(font, fontSize)
         // Nudge down by roughly a third of the cap height to sit on the centre line.
-        stream.newLineAtOffset(-textWidth / 2f, -fontSize / 3f)
-        stream.showText(text)
-        stream.endText()
+        line.draw(stream, -line.width / 2f, -fontSize / 3f)
         stream.restoreGraphicsState()
     }
 

@@ -27,11 +27,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.CropInsets
-import io.github.fanfeast.anonpdf.pdf.FieldFormat
 import io.github.fanfeast.anonpdf.pdf.MarkRect
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PageOrientation
 import io.github.fanfeast.anonpdf.pdf.PaperSize
+import io.github.fanfeast.anonpdf.pdf.PdfText
 import io.github.fanfeast.anonpdf.pdf.ResizeTarget
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.TextMark
@@ -329,7 +329,7 @@ fun PageNumbersPanel(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // A translated "Page {n}" is only offered if the built-in fonts can
             // stamp it: "Страница {n}" would come out as question marks.
-            listOfNotNull("{n}", "{n} / {total}", S.numberPresetPage.takeIf(::isDrawable)).forEach { preset ->
+            listOfNotNull("{n}", "{n} / {total}", S.numberPresetPage.takeIf(PdfText::canDraw)).forEach { preset ->
                 OutlinedButton(onClick = { onChange(options.copy(format = preset)) }) {
                     Text(preset, style = MaterialTheme.typography.labelMedium)
                 }
@@ -601,15 +601,12 @@ fun PendingEditsDialog(
 
 private fun pct(value: Float) = "${(value * 100).roundToInt()}%"
 
-/** Whether the built-in PDF fonts can draw all of [text]. */
-private fun isDrawable(text: String) = FieldFormat.drawable(text) == text
-
 /**
  * Says so while the user types, when some of what they typed will be drawn as
- * "?": the built-in PDF fonts cover Western European letters only.
+ * "?": no font on the device has it, as with some emoji.
  */
 private fun undrawableHint(text: String): (@Composable () -> Unit)? =
-    if (isDrawable(text)) null else ({ Text(S.charactersNotDrawable) })
+    if (PdfText.canDraw(text)) null else ({ Text(S.charactersNotDrawable) })
 
 /** Where merged-in pages land, relative to the document as it now stands. */
 enum class InsertPosition(private val text: () -> String) {

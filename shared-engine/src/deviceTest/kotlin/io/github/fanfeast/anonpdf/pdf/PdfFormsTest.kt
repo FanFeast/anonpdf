@@ -210,6 +210,41 @@ class PdfFormsTest {
     }
 
     @Test
+    fun answersInOtherScriptsAreDrawnNotQuestionMarks() = runBlocking {
+        val input = formPdf()
+        val sources = listOf(PdfEditor.PlanSource(input, null, 1))
+        val width = 600
+        fun preview(value: String) = runBlocking {
+            val plan = EditPlanBuilder.build(1, listOf(FillForm(mapOf("txtFirstName" to value), flatten = false)))
+            PdfEditor.renderPreview(sources, plan, 0, width, workDir)!!
+        }
+        // The Chinese adds ink of its own beyond "Jane". How much depends on the
+        // system's Chinese font, so only that it shows is checked here.
+        val latin = inkInNameField(preview("Jane"), width)
+        val mixed = inkInNameField(preview("Jane \u65e5\u672c\u4e2d\u6587"), width)
+        assertTrue("latin $latin, mixed $mixed", mixed > latin + 20)
+
+        // And it is drawn as shapes, not as text in the form's font, which is where "?" came from.
+        val filled = fill(mapOf("txtFirstName" to "Jane \u65e5\u672c\u4e2d\u6587"))
+        PDDocument.load(filled).use { document ->
+            val widget = document.documentCatalog.acroForm.getField("txtFirstName").widgets.single()
+            val content = widget.appearance.normalAppearance.appearanceStream.contentStream
+                .createInputStream().use { String(it.readBytes(), Charsets.ISO_8859_1) }
+            assertFalse("text operators in: $content", content.contains("Tj") || content.contains("TJ"))
+            assertTrue("no filled shapes in: $content", Regex("""\bf\b""").containsMatchIn(content))
+        }
+    }
+
+    @Test
+    fun lockedAnswersInOtherScriptsHaveNoQuestionMarks() = runBlocking {
+        val locked = fill(mapOf("txtFirstName" to "\u041f\u0440\u0438\u0432\u0435\u0442 \u0928\u092e\u0938\u094d\u0924\u0947"), flatten = true)
+        PDDocument.load(locked).use { document ->
+            val text = PDFTextStripper().getText(document)
+            assertFalse("got: $text", text.contains('?'))
+        }
+    }
+
+    @Test
     fun lockingBurnsTheAnswersIntoThePage() = runBlocking {
         val output = fill(mapOf("txtFirstName" to "Jane"), flatten = true)
         assertTrue(PdfForms.read(output).isEmpty)

@@ -40,3 +40,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     testImplementation(libs.junit)
 }
+
+tasks.withType<Test>().configureEach {
+    // CI's log is all there is of a failed run, so it carries the assertion's message.
+    testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
+}

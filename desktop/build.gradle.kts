@@ -60,4 +60,5 @@ compose.desktop {
 // LocaleSweepTest can be limited to some languages: -Dsweep.langs=pt,ru
 tasks.withType<Test>().configureEach {
     System.getProperty("sweep.langs")?.let { systemProperty("sweep.langs", it) }
+    testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

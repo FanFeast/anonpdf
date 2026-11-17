@@ -190,7 +190,7 @@ internal object StringsDe : Strings() {
         "Ziehe einen Kasten über das, was weg soll. Was er abdeckt, wird endgültig gelöscht: Diese " +
             "Seite wird als Bild gespeichert, ihr Text lässt sich also nicht mehr auswählen oder " +
             "durchsuchen. Um Text zu ändern, deck ihn ab und schreib deinen eigenen darüber."
-    override val charactersNotDrawable = "Einige dieser Zeichen können die eingebauten PDF-Schriften nicht darstellen; sie erscheinen als ?."
+    override val charactersNotDrawable = "Für einige dieser Zeichen hat dieses Gerät keine Schrift; sie erscheinen als ?."
     override val startAgain = "Neu anfangen"
     override val drawHint = "Mit + vergrößern oder „Seite bewegen“ wählen, um zu zoomen und zu verschieben. „Weiter bearbeiten“ zum Zeichnen."
     override val thickness = "Strichstärke"
@@ -276,7 +276,7 @@ internal object StringsDe : Strings() {
     override val describeRange = "Gib mindestens einen Seitenbereich an."
     override fun rangeCoversNothing(index: Int) = "Bereich $index umfasst keine Seiten."
     override val enterWatermark = "Gib einen Text für das Wasserzeichen ein."
-    override val cannotDrawText = "Dieser Text lässt sich mit den eingebauten Schriften nicht darstellen."
+    override val cannotDrawText = "Keine Schrift auf diesem Gerät kann diesen Text darstellen."
     override val nothingToPlace = "Nichts zu platzieren."
     override val choosePassword = "Wähle ein Passwort."
     override val notProtected = "Dieses PDF ist nicht passwortgeschützt."
