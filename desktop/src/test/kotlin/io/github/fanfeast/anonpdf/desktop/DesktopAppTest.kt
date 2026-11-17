@@ -18,6 +18,17 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.performScrollTo
 import io.github.fanfeast.anonpdf.ui.tools.ToolId
 import io.github.fanfeast.anonpdf.pdf.PdfOps
+import io.github.fanfeast.anonpdf.pdf.PdfForms
+import org.apache.pdfbox.cos.COSDictionary
+import org.apache.pdfbox.cos.COSName
+import org.apache.pdfbox.pdmodel.PDResources
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
+import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm
+import org.apache.pdfbox.pdmodel.interactive.form.PDCheckBox
+import org.apache.pdfbox.pdmodel.interactive.form.PDTextField
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.performTextInput
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -88,6 +99,66 @@ class DesktopAppTest {
             assertEquals(90, document.getPage(0).rotation)
             assertEquals(0, document.getPage(1).rotation)
         }
+    }
+
+    /** A one-page form: a name to type and a box to tick. */
+    private fun formPdf(): File {
+        val file = File(scratch, "form.pdf")
+        PDDocument().use { document ->
+            val page = PDPage(PDRectangle.A4)
+            document.addPage(page)
+            val form = PDAcroForm(document)
+            document.documentCatalog.acroForm = form
+            form.defaultResources = PDResources().apply { put(COSName.getPDFName("Helv"), PDType1Font.HELVETICA) }
+            form.defaultAppearance = "/Helv 0 Tf 0 g"
+            val name = PDTextField(form).apply {
+                partialName = "full_name"
+                defaultAppearance = "/Helv 12 Tf 0 g"
+            }
+            name.widgets.single().apply {
+                rectangle = PDRectangle(60f, 700f, 240f, 22f)
+                this.page = page
+                page.annotations.add(this)
+            }
+            val agree = PDCheckBox(form).apply { partialName = "agree" }
+            agree.widgets.single().apply {
+                rectangle = PDRectangle(60f, 650f, 14f, 14f)
+                appearance = PDAppearanceDictionary(
+                    COSDictionary().apply {
+                        setItem(COSName.N, COSDictionary().apply {
+                            for (state in listOf("Yes", "Off")) {
+                                setItem(state, PDAppearanceStream(document).apply { bBox = PDRectangle(14f, 14f) })
+                            }
+                        })
+                    },
+                )
+                appearanceState = COSName.Off
+                this.page = page
+                page.annotations.add(this)
+            }
+            form.fields.addAll(listOf(name, agree))
+            document.save(file)
+        }
+        return file
+    }
+
+    @Test
+    fun `a form is filled in the editor, previewed and saved`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(formPdf())) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Fill form")).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithText("Fill form").performClick()
+        onNode(hasSetTextAction()).performTextInput("Jane Doe")
+        onNodeWithText("Agree").performClick()
+        onNodeWithText("Apply").performClick()
+        onNodeWithText("1 edit").assertExists()
+
+        onNodeWithText("Save as…").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+        val fields = PdfForms.read(saved).fields.associateBy { it.name }
+        assertEquals("Jane Doe", fields.getValue("full_name").value)
+        assertEquals("Yes", fields.getValue("agree").value)
     }
 
     @Test
