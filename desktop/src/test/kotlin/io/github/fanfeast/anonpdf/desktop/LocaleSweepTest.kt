@@ -12,6 +12,7 @@ import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
@@ -295,9 +296,16 @@ class LocaleSweepTest {
             navigator.show(Pane.Tool(ToolId.EXTRACT_TEXT, formPdf))
             setContent { DesktopApp(navigator) }
             waitFor(S.extractTextTitle)
-            onNode(hasText(S.extractTextTitle) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
-                .performScrollTo()
-                .performClick()
+            // The run button stays disabled until the file has loaded; pressed any
+            // sooner, on a slow machine, the press does nothing.
+            val run = hasText(S.extractTextTitle) and
+                SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button) and isEnabled()
+            try {
+                waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(run).fetchSemanticsNodes().isNotEmpty() }
+            } catch (e: Throwable) {
+                throw AssertionError("${Locale.getDefault().toLanguageTag()}: the run button never became enabled", e)
+            }
+            onNode(run).performScrollTo().performClick()
             waitFor(S.done)
             check("tool-extract-text-done")
         }
