@@ -58,6 +58,7 @@ fun ResultCard(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val hiddenInfo = rememberHiddenInfoChoice(result)
 
     val createPdf = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/pdf"),
@@ -65,7 +66,7 @@ fun ResultCard(
         if (destination == null) return@rememberLauncherForActivityResult
         val single = result as? ToolResult.One ?: return@rememberLauncherForActivityResult
         scope.launch {
-            runCatching { store.export(single.file, destination) }
+            runCatching { store.export(hiddenInfo.fileFor(single.file, store), destination) }
                 .onSuccess { onMessage("Saved.") }
                 .onFailure { onMessage(it.friendlyMessage("Could not save the file.")) }
         }
@@ -77,7 +78,7 @@ fun ResultCard(
         if (destination == null) return@rememberLauncherForActivityResult
         val single = result as? ToolResult.One ?: return@rememberLauncherForActivityResult
         scope.launch {
-            runCatching { store.export(single.file, destination) }
+            runCatching { store.export(hiddenInfo.fileFor(single.file, store), destination) }
                 .onSuccess { onMessage("Saved.") }
                 .onFailure { onMessage(it.friendlyMessage("Could not save the file.")) }
         }
@@ -97,7 +98,7 @@ fun ResultCard(
                         val mime = mimeFor(file)
                         val created = tree.createFile(mime, file.name)
                             ?: error("Could not create ${file.name}.")
-                        store.export(file, created.uri)
+                        store.export(hiddenInfo.fileFor(file, store), created.uri)
                     }
                 }
             }
@@ -127,6 +128,8 @@ fun ResultCard(
                 Spacer(Modifier.height(8.dp))
                 Text(note, style = MaterialTheme.typography.bodyMedium)
             }
+
+            HiddenInfoOption(hiddenInfo)
 
             Spacer(Modifier.height(16.dp))
 
@@ -168,7 +171,13 @@ fun ResultCard(
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(
-                    onClick = { shareResult(context, result, onMessage) },
+                    onClick = {
+                        scope.launch {
+                            runCatching { hiddenInfo.resolve(store) }
+                                .onSuccess { shareResult(context, it, onMessage) }
+                                .onFailure { onMessage(it.friendlyMessage("Could not remove the hidden info.")) }
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                 ) {
                     Icon(Icons.Filled.Share, contentDescription = null)
