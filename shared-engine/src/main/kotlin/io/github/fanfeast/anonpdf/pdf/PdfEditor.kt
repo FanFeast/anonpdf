@@ -700,11 +700,10 @@ object PdfEditor {
         plan: EditPlan,
     ) {
         val options = plan.watermark ?: return
-        val font = PdfDraw.watermarkFont(options)
-        val text = PdfDraw.sanitizeForFont(options.text, font)
-        if (text.isBlank()) return
+        val line = PdfDraw.watermarkLine(options)
+        if (line.isBlank) return
         for (index in 0 until document.numberOfPages) {
-            PdfDraw.watermarkPage(document, document.getPage(index), options, text, font)
+            PdfDraw.watermarkPage(document, document.getPage(index), options, line)
         }
     }
 
@@ -722,19 +721,15 @@ object PdfEditor {
         totalOutputPages: Int = document.numberOfPages,
     ) {
         val options = plan.pageNumbers ?: return
-        val font = PdfDraw.labelFont
         for (index in 0 until document.numberOfPages) {
             val outputPosition = firstOutputPosition + index
             if (outputPosition < options.firstPageIndex) continue
-            val label = PdfDraw.sanitizeForFont(
-                PdfOps.pageNumberLabel(
-                    options = options,
-                    positionAmongNumbered = outputPosition - options.firstPageIndex,
-                    totalPages = totalOutputPages,
-                ),
-                font,
+            val label = PdfOps.pageNumberLabel(
+                options = options,
+                positionAmongNumbered = outputPosition - options.firstPageIndex,
+                totalPages = totalOutputPages,
             )
-            PdfDraw.labelPage(document, document.getPage(index), label, options, font)
+            PdfDraw.labelPage(document, document.getPage(index), label, options)
         }
     }
 }

@@ -184,7 +184,7 @@ internal object StringsHi : Strings() {
         "जो हटाना है उस पर एक बॉक्स खींचें। जो ढका जाता है वह हमेशा के लिए मिट जाता है: यह पेज " +
             "तस्वीर के रूप में सेव होता है, इसलिए इसका टेक्स्ट फिर चुना या खोजा नहीं जा सकता। शब्द " +
             "बदलने के लिए उन्हें ढकें और ऊपर अपना टेक्स्ट लिखें।"
-    override val charactersNotDrawable = "इनमें से कुछ अक्षर PDF के बिल्ट-इन फ़ॉन्ट से नहीं लिखे जा सकते और ? के रूप में दिखेंगे। अभी सिर्फ़ रोमन अक्षर लिखे जा सकते हैं।"
+    override val charactersNotDrawable = "इस डिवाइस के किसी फ़ॉन्ट में इनमें से कुछ अक्षर नहीं हैं; वे ? के रूप में दिखेंगे।"
     override val startAgain = "फिर से शुरू करें"
     override val drawHint = "+ से ज़ूम करें या पिंच और खिसकाने के लिए \"पेज खिसकाएं\" चुनें। ड्रॉ करने के लिए \"एडिट जारी रखें\"।"
     override val thickness = "मोटाई"
@@ -266,7 +266,7 @@ internal object StringsHi : Strings() {
     override val describeRange = "कम से कम एक पेज रेंज बताएं।"
     override fun rangeCoversNothing(index: Int) = "रेंज $index में कोई पेज नहीं आता।"
     override val enterWatermark = "वॉटरमार्क का टेक्स्ट डालें।"
-    override val cannotDrawText = "वह टेक्स्ट बिल्ट-इन फ़ॉन्ट से नहीं लिखा जा सकता।"
+    override val cannotDrawText = "इस डिवाइस का कोई फ़ॉन्ट वह टेक्स्ट नहीं लिख सकता।"
     override val nothingToPlace = "रखने के लिए कुछ नहीं।"
     override val choosePassword = "एक पासवर्ड चुनें।"
     override val notProtected = "यह PDF पासवर्ड से सुरक्षित नहीं है।"

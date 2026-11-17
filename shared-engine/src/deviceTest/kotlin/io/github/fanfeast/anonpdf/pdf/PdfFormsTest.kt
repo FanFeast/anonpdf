@@ -210,6 +210,26 @@ class PdfFormsTest {
     }
 
     @Test
+    fun answersInOtherScriptsAreDrawnNotQuestionMarks() = runBlocking {
+        val input = formPdf()
+        val sources = listOf(PdfEditor.PlanSource(input, null, 1))
+        val width = 600
+        fun preview(value: String) = runBlocking {
+            val plan = EditPlanBuilder.build(1, listOf(FillForm(mapOf("txtFirstName" to value), flatten = false)))
+            PdfEditor.renderPreview(sources, plan, 0, width, workDir)!!
+        }
+        // The Chinese adds ink of its own beyond "Jane"; as "??" it would add little.
+        val latin = inkInNameField(preview("Jane"), width)
+        val mixed = inkInNameField(preview("Jane \u65e5\u672c\u4e2d\u6587"), width)
+        assertTrue("latin $latin, mixed $mixed", mixed > latin * 2)
+
+        val locked = fill(mapOf("txtFirstName" to "\u041f\u0440\u0438\u0432\u0435\u0442 \u0928\u092e\u0938\u094d\u0924\u0947"), flatten = true)
+        PDDocument.load(locked).use { document ->
+            assertFalse(PDFTextStripper().getText(document).contains('?'))
+        }
+    }
+
+    @Test
     fun lockingBurnsTheAnswersIntoThePage() = runBlocking {
         val output = fill(mapOf("txtFirstName" to "Jane"), flatten = true)
         assertTrue(PdfForms.read(output).isEmpty)

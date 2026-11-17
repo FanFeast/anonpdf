@@ -211,7 +211,7 @@ internal object StringsRu : Strings() {
         "Нарисуйте рамку поверх того, что нужно убрать. Закрытое ею удаляется навсегда: страница " +
             "сохраняется как изображение, поэтому её текст больше нельзя выделить или найти поиском. " +
             "Чтобы изменить текст, закройте его и напишите свой поверх."
-    override val charactersNotDrawable = "Некоторые из этих символов нельзя вывести встроенными шрифтами PDF — они появятся как ?."
+    override val charactersNotDrawable = "Для некоторых из этих символов на устройстве нет шрифта — они появятся как ?."
     override val startAgain = "Начать сначала"
     override val drawHint = "Увеличьте кнопкой + или выберите «Двигать страницу», чтобы масштабировать и сдвигать. «Вернуться к правке» — чтобы рисовать."
     override val thickness = "Толщина"
@@ -296,7 +296,7 @@ internal object StringsRu : Strings() {
     override val describeRange = "Укажите хотя бы один диапазон страниц."
     override fun rangeCoversNothing(index: Int) = "Диапазон $index не включает ни одной страницы."
     override val enterWatermark = "Введите текст водяного знака."
-    override val cannotDrawText = "Этот текст нельзя вывести встроенными шрифтами."
+    override val cannotDrawText = "Ни один шрифт на этом устройстве не может вывести этот текст."
     override val nothingToPlace = "Нечего размещать."
     override val choosePassword = "Придумайте пароль."
     override val notProtected = "Этот PDF не защищён паролем."

@@ -3,7 +3,12 @@ package io.github.fanfeast.anonpdf.pdf
 import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
+import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.PDResources
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
+import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
+import com.tom_roush.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDCheckBox
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDChoice
 import com.tom_roush.pdfbox.pdmodel.interactive.form.PDField
@@ -109,12 +114,13 @@ object PdfForms {
                         field.setValue(value)
                     } catch (e: IllegalArgumentException) {
                         // The form's font cannot draw some of these characters,
-                        // e.g. a script it was never meant for. Draw what it can,
-                        // keep the real value, and let other viewers redraw it
-                        // with fonts of their own.
+                        // e.g. a script it was never meant for. Keep the real
+                        // value and draw it as the system's letter shapes; failing
+                        // that, draw what the font can and let other viewers
+                        // redraw it with fonts of their own.
                         field.setValue(FieldFormat.drawable(value))
                         field.cosObject.setString(COSName.V, value)
-                        approximated = true
+                        if (!drawAsShapes(document, field, value)) approximated = true
                     }
                     else -> Unit
                 }
@@ -127,6 +133,63 @@ object PdfForms {
         // Appearances are generated now; unless one had to be approximated,
         // this stops viewers redrawing them their own way.
         form.needAppearances = approximated
+    }
+
+    /**
+     * Gives each of [field]'s boxes an appearance showing [value] as letter
+     * shapes, in the size and colour the field asks for. False if the system
+     * could not shape it, leaving the field as it was.
+     */
+    private fun drawAsShapes(document: PDDocument, field: PDTextField, value: String): Boolean {
+        val appearance = field.defaultAppearance.orEmpty()
+        val askedSize = Regex("""([\d.]+)\s+Tf""").find(appearance)?.groupValues?.get(1)?.toFloatOrNull() ?: 0f
+        val color = Regex("""([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg""").find(appearance)
+            ?.groupValues?.drop(1)?.map { it.toFloat() }
+            ?: Regex("""([\d.]+)\s+g\b""").find(appearance)?.groupValues?.get(1)?.toFloat()?.let { listOf(it, it, it) }
+            ?: listOf(0f, 0f, 0f)
+        val font = PDType1Font.HELVETICA
+        val texts = if (field.isMultiline) value.split('\n') else listOf(value.replace('\n', ' '))
+        val boxes = field.widgets.mapNotNull { widget -> widget.rectangle?.let { widget to it } }
+        if (boxes.isEmpty()) return false
+        val drawn = boxes.map { (widget, rect) ->
+            val padding = 2f
+            val room = rect.width - 2 * padding
+            // Size 0 means "fit the box", as viewers do: the height for one line,
+            // shrunk further if the longest line is too wide.
+            var size = if (askedSize > 0f) askedSize else minOf(12f, rect.height * 0.65f)
+            var lines = texts.map { PdfText.line(it, font, bold = false, size) }
+            val widest = lines.maxOf { it.width }
+            if (askedSize == 0f && !field.isMultiline && widest > room && widest > 0f) {
+                size *= room / widest
+                lines = texts.map { PdfText.line(it, font, bold = false, size) }
+            }
+            // A line still in the form's font means the system had no shapes for it either.
+            val unshaped = texts.zip(lines).any { (text, line) -> line is PdfText.Line.Standard && line.text != text.trim() }
+            if (unshaped) return false
+            val stream = PDAppearanceStream(document).apply {
+                bBox = PDRectangle(rect.width, rect.height)
+                resources = PDResources()
+            }
+            PDPageContentStream(document, stream).use { content ->
+                content.setNonStrokingColor(color[0], color[1], color[2])
+                content.addRect(padding / 2, padding / 2, rect.width - padding, rect.height - padding)
+                content.clip()
+                lines.forEachIndexed { index, line ->
+                    val baseline = if (field.isMultiline) {
+                        rect.height - padding - size * (0.82f + 1.2f * index)
+                    } else {
+                        // Centred on the box, the way a viewer lays out a one-line field.
+                        (rect.height - size * 0.7f) / 2f
+                    }
+                    line.draw(content, padding, baseline)
+                }
+            }
+            widget to stream
+        }
+        for ((widget, stream) in drawn) {
+            widget.appearance = PDAppearanceDictionary().apply { setNormalAppearance(stream) }
+        }
+        return true
     }
 
     /**

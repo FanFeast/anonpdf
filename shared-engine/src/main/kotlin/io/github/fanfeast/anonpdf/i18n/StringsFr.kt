@@ -195,7 +195,7 @@ internal object StringsFr : Strings() {
         "Tracez un cadre sur ce que vous voulez enlever. Ce qu'il couvre est supprimé définitivement : " +
             "cette page est enregistrée comme image, son texte ne peut donc plus être sélectionné ni " +
             "recherché. Pour changer un texte, couvrez-le et écrivez le vôtre par-dessus."
-    override val charactersNotDrawable = "Certains de ces caractères ne peuvent pas être tracés avec les polices PDF intégrées et apparaîtront comme ?."
+    override val charactersNotDrawable = "Aucune police de cet appareil ne contient certains de ces caractères ; ils apparaîtront comme ?."
     override val startAgain = "Recommencer"
     override val drawHint = "Zoomez avec + ou choisissez Déplacer la page pour pincer et faire défiler. Reprendre l'édition pour dessiner."
     override val thickness = "Épaisseur"
@@ -280,7 +280,7 @@ internal object StringsFr : Strings() {
     override val describeRange = "Indiquez au moins une plage de pages."
     override fun rangeCoversNothing(index: Int) = "La plage $index ne couvre aucune page."
     override val enterWatermark = "Saisissez le texte du filigrane."
-    override val cannotDrawText = "Ce texte ne peut pas être tracé avec les polices intégrées."
+    override val cannotDrawText = "Aucune police de cet appareil ne peut tracer ce texte."
     override val nothingToPlace = "Rien à placer."
     override val choosePassword = "Choisissez un mot de passe."
     override val notProtected = "Ce PDF n'est pas protégé par un mot de passe."

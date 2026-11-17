@@ -225,12 +225,11 @@ object PdfOps {
     ) = withContext(Dispatchers.IO) {
         require(options.text.isNotBlank()) { S.enterWatermark }
         load(input, password).use { doc ->
-            val font = PdfDraw.watermarkFont(options)
-            val text = PdfDraw.sanitizeForFont(options.text, font)
-            if (text.isBlank()) error(S.cannotDrawText)
+            val line = PdfDraw.watermarkLine(options)
+            if (line.isBlank) error(S.cannotDrawText)
 
             for (index in 0 until doc.numberOfPages) {
-                PdfDraw.watermarkPage(doc, doc.getPage(index), options, text, font)
+                PdfDraw.watermarkPage(doc, doc.getPage(index), options, line)
                 onProgress((index + 1f) / doc.numberOfPages)
             }
             doc.prepareForSave()
@@ -248,16 +247,12 @@ object PdfOps {
         onProgress: Progress = {},
     ) = withContext(Dispatchers.IO) {
         load(input, password).use { doc ->
-            val font = PdfDraw.labelFont
             val total = doc.numberOfPages
 
             for (index in 0 until total) {
                 if (index >= options.firstPageIndex) {
-                    val label = PdfDraw.sanitizeForFont(
-                        pageNumberLabel(options, index - options.firstPageIndex, total),
-                        font,
-                    )
-                    PdfDraw.labelPage(doc, doc.getPage(index), label, options, font)
+                    val label = pageNumberLabel(options, index - options.firstPageIndex, total)
+                    PdfDraw.labelPage(doc, doc.getPage(index), label, options)
                 }
                 onProgress((index + 1f) / total)
             }

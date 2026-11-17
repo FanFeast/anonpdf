@@ -181,7 +181,7 @@ internal object StringsZh : Strings() {
     override val whiteoutHint =
         "在要移除的内容上拖出一个框。框住的内容会被永久删除：此页会保存为图片，其中的文字将无法再选择或搜索。" +
             "要修改文字，请先遮住，再在上面添加自己的文字。"
-    override val charactersNotDrawable = "内置 PDF 字体无法显示其中部分字符，它们会显示为 ?。目前只能写入拉丁字母。"
+    override val charactersNotDrawable = "本设备没有包含其中部分字符的字体，它们会显示为 ?。"
     override val startAgain = "重新开始"
     override val drawHint = "用 + 放大，或选择“移动页面”来双指缩放和平移。选择“继续编辑”即可手绘。"
     override val thickness = "粗细"
@@ -260,7 +260,7 @@ internal object StringsZh : Strings() {
     override val describeRange = "请至少输入一个页面范围。"
     override fun rangeCoversNothing(index: Int) = "第 $index 个范围不包含任何页面。"
     override val enterWatermark = "请输入水印文字。"
-    override val cannotDrawText = "内置字体无法显示这些文字。"
+    override val cannotDrawText = "本设备上没有能显示这些文字的字体。"
     override val nothingToPlace = "没有可放置的内容。"
     override val choosePassword = "请设置密码。"
     override val notProtected = "此 PDF 未受密码保护。"
