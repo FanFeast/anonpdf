@@ -1,7 +1,7 @@
 # AnonPDF as a snap, for the Snap Store and Ubuntu's App Center. It packages
 # the release build, so build that first:
 #
-#   ./gradlew :desktop:createReleaseDistributable -PappVersion=1.1.0
+#   ./gradlew :desktop:createReleaseDistributable -PappVersion=1.2.0
 #   snapcraft pack --destructive-mode    # on Ubuntu 24.04, which core24 is
 name: anonpdf
 title: AnonPDF
