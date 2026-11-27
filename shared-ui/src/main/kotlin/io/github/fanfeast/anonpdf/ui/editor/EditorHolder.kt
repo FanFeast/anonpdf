@@ -5,6 +5,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import io.github.fanfeast.anonpdf.pdf.Bookmark
 import io.github.fanfeast.anonpdf.pdf.FormInfo
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
@@ -26,6 +27,9 @@ class EditorHolder : ViewModel() {
 
     /** The opened document's form, read along with it. Null until a document is open. */
     var formInfo by mutableStateOf<FormInfo?>(null)
+
+    /** The opened document's own bookmarks, read along with it. */
+    var bookmarks by mutableStateOf<List<Bookmark>>(emptyList())
 
     /**
      * Documents merged into this session, in the order they arrived. Their pages

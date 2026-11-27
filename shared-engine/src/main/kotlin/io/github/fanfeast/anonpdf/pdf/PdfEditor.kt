@@ -153,6 +153,12 @@ data object ClearRedactions : EditOp {
     override fun describe() = S.editClearRedactions
 }
 
+/** Replaces the document's bookmarks. An empty list removes them all. */
+data class SetBookmarks(val bookmarks: List<Bookmark>) : EditOp {
+    override fun describe() =
+        if (bookmarks.isEmpty()) S.editRemoveBookmarks else S.editBookmarks(bookmarks.size)
+}
+
 /** What one output page looks like: where it came from and what was done to it. */
 data class PageState(
     val sourceIndex: Int,
@@ -181,6 +187,8 @@ data class EditPlan(
     val flattenForm: Boolean = false,
     /** Searches whose matches are blacked out, in the order they were added. */
     val redactions: List<Redaction> = emptyList(),
+    /** The bookmarks to write, or null to keep the document's own. */
+    val bookmarks: List<Bookmark>? = null,
     /**
      * How many pages the plan started with. Defaults to the page count at
      * construction, and survives every [copy], which is what lets [hasChanges]
@@ -198,7 +206,7 @@ data class EditPlan(
 
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || marks.isNotEmpty() ||
-            formValues.isNotEmpty() || flattenForm || redactions.isNotEmpty() ||
+            formValues.isNotEmpty() || flattenForm || redactions.isNotEmpty() || bookmarks != null ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
@@ -272,6 +280,7 @@ object EditPlanBuilder {
 
         is AddRedaction -> plan.copy(redactions = plan.redactions + op.redaction)
         ClearRedactions -> plan.copy(redactions = emptyList())
+        is SetBookmarks -> plan.copy(bookmarks = op.bookmarks)
     }
 
     private fun EditPlan.mapTargets(
@@ -355,6 +364,10 @@ object PdfEditor {
             // in, and what a field holds has to be on the page to be found there.
             if (plan.flattenForm || plan.redactions.isNotEmpty()) PdfForms.flatten(document)
 
+            // Read while every page is in place, so each entry's page has an index.
+            // Merged documents' bookmarks are here too: the merge appended them.
+            val ownBookmarks = PdfBookmarks.read(document)
+
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             originals.forEach { PdfOps.pinInheritedAttributes(it) }
             // Detach everything, then re-attach only what the plan keeps, in order.
@@ -383,6 +396,17 @@ object PdfEditor {
                 document.documentCatalog.cosObject.removeItem(COSName.STRUCT_TREE_ROOT)
                 document.documentCatalog.cosObject.removeItem(COSName.MARK_INFO)
                 dropFormFields(document, droppedAnnotations)
+            }
+
+            // Rewritten whenever a page went: a bookmark still pointing at a deleted
+            // page would carry that page, content and all, into the saved file.
+            val keptIndices = kept.mapTo(HashSet()) { it.sourceIndex }
+            val bookmarks = plan.bookmarks
+                ?: ownBookmarks.takeIf { list -> list.any { it.sourceIndex !in keptIndices } }
+            if (bookmarks != null) {
+                PdfBookmarks.write(document, bookmarks) { index ->
+                    originals.getOrNull(index)?.takeIf { index in keptIndices }
+                }
             }
 
             stampWatermark(document, plan)
