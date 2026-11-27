@@ -5,6 +5,7 @@ import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
+import androidx.compose.material.icons.filled.Difference
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Image
@@ -24,6 +25,7 @@ import io.github.fanfeast.anonpdf.i18n.S
  */
 enum class ToolId {
     MERGE,
+    COMPARE,
     SPLIT,
     EXTRACT,
     COMPRESS,
@@ -81,6 +83,16 @@ object ToolCatalog {
             group = ToolGroup.FILES,
             input = ToolInput.MULTIPLE_PDF,
             output = ToolOutput.PDF,
+        ),
+        ToolSpec(
+            id = ToolId.COMPARE,
+            titleText = { S.compareTitle },
+            summaryText = { S.compareSummary },
+            icon = Icons.Filled.Difference,
+            group = ToolGroup.FILES,
+            input = ToolInput.MULTIPLE_PDF,
+            output = ToolOutput.PDF,
+            caveatText = { S.compareCaveat },
         ),
         ToolSpec(
             id = ToolId.SPLIT,

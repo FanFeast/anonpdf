@@ -357,6 +357,19 @@ internal object StringsRu : Strings() {
     override val editColour = "Вернуть цвет"
     override fun copyOfPage(page: Int) = "копия страницы $page"
     override val blankPageName = "пустая страница"
+    override val compareTitle = "Сравнить PDF"
+    override val compareSummary = "Посмотреть, что изменилось между двумя версиями документа"
+    override val compareCaveat =
+        "Сначала выберите оригинал, затем изменённую версию. Сравниваются слова; текст внутри изображений, например на сканах, — нет."
+    override val pickExactlyTwo = "Выберите ровно два PDF: оригинал, затем изменённую версию."
+    override fun compareOriginal(page: Int) = "Оригинал · с. $page"
+    override fun compareChanged(page: Int) = "Изменённая · с. $page"
+    override val compareNotInOriginal = "Нет в оригинале"
+    override val compareNotInChanged = "Нет в изменённой версии"
+    override fun compareNote(added: Int, removed: Int, pages: Int) =
+        "Добавлено слов: $added, удалено: $removed; страниц с изменениями: $pages. " +
+            "Удалённые слова отмечены красным слева, добавленные — зелёным справа."
+    override val compareIdentical = "Оба документа говорят одно и то же, слово в слово."
     override fun markText(snippet: String, page: Int) = "текст «$snippet» · страница $page"
     override fun markHighlight(page: Int) = "выделение · страница $page"
     override fun markWhiteout(page: Int) = "замазка · страница $page"

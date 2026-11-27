@@ -6,6 +6,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isEnabled
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -333,6 +334,52 @@ class DesktopAppTest {
                 assertEquals("Page 2", text(4))
             }
         }
+
+    private fun onePagePdf(name: String, text: String): File {
+        val file = File(scratch, name)
+        PDDocument().use { document ->
+            val page = PDPage(PDRectangle.A4)
+            document.addPage(page)
+            PDPageContentStream(document, page).use { stream ->
+                stream.beginText()
+                stream.setFont(PDType1Font.HELVETICA, 16f)
+                stream.newLineAtOffset(70f, 700f)
+                stream.showText(text)
+                stream.endText()
+            }
+            document.save(file)
+        }
+        return file
+    }
+
+    @Test
+    fun `two versions are compared and the report says what changed`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+        // In the sidebar; the start page also has a card for it.
+        onNode(hasText("Compare PDFs") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).performClick()
+        waitForIdle()
+        runOnIdle {
+            navigator.drop(
+                listOf(
+                    onePagePdf("contract v1.pdf", "The fee is 500 dollars per month."),
+                    onePagePdf("contract v2.pdf", "The fee is 650 dollars per month."),
+                ),
+            )
+        }
+        waitUntil(timeoutMillis = TIMEOUT_MS) {
+            onAllNodes(hasText("contract v2.pdf", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        val run = hasText("Compare PDFs") and
+            SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button) and isEnabled()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(run).fetchSemanticsNodes().isNotEmpty() }
+        onNode(run).performScrollTo().performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) {
+            onAllNodes(hasText("1 word added and 1 removed", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        val report = File(scratch, "out").listFiles { file -> file.name.startsWith("comparison") }!!.single()
+        PdfOps.load(report).use { assertEquals(1, it.numberOfPages) }
+    }
 
     @Test
     fun `closing a document returns to the start page`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {

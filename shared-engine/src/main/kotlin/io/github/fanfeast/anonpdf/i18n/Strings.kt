@@ -368,6 +368,20 @@ open class Strings {
     open val editColour = "Back to colour"
     open fun copyOfPage(page: Int) = "copy of page $page"
     open val blankPageName = "blank page"
+    // Compare.
+    open val compareTitle = "Compare PDFs"
+    open val compareSummary = "See what changed between two versions of a document"
+    open val compareCaveat =
+        "Pick the original first, then the changed version. The words are compared; text that is part of a picture, as on a scan, is not."
+    open val pickExactlyTwo = "Pick exactly two PDFs: the original, then the changed version."
+    open fun compareOriginal(page: Int) = "Original · page $page"
+    open fun compareChanged(page: Int) = "Changed · page $page"
+    open val compareNotInOriginal = "Not in the original"
+    open val compareNotInChanged = "Not in the changed version"
+    open fun compareNote(added: Int, removed: Int, pages: Int) =
+        "${if (added == 1) "1 word" else "$added words"} added and $removed removed, on ${this.pages(pages)}. " +
+            "Removed words are red on the left, added words green on the right."
+    open val compareIdentical = "The two say the same, word for word."
     open fun markText(snippet: String, page: Int) = "Text \"$snippet\" · page $page"
     open fun markHighlight(page: Int) = "Highlight · page $page"
     open fun markWhiteout(page: Int) = "White-out · page $page"

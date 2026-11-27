@@ -325,6 +325,19 @@ internal object StringsHi : Strings() {
     override val editColour = "रंग वापस लाएँ"
     override fun copyOfPage(page: Int) = "पेज $page की कॉपी"
     override val blankPageName = "ख़ाली पेज"
+    override val compareTitle = "PDF की तुलना करें"
+    override val compareSummary = "देखें कि किसी दस्तावेज़ के दो संस्करणों में क्या बदला"
+    override val compareCaveat =
+        "पहले मूल फ़ाइल चुनें, फिर बदली हुई। शब्दों की तुलना होती है; तस्वीरों के अंदर का टेक्स्ट, जैसे स्कैन में, नहीं।"
+    override val pickExactlyTwo = "ठीक दो PDF चुनें: पहले मूल, फिर बदला हुआ संस्करण।"
+    override fun compareOriginal(page: Int) = "मूल · पेज $page"
+    override fun compareChanged(page: Int) = "बदला हुआ · पेज $page"
+    override val compareNotInOriginal = "मूल में नहीं है"
+    override val compareNotInChanged = "बदले हुए संस्करण में नहीं है"
+    override fun compareNote(added: Int, removed: Int, pages: Int) =
+        "$added शब्द जोड़े गए और $removed हटाए गए, ${this.pages(pages)} पर। " +
+            "हटाए गए शब्द बाईं ओर लाल हैं, जोड़े गए दाईं ओर हरे।"
+    override val compareIdentical = "दोनों में शब्द-शब्द एक ही बात है।"
     override fun markText(snippet: String, page: Int) = "टेक्स्ट \"$snippet\" · पेज $page"
     override fun markHighlight(page: Int) = "हाइलाइट · पेज $page"
     override fun markWhiteout(page: Int) = "व्हाइट-आउट · पेज $page"
