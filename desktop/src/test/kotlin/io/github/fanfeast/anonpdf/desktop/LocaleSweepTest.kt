@@ -245,6 +245,7 @@ class LocaleSweepTest {
                     S.toolNumbers to "numbers",
                     S.toolHeaderFooter to "header-footer",
                     S.toolBookmarks to "bookmarks",
+                    S.toolCleanup to "cleanup",
                 )
                 for ((label, name) in panels) {
                     openTool(label)

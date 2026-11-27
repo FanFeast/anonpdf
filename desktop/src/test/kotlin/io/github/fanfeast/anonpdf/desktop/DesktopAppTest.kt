@@ -22,6 +22,7 @@ import io.github.fanfeast.anonpdf.pdf.PdfForms
 import org.apache.pdfbox.cos.COSDictionary
 import org.apache.pdfbox.cos.COSName
 import org.apache.pdfbox.pdmodel.PDResources
+import org.apache.pdfbox.pdmodel.interactive.annotation.PDAnnotationSquareCircle
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceDictionary
 import org.apache.pdfbox.pdmodel.interactive.annotation.PDAppearanceStream
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm
@@ -237,6 +238,62 @@ class DesktopAppTest {
                 }.getText(document)
                 assertTrue(text, text.contains("ACME-00000$page"))
             }
+        }
+    }
+
+    /** Three pages: words and a square markup on the first, the second blank, words on the third. */
+    private fun markedUpPdf(): File {
+        val file = File(scratch, "marked up.pdf")
+        PDDocument().use { document ->
+            repeat(3) { document.addPage(PDPage(PDRectangle.A4)) }
+            for (index in listOf(0, 2)) {
+                PDPageContentStream(document, document.getPage(index)).use { stream ->
+                    stream.beginText()
+                    stream.setFont(PDType1Font.HELVETICA, 14f)
+                    stream.newLineAtOffset(70f, 750f)
+                    stream.showText("Words on page ${index + 1}")
+                    stream.endText()
+                }
+            }
+            val look = PDAppearanceStream(document).apply { bBox = PDRectangle(120f, 80f) }
+            PDPageContentStream(document, look).use { stream ->
+                stream.setNonStrokingColor(0.9f, 0.1f, 0.1f)
+                stream.addRect(0f, 0f, 120f, 80f)
+                stream.fill()
+            }
+            document.getPage(0).annotations = listOf(
+                PDAnnotationSquareCircle(PDAnnotationSquareCircle.SUB_TYPE_SQUARE).apply {
+                    rectangle = PDRectangle(100f, 500f, 120f, 80f)
+                    appearance = PDAppearanceDictionary().apply { setNormalAppearance(look) }
+                },
+            )
+            document.save(file)
+        }
+        return file
+    }
+
+    @Test
+    fun `clean up removes the markups and deletes the blank page`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(markedUpPdf())) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithText("Clean up").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) {
+            onAllNodes(hasText("This document has 1 comment, highlight or other markup.")).fetchSemanticsNodes().isNotEmpty()
+        }
+        onNodeWithText("Find blank pages").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("1 blank page: 2")).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithText("Delete them").performClick()
+        onNodeWithText("Remove").performClick()
+        onNodeWithText("Apply").performClick()
+        onNodeWithText("2 edits").assertExists()
+
+        onNodeWithText("Save as…").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+        PdfOps.load(saved).use { document ->
+            assertEquals(2, document.numberOfPages)
+            assertTrue(document.getPage(0).annotations.isEmpty())
         }
     }
 

@@ -24,6 +24,9 @@ internal fun PageImage.dropAlpha() = Unit
 /** Frees the image's pixels now rather than at the next garbage collection. */
 internal fun PageImage.release() = flush()
 
+/** One pixel as 0xAARRGGBB. */
+internal fun PageImage.pixelAt(x: Int, y: Int): Int = getRGB(x, y)
+
 /** Whether the image may have see-through pixels, which JPEG cannot hold. */
 internal val PageImage.hasTransparency: Boolean get() = colorModel.hasAlpha()
 

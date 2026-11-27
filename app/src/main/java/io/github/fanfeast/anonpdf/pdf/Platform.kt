@@ -23,6 +23,9 @@ internal fun PageImage.dropAlpha() = setHasAlpha(false)
 /** Frees the image's pixels now rather than at the next garbage collection. */
 internal fun PageImage.release() = recycle()
 
+/** One pixel as 0xAARRGGBB. */
+internal fun PageImage.pixelAt(x: Int, y: Int): Int = getPixel(x, y)
+
 /** Whether the image may have see-through pixels, which JPEG cannot hold. */
 internal val PageImage.hasTransparency: Boolean get() = hasAlpha()
 

@@ -132,7 +132,10 @@ import io.github.fanfeast.anonpdf.pdf.ReversePages
 import io.github.fanfeast.anonpdf.pdf.RotatePages
 import io.github.fanfeast.anonpdf.pdf.ScalePages
 import io.github.fanfeast.anonpdf.pdf.HeaderFooterOptions
+import io.github.fanfeast.anonpdf.pdf.MarkupMode
+import io.github.fanfeast.anonpdf.pdf.PdfCleanup
 import io.github.fanfeast.anonpdf.pdf.SetBookmarks
+import io.github.fanfeast.anonpdf.pdf.SetMarkups
 import io.github.fanfeast.anonpdf.pdf.SetHeaderFooter
 import io.github.fanfeast.anonpdf.pdf.SetPageNumbers
 import io.github.fanfeast.anonpdf.pdf.SetWatermark
@@ -218,6 +221,7 @@ internal sealed interface EditorMode {
     data class HeaderFootering(val options: HeaderFooterOptions) : EditorMode
     data class Redacting(val rule: RedactRule) : EditorMode
     data class Bookmarking(val items: List<Bookmark>, val selected: Int?) : EditorMode
+    data class CleaningUp(val markups: MarkupMode) : EditorMode
     data class AddingText(val mark: TextMark, val placed: Boolean) : EditorMode
     data class Filling(
         val highlight: Boolean,
@@ -498,6 +502,7 @@ fun EditorScreen(
             )
             is EditorMode.Watermarking -> plan.copy(watermark = current.options)
             is EditorMode.Numbering -> plan.copy(pageNumbers = current.options)
+            is EditorMode.CleaningUp -> plan.copy(markups = current.markups)
             is EditorMode.HeaderFootering -> plan.copy(headerFooter = current.options.takeUnless { it.isEmpty })
             is EditorMode.Redacting -> if (current.rule.isUsable) {
                 plan.copy(redactions = plan.redactions + Redaction(current.rule, targets))
@@ -513,6 +518,39 @@ fun EditorScreen(
     }
 
     val kept = previewPlan.kept
+
+    // What Clean up has found: the document's markups, and the blank pages.
+    var markupCount by remember { mutableStateOf<Int?>(null) }
+    var blankScan by remember { mutableStateOf<BlankScan>(BlankScan.NotRun) }
+    val cleaningUp = mode is EditorMode.CleaningUp
+    LaunchedEffect(cleaningUp, extraSources.size) {
+        markupCount = null
+        blankScan = BlankScan.NotRun
+        if (!cleaningUp) return@LaunchedEffect
+        markupCount = try {
+            allSources.sumOf { PdfCleanup.countMarkups(it.sourceFile, it.password) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            0
+        }
+    }
+
+    fun findBlankPages() {
+        blankScan = BlankScan.Running
+        scope.launch {
+            val found = try {
+                PdfCleanup.findBlankPages(planSources(), plan, document.sourceFile.parentFile ?: store.scratchDir)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                emptyList()
+            }
+            blankScan = BlankScan.Found(
+                found.map { source -> plan.kept.indexOfFirst { it.sourceIndex == source } + 1 }.filter { it > 0 },
+            )
+        }
+    }
 
     // What the open redaction finds across its pages; null while it looks.
     var redactCount by remember { mutableStateOf<RedactCount?>(null) }
@@ -670,6 +708,7 @@ fun EditorScreen(
                 EditorMode.HeaderFootering(plan.headerFooter ?: HeaderFooterOptions()),
             )
             EditorTool.REDACT -> openMode(EditorMode.Redacting(RedactRule(RedactKind.WORDS)))
+            EditorTool.CLEANUP -> openMode(EditorMode.CleaningUp(plan.markups))
             EditorTool.BOOKMARKS -> openMode(EditorMode.Bookmarking(plan.bookmarks ?: holder.bookmarks, null))
 
             EditorTool.TEXT -> if (page != null) {
@@ -859,6 +898,17 @@ fun EditorScreen(
                 },
                 onInsertCancel = ::cancelInsert,
                 redactCount = redactCount,
+                markupCount = markupCount,
+                blankScan = blankScan,
+                onFindBlank = ::findBlankPages,
+                onDeleteBlank = {
+                    val found = blankScan as? BlankScan.Found
+                    if (found != null && found.pageNumbers.isNotEmpty()) {
+                        val sources = found.pageNumbers.mapNotNull { plan.kept.getOrNull(it - 1)?.sourceIndex }
+                        if (sources.size < plan.kept.size) state.apply(DeletePages(sources.toSet()))
+                        blankScan = BlankScan.Found(emptyList())
+                    }
+                },
                 resultingSize = describeResult(
                     effectiveSizes.getOrNull(state.position),
                 ),
@@ -1337,6 +1387,10 @@ private fun DrawerBody(
     onInsertApply: () -> Unit,
     onInsertCancel: () -> Unit,
     redactCount: RedactCount?,
+    markupCount: Int?,
+    blankScan: BlankScan,
+    onFindBlank: () -> Unit,
+    onDeleteBlank: () -> Unit,
     resultingSize: String,
 ) {
     val markCount = currentSource?.let { plan.marksFor(it).size } ?: 0
@@ -1398,6 +1452,7 @@ private fun DrawerBody(
                     if (plan.headerFooter != null) add(EditorTool.HEADER_FOOTER)
                     if (plan.redactions.isNotEmpty()) add(EditorTool.REDACT)
                     if (plan.bookmarks != null) add(EditorTool.BOOKMARKS)
+                    if (plan.markups != MarkupMode.KEEP) add(EditorTool.CLEANUP)
                     if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
                 }
                 if (stacked) {
@@ -1483,6 +1538,20 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(SetPageNumbers(current.options))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.CleaningUp -> CleanupPanel(
+            markups = current.markups,
+            markupCount = markupCount,
+            blankScan = blankScan,
+            onMarkupsChange = { onModeChange(EditorMode.CleaningUp(it)) },
+            onFindBlank = onFindBlank,
+            onDeleteBlank = onDeleteBlank,
+            onCancel = onExitMode,
+            onApply = {
+                if (current.markups != plan.markups) state.apply(SetMarkups(current.markups))
                 onExitMode()
             },
         )
