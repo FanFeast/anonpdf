@@ -95,6 +95,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.AddMark
 import io.github.fanfeast.anonpdf.pdf.AddRedaction
+import io.github.fanfeast.anonpdf.pdf.Bookmark
+import io.github.fanfeast.anonpdf.pdf.PdfBookmarks
 import io.github.fanfeast.anonpdf.pdf.ClearRedactions
 import io.github.fanfeast.anonpdf.pdf.CropInsets
 import io.github.fanfeast.anonpdf.pdf.CropPages
@@ -129,6 +131,7 @@ import io.github.fanfeast.anonpdf.pdf.RestorePages
 import io.github.fanfeast.anonpdf.pdf.ReversePages
 import io.github.fanfeast.anonpdf.pdf.RotatePages
 import io.github.fanfeast.anonpdf.pdf.ScalePages
+import io.github.fanfeast.anonpdf.pdf.SetBookmarks
 import io.github.fanfeast.anonpdf.pdf.SetPageNumbers
 import io.github.fanfeast.anonpdf.pdf.SetWatermark
 import io.github.fanfeast.anonpdf.pdf.TextMark
@@ -211,6 +214,7 @@ internal sealed interface EditorMode {
     data class Watermarking(val options: WatermarkOptions) : EditorMode
     data class Numbering(val options: PageNumberOptions) : EditorMode
     data class Redacting(val rule: RedactRule) : EditorMode
+    data class Bookmarking(val items: List<Bookmark>, val selected: Int?) : EditorMode
     data class AddingText(val mark: TextMark, val placed: Boolean) : EditorMode
     data class Filling(
         val highlight: Boolean,
@@ -305,6 +309,9 @@ fun EditorScreen(
                     val form = runCatching {
                         PdfForms.read(outcome.session.sourceFile, outcome.session.password)
                     }.getOrDefault(FormInfo(emptyList()))
+                    val bookmarks = runCatching {
+                        PdfBookmarks.read(outcome.session.sourceFile, outcome.session.password)
+                    }.getOrDefault(emptyList())
                     session?.close()
                     extraSources.forEach { it.close() }
                     extraSources.clear()
@@ -314,6 +321,7 @@ fun EditorScreen(
                     thumbnails.evictAll()
                     session = outcome.session
                     holder.formInfo = form
+                    holder.bookmarks = bookmarks
                     editor = EditorState(outcome.session.pageCount)
                     preview = null
                     previewPage?.close()
@@ -655,6 +663,7 @@ fun EditorScreen(
                 EditorMode.Numbering(plan.pageNumbers ?: PageNumberOptions()),
             )
             EditorTool.REDACT -> openMode(EditorMode.Redacting(RedactRule(RedactKind.WORDS)))
+            EditorTool.BOOKMARKS -> openMode(EditorMode.Bookmarking(plan.bookmarks ?: holder.bookmarks, null))
 
             EditorTool.TEXT -> if (page != null) {
                 openMode(
@@ -1380,6 +1389,7 @@ private fun DrawerBody(
                     if (plan.watermark != null) add(EditorTool.WATERMARK)
                     if (plan.pageNumbers != null) add(EditorTool.PAGE_NUMBERS)
                     if (plan.redactions.isNotEmpty()) add(EditorTool.REDACT)
+                    if (plan.bookmarks != null) add(EditorTool.BOOKMARKS)
                     if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
                 }
                 if (stacked) {
@@ -1482,6 +1492,30 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(AddRedaction(Redaction(current.rule, state.targets())))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.Bookmarking -> BookmarksPanel(
+            items = current.items,
+            selected = current.selected,
+            pageNumberOf = { source ->
+                plan.kept.indexOfFirst { it.sourceIndex == source }.takeIf { it >= 0 }?.plus(1)
+            },
+            currentSource = currentSource,
+            hasExisting = current.items.isNotEmpty(),
+            onChange = { items, selected -> onModeChange(EditorMode.Bookmarking(items, selected)) },
+            onOpen = { bookmark ->
+                val index = plan.kept.indexOfFirst { it.sourceIndex == bookmark.sourceIndex }
+                if (index >= 0) state.goTo(index)
+            },
+            onRemove = {
+                state.apply(SetBookmarks(emptyList()))
+                onExitMode()
+            },
+            onCancel = onExitMode,
+            onApply = {
+                state.apply(SetBookmarks(current.items))
                 onExitMode()
             },
         )

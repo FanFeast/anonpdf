@@ -29,6 +29,7 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDCheckBox
 import org.apache.pdfbox.pdmodel.interactive.form.PDTextField
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
@@ -189,6 +190,29 @@ class DesktopAppTest {
                 assertTrue("pages without a match keep their text", text(1).contains("Page 1"))
             }
         }
+
+    @Test
+    fun `a bookmark is added for the page on screen, renamed and saved`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithContentDescription("Next page").performClick()
+        onNodeWithText("Bookmarks").performClick()
+        onNodeWithText("No bookmarks yet. Add one for the page you're on.").assertExists()
+        onNodeWithText("Add for this page").performClick()
+        onNode(hasSetTextAction()).performTextReplacement("Results")
+        onNodeWithText("Apply").performClick()
+        onNodeWithText("1 edit").assertExists()
+
+        onNodeWithText("Save as…").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+        PdfOps.load(saved).use { document ->
+            val item = document.documentCatalog.documentOutline.firstChild
+            assertEquals("Results", item.title)
+            assertEquals(1, document.pages.indexOf(item.findDestinationPage(document)))
+        }
+    }
 
     @Test
     fun `closing a document returns to the start page`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
