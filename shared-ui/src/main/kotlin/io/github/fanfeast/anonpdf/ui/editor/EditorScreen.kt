@@ -134,7 +134,10 @@ import io.github.fanfeast.anonpdf.pdf.ScalePages
 import io.github.fanfeast.anonpdf.pdf.HeaderFooterOptions
 import io.github.fanfeast.anonpdf.pdf.MarkupMode
 import io.github.fanfeast.anonpdf.pdf.PdfCleanup
+import io.github.fanfeast.anonpdf.pdf.PdfScan
 import io.github.fanfeast.anonpdf.pdf.SetBookmarks
+import io.github.fanfeast.anonpdf.pdf.SetGreyscale
+import io.github.fanfeast.anonpdf.pdf.TiltPages
 import io.github.fanfeast.anonpdf.pdf.SetMarkups
 import io.github.fanfeast.anonpdf.pdf.SetHeaderFooter
 import io.github.fanfeast.anonpdf.pdf.SetPageNumbers
@@ -168,6 +171,7 @@ import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
+import java.io.File
 
 private const val THUMBNAIL_WIDTH_PX = 160
 private const val THUMBNAIL_SPACING_DP = 8
@@ -175,6 +179,9 @@ private const val THUMBNAIL_SPACING_DP = 8
 private const val PREVIEW_BUCKET_PX = 200
 private const val PREVIEW_MAX_PX = 1400
 private const val PREVIEW_DEBOUNCE_MS = 170L
+
+/** Wide enough to see lines of text lean by a tenth of a degree. */
+private const val SKEW_SCAN_WIDTH = 900
 
 /**
  * Stops the zoom buttons step through. Pinching goes anywhere in between, up to
@@ -222,6 +229,7 @@ internal sealed interface EditorMode {
     data class Redacting(val rule: RedactRule) : EditorMode
     data class Bookmarking(val items: List<Bookmark>, val selected: Int?) : EditorMode
     data class CleaningUp(val markups: MarkupMode) : EditorMode
+    data class Straightening(val angle: Float, val measuring: Boolean = false, val message: String? = null) : EditorMode
     data class AddingText(val mark: TextMark, val placed: Boolean) : EditorMode
     data class Filling(
         val highlight: Boolean,
@@ -503,6 +511,9 @@ fun EditorScreen(
             is EditorMode.Watermarking -> plan.copy(watermark = current.options)
             is EditorMode.Numbering -> plan.copy(pageNumbers = current.options)
             is EditorMode.CleaningUp -> plan.copy(markups = current.markups)
+            is EditorMode.Straightening -> plan.copy(
+                pages = plan.pages.map { if (it.sourceIndex in targets) it.copy(tilt = current.angle) else it },
+            )
             is EditorMode.HeaderFootering -> plan.copy(headerFooter = current.options.takeUnless { it.isEmpty })
             is EditorMode.Redacting -> if (current.rule.isUsable) {
                 plan.copy(redactions = plan.redactions + Redaction(current.rule, targets))
@@ -533,6 +544,68 @@ fun EditorScreen(
             throw e
         } catch (t: Throwable) {
             0
+        }
+    }
+
+    /**
+     * Adds a page that [write] makes, as its own one-page document, after the page
+     * on screen, through the same path as Merge: it is then a page like any other.
+     */
+    fun insertMadePage(name: String, write: suspend (File) -> Boolean) {
+        val at = plan.pages.indexOfFirst { it.sourceIndex == currentSource }
+            .let { if (it < 0) plan.pages.size else it + 1 }
+        val shownAt = state.position + 1
+        scope.launch {
+            busyMessage = S.working
+            error = null
+            try {
+                val file = File(store.scratchDir, "made-${System.nanoTime()}.pdf")
+                if (!write(file)) return@launch
+                val outcome = openDocumentSession(store, documentRefOf(file), existingFile = file)
+                val made = (outcome as? OpenOutcome.Ready)?.session ?: return@launch
+                val start = state.registerInsert(made.pageCount)
+                extraSources.add(made)
+                state.apply(InsertPages(start, made.pageCount, at, name))
+                state.goTo(shownAt)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                error = t.friendlyMessage(S.couldNotPrepare)
+            } finally {
+                busyMessage = null
+            }
+        }
+    }
+
+    /** Measures each target page's lean and straightens them all as one edit. */
+    fun straightenAutomatically() {
+        val current = mode as? EditorMode.Straightening ?: return
+        mode = current.copy(measuring = true, message = null)
+        val level = plan.copy(pages = plan.pages.map { it.copy(tilt = 0f) })
+        val targets = state.targets()
+        scope.launch {
+            val angles = mutableMapOf<Int, Float>()
+            level.kept.forEachIndexed { position, page ->
+                if (page.sourceIndex !in targets) return@forEachIndexed
+                val lean = try {
+                    PdfScan.measureLean(
+                        planSources(), level, position, SKEW_SCAN_WIDTH,
+                        document.sourceFile.parentFile ?: store.scratchDir,
+                    )
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (t: Throwable) {
+                    0f
+                }
+                if (lean != 0f) angles[page.sourceIndex] = lean
+            }
+            if (angles.isEmpty()) {
+                mode = current.copy(measuring = false, message = S.straightenNothing)
+            } else {
+                state.apply(TiltPages(angles))
+                mode = EditorMode.Normal
+                snackbarHost.showSnackbar(S.straightenDone(angles.size))
+            }
         }
     }
 
@@ -709,6 +782,29 @@ fun EditorScreen(
             )
             EditorTool.REDACT -> openMode(EditorMode.Redacting(RedactRule(RedactKind.WORDS)))
             EditorTool.CLEANUP -> openMode(EditorMode.CleaningUp(plan.markups))
+            EditorTool.STRAIGHTEN -> {
+                state.showFirstTarget()
+                val existing = state.currentSourceIndex?.let { source ->
+                    plan.pages.firstOrNull { it.sourceIndex == source }
+                }?.tilt ?: 0f
+                openMode(EditorMode.Straightening(existing))
+            }
+            EditorTool.GREYSCALE -> state.apply(SetGreyscale(!plan.greyscale))
+            EditorTool.DUPLICATE -> currentSource?.let { source ->
+                val position = state.position
+                insertMadePage(S.copyOfPage(position + 1)) { file ->
+                    PdfEditor.writePageAsShown(
+                        planSources(), plan, position, document.sourceFile.parentFile ?: store.scratchDir, file,
+                    )
+                }
+            }
+            EditorTool.BLANK_PAGE -> {
+                val size = effectiveSizes.getOrNull(state.position) ?: SizeF(595f, 842f)
+                insertMadePage(S.blankPageName) { file ->
+                    PdfScan.writeBlankPage(size.width, size.height, file)
+                    true
+                }
+            }
             EditorTool.BOOKMARKS -> openMode(EditorMode.Bookmarking(plan.bookmarks ?: holder.bookmarks, null))
 
             EditorTool.TEXT -> if (page != null) {
@@ -901,6 +997,7 @@ fun EditorScreen(
                 markupCount = markupCount,
                 blankScan = blankScan,
                 onFindBlank = ::findBlankPages,
+                onStraightenAuto = ::straightenAutomatically,
                 onDeleteBlank = {
                     val found = blankScan as? BlankScan.Found
                     if (found != null && found.pageNumbers.isNotEmpty()) {
@@ -1390,6 +1487,7 @@ private fun DrawerBody(
     markupCount: Int?,
     blankScan: BlankScan,
     onFindBlank: () -> Unit,
+    onStraightenAuto: () -> Unit,
     onDeleteBlank: () -> Unit,
     resultingSize: String,
 ) {
@@ -1453,6 +1551,7 @@ private fun DrawerBody(
                     if (plan.redactions.isNotEmpty()) add(EditorTool.REDACT)
                     if (plan.bookmarks != null) add(EditorTool.BOOKMARKS)
                     if (plan.markups != MarkupMode.KEEP) add(EditorTool.CLEANUP)
+                    if (plan.greyscale) add(EditorTool.GREYSCALE)
                     if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
                 }
                 if (stacked) {
@@ -1538,6 +1637,20 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(SetPageNumbers(current.options))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.Straightening -> StraightenPanel(
+            angle = current.angle,
+            targetLabel = state.targetLabel(),
+            measuring = current.measuring,
+            message = current.message,
+            onAngleChange = { onModeChange(current.copy(angle = it, message = null)) },
+            onAuto = onStraightenAuto,
+            onCancel = onExitMode,
+            onApply = {
+                state.apply(TiltPages(state.targets().associateWith { current.angle }))
                 onExitMode()
             },
         )

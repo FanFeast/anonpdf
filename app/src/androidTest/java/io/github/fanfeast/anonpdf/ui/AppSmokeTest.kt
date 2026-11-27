@@ -5,12 +5,15 @@ import android.content.Intent
 import android.net.Uri
 import android.os.StrictMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
@@ -213,21 +216,23 @@ class AppSmokeTest {
         compose.onNodeWithContentDescription("Undo").assertIsEnabled()
 
         // Hand the edited document to a one-shot tool. Its tile is on a later
-        // page of the tool drawer, so swipe the drawer until the tile exists.
+        // page of the tool drawer, so swipe the drawer until the tile is on
+        // screen. The pager also lays out the pages either side of the one
+        // showing, so a tile existing is not enough: it has to be displayed.
         val compressTile = hasText("Compress") and hasClickAction()
-        repeat(TOOL_PAGES_TO_SWIPE) {
-            if (compose.onAllNodes(compressTile).fetchSemanticsNodes().isEmpty()) {
-                // A tile every tool page has one of, so there is always something to swipe.
-                compose.onAllNodes(
-                    hasText("Crop") or hasText("Text") or hasText("Watermark") or hasText("Split") or
-                        hasText("Unlock"),
-                )
-                    .onFirst()
-                    .performTouchInput { swipeLeft() }
-                compose.waitForIdle()
-            }
+        fun SemanticsNodeInteractionCollection.firstShown() =
+            fetchSemanticsNodes().indices.map { this[it] }.firstOrNull { it.isDisplayed() }
+        for (swipe in 0 until TOOL_PAGES_TO_SWIPE) {
+            if (compose.onAllNodes(compressTile).firstShown() != null) break
+            // Across the whole pager, the lowest area that scrolls sideways: a
+            // swipe across one small tile can be too short to turn the page.
+            val scrollers = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
+            val pager = scrollers.fetchSemanticsNodes().withIndex().maxByOrNull { it.value.boundsInRoot.top }
+                ?: error("no tool pager")
+            scrollers[pager.index].performTouchInput { swipeLeft() }
+            compose.waitForIdle()
         }
-        compose.onAllNodes(compressTile).onFirst()
+        (compose.onAllNodes(compressTile).firstShown() ?: error("Compress never came on screen"))
             .performSemanticsAction(SemanticsActions.OnClick)
         compose.waitUntil(TIMEOUT_MS) {
             compose.onAllNodesWithContentDescription("Undo").fetchSemanticsNodes().isEmpty()
@@ -293,7 +298,7 @@ class AppSmokeTest {
     }
 
     private companion object {
-        const val TOOL_PAGES_TO_SWIPE = 5
+        const val TOOL_PAGES_TO_SWIPE = 6
         const val TIMEOUT_MS = 15_000L
     }
 }

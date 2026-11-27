@@ -75,6 +75,16 @@ data class ResizePages(val target: ResizeTarget, val targets: Set<Int>) : EditOp
     }
 }
 
+/** Straightens pages, each by its own angle in degrees, anticlockwise positive. Replaces earlier angles. */
+data class TiltPages(val angles: Map<Int, Float>) : EditOp {
+    override fun describe() = S.editTilt(scopeOf(angles.keys))
+}
+
+/** Turns every page grey, or back to colour. */
+data class SetGreyscale(val on: Boolean) : EditOp {
+    override fun describe() = if (on) S.editGreyscale else S.editColour
+}
+
 data class DeletePages(val targets: Set<Int>) : EditOp {
     override fun describe() = S.editDelete(scopeOf(targets))
 }
@@ -178,10 +188,12 @@ data class PageState(
     /** Refit onto a standard sheet. Mutually exclusive with [scale]. */
     val resize: ResizeTarget? = null,
     val deleted: Boolean = false,
+    /** Straightening, in degrees, anticlockwise positive. */
+    val tilt: Float = 0f,
 ) {
     val isUntouched: Boolean
         get() = rotationDelta == 0 && crop.isEmpty && scale == 1f &&
-            resize == null && !deleted
+            resize == null && !deleted && tilt == 0f
 }
 
 /** The normalised result of folding an op list. Drives both preview and export. */
@@ -199,6 +211,8 @@ data class EditPlan(
     /** Searches whose matches are blacked out, in the order they were added. */
     val redactions: List<Redaction> = emptyList(),
     val markups: MarkupMode = MarkupMode.KEEP,
+    /** Every page turned grey, stamps included. */
+    val greyscale: Boolean = false,
     /** The bookmarks to write, or null to keep the document's own. */
     val bookmarks: List<Bookmark>? = null,
     /**
@@ -219,7 +233,7 @@ data class EditPlan(
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || headerFooter != null || marks.isNotEmpty() ||
             formValues.isNotEmpty() || flattenForm || redactions.isNotEmpty() || bookmarks != null ||
-            markups != MarkupMode.KEEP ||
+            markups != MarkupMode.KEEP || greyscale ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
@@ -296,6 +310,10 @@ object EditPlanBuilder {
         ClearRedactions -> plan.copy(redactions = emptyList())
         is SetBookmarks -> plan.copy(bookmarks = op.bookmarks)
         is SetMarkups -> plan.copy(markups = op.mode)
+        is SetGreyscale -> plan.copy(greyscale = op.on)
+        is TiltPages -> plan.copy(
+            pages = plan.pages.map { page -> op.angles[page.sourceIndex]?.let { page.copy(tilt = it) } ?: page },
+        )
     }
 
     private fun EditPlan.mapTargets(
@@ -429,6 +447,7 @@ object PdfEditor {
             onProgress(0.85f)
             stampPageNumbers(document, plan, firstOutputPosition = 0)
             stampHeaderFooter(document, plan, firstOutputPosition = 0)
+            if (plan.greyscale) document.pages.forEach { PdfScan.greyPage(document, it) }
 
             with(PdfOps) { document.prepareForSave() }
             document.save(output)
@@ -513,6 +532,27 @@ object PdfEditor {
         }
     }
 
+    /**
+     * Writes the page at [outputPosition] as it stands, edits and all, as a
+     * one-page document: what a duplicate of it starts as. Stamps that go on
+     * every page are left off, since the copy gets them again with the rest.
+     */
+    suspend fun writePageAsShown(
+        sources: List<PlanSource>,
+        plan: EditPlan,
+        outputPosition: Int,
+        workDir: File,
+        output: File,
+    ): Boolean = withContext(Dispatchers.IO) {
+        buildPreview(
+            sources,
+            plan.copy(watermark = null, pageNumbers = null, headerFooter = null, greyscale = false),
+            outputPosition,
+            workDir,
+            output,
+        )
+    }
+
     /** Writes the one-page document for [openPreview] to [output]; false if there is no such page. */
     private suspend fun buildPreview(
         sources: List<PlanSource>,
@@ -576,6 +616,7 @@ object PdfEditor {
                 firstOutputPosition = outputPosition,
                 totalOutputPages = kept.size,
             )
+            if (plan.greyscale) document.pages.forEach { PdfScan.greyPage(document, it) }
 
             with(PdfOps) { document.prepareForSave() }
             document.save(output)
@@ -594,6 +635,9 @@ object PdfEditor {
         // to work out which edge is which. Cropping second, so that resizing fits
         // what the reader can actually see onto the sheet rather than the full
         // uncropped page. Sizing last.
+        // Straightening comes before all of them: it acts on the content inside
+        // the page, the way the page was scanned, and the rest act on the sheet.
+        PdfScan.tiltPage(document, page, state.tilt)
         page.rotation = PdfOps.normalizeRotation(page.rotation + state.rotationDelta)
         PdfDraw.cropPage(page, state.crop)
         val resize = state.resize

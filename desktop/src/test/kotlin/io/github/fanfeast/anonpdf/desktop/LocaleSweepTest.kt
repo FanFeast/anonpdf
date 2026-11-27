@@ -244,6 +244,7 @@ class LocaleSweepTest {
                     S.toolWatermark to "watermark",
                     S.toolNumbers to "numbers",
                     S.toolHeaderFooter to "header-footer",
+                    S.toolStraighten to "straighten",
                     S.toolBookmarks to "bookmarks",
                     S.toolCleanup to "cleanup",
                 )

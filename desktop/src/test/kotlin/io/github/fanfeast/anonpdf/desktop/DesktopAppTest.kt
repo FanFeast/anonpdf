@@ -298,6 +298,43 @@ class DesktopAppTest {
     }
 
     @Test
+    fun `a page is duplicated, a blank one added and the whole file turned grey`() =
+        runDesktopComposeUiTest(WIDTH, HEIGHT) {
+            setContent { DesktopApp(DesktopNavigator(pdf)) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+            onNodeWithText("Duplicate").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 2 / 4")).fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithText("Blank page").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 3 / 5")).fetchSemanticsNodes().isNotEmpty() }
+            onNodeWithText("Greyscale").performClick()
+            onNodeWithText("3 edits").assertExists()
+
+            // Level text has no lean to correct, and says so.
+            onNodeWithText("Straighten").performClick()
+            onNodeWithText("Straighten automatically").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("No lines of text to go by on these pages.")).fetchSemanticsNodes().isNotEmpty()
+            }
+            onNodeWithText("Cancel").performClick()
+
+            onNodeWithText("Save as…").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+            val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+            PdfOps.load(saved).use { document ->
+                assertEquals(5, document.numberOfPages)
+                fun text(page: Int) = PDFTextStripper().apply {
+                    startPage = page
+                    endPage = page
+                }.getText(document).trim()
+                assertEquals("Page 1", text(1))
+                assertEquals("the copy follows its page", "Page 1", text(2))
+                assertEquals("then the blank page", "", text(3))
+                assertEquals("Page 2", text(4))
+            }
+        }
+
+    @Test
     fun `closing a document returns to the start page`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
         setContent { DesktopApp(DesktopNavigator(pdf)) }
         waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
