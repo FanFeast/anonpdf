@@ -419,6 +419,7 @@ internal object StringsHi : Strings() {
     override val addPdfs = "PDF जोड़ें"
     override val addImages = "तस्वीरें जोड़ें"
     override val addOneMore = "कम से कम एक और फ़ाइल जोड़ें। ये ऊपर दिए क्रम में जुड़ती हैं।"
+    override val addChangedVersion = "अब बदला हुआ वर्ज़न जोड़ें, जिससे तुलना करनी है।"
     override fun imageNumber(number: Int) = "तस्वीर $number"
     override val locked = "लॉक"
     override val unlocked = "अनलॉक"

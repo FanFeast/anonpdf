@@ -381,14 +381,12 @@ class DesktopAppTest {
         // In the sidebar; the start page also has a card for it.
         onNode(hasText("Compare PDFs") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).performClick()
         waitForIdle()
-        runOnIdle {
-            navigator.drop(
-                listOf(
-                    onePagePdf("contract v1.pdf", "The fee is 500 dollars per month."),
-                    onePagePdf("contract v2.pdf", "The fee is 650 dollars per month."),
-                ),
-            )
+        runOnIdle { navigator.drop(listOf(onePagePdf("contract v1.pdf", "The fee is 500 dollars per month."))) }
+        // One file in, it asks for the other version, not for files to merge.
+        waitUntil(timeoutMillis = TIMEOUT_MS) {
+            onAllNodes(hasText("Now add the changed version to compare it with.")).fetchSemanticsNodes().isNotEmpty()
         }
+        runOnIdle { navigator.drop(listOf(onePagePdf("contract v2.pdf", "The fee is 650 dollars per month."))) }
         waitUntil(timeoutMillis = TIMEOUT_MS) {
             onAllNodes(hasText("contract v2.pdf", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }

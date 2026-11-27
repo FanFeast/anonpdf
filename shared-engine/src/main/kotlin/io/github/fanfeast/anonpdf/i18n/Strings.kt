@@ -472,6 +472,7 @@ open class Strings {
     open val addPdfs = "Add PDFs"
     open val addImages = "Add images"
     open val addOneMore = "Add at least one more file. They are merged in the order listed above."
+    open val addChangedVersion = "Now add the changed version to compare it with."
     open fun imageNumber(number: Int) = "Image $number"
     open val locked = "locked"
     open val unlocked = "unlocked"

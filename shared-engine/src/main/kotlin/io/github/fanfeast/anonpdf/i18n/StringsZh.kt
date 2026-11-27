@@ -411,6 +411,7 @@ internal object StringsZh : Strings() {
     override val addPdfs = "添加 PDF"
     override val addImages = "添加图片"
     override val addOneMore = "请至少再添加一个文件。文件会按上方列表顺序合并。"
+    override val addChangedVersion = "现在添加要比较的修改后版本。"
     override fun imageNumber(number: Int) = "图片 $number"
     override val locked = "已加密"
     override val unlocked = "已解锁"

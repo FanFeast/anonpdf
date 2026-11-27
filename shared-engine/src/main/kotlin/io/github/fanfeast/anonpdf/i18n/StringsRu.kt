@@ -452,6 +452,7 @@ internal object StringsRu : Strings() {
     override val addPdfs = "Добавить PDF"
     override val addImages = "Добавить изображения"
     override val addOneMore = "Добавьте ещё хотя бы один файл. Они объединяются в порядке списка выше."
+    override val addChangedVersion = "Теперь добавьте изменённую версию для сравнения."
     override fun imageNumber(number: Int) = "Изображение $number"
     override val locked = "защищён"
     override val unlocked = "открыт"

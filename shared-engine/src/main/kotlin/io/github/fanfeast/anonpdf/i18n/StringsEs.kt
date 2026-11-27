@@ -436,6 +436,7 @@ internal object StringsEs : Strings() {
     override val addPdfs = "Añadir PDF"
     override val addImages = "Añadir imágenes"
     override val addOneMore = "Añade al menos un archivo más. Se unen en el orden de la lista."
+    override val addChangedVersion = "Ahora añade la versión cambiada con la que comparar."
     override fun imageNumber(number: Int) = "Imagen $number"
     override val locked = "bloqueado"
     override val unlocked = "desbloqueado"
