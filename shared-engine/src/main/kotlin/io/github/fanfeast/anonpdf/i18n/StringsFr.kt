@@ -92,9 +92,10 @@ internal object StringsFr : Strings() {
 
     override val editPdf = "Modifier un PDF"
     override val editorIntro =
-        "Faites pivoter, recadrez, redimensionnez, supprimez et réordonnez les pages, ajoutez du " +
-            "texte, du correcteur, des surlignages ou des dessins, et accédez à tous les autres outils " +
-            "d'ici — toujours avec un aperçu du vrai résultat. Rien n'est écrit avant l'enregistrement."
+        "Réorganisez, recadrez et redimensionnez les pages, ajoutez du texte, des " +
+            "surlignages, des dessins ou des en-têtes, caviardez ce qui doit disparaître, " +
+            "redressez des scans, et accédez à tous les autres outils d'ici — toujours avec un " +
+            "aperçu du vrai résultat. Rien n'est écrit avant l'enregistrement."
     override val revertAll = "Tout annuler"
     override val noEditsYet = "Aucune modification"
     override val applyingEditsFirst = "Application de vos modifications…"
@@ -545,9 +546,10 @@ internal object StringsFr : Strings() {
             "même si quelque chose essayait. Sans compte, sans pub, sans pistage."
     override val editAPdf = "Modifier un PDF"
     override val editAPdfBody =
-        "Tous les outils au même endroit : pivoter, recadrer, redimensionner, supprimer et réordonner " +
-            "les pages, ajouter du texte, du correcteur, des surlignages ou des dessins — plusieurs à la " +
-            "fois, avec un aperçu en direct du vrai résultat avant d'enregistrer."
+        "Tous les outils au même endroit : réorganiser, recadrer et redimensionner les " +
+            "pages, ajouter du texte, des surlignages, des dessins ou des en-têtes, caviarder ce " +
+            "qui doit disparaître, redresser des scans — plusieurs à la fois, avec un aperçu en " +
+            "direct du vrai résultat avant d'enregistrer."
 
     override val browse = "Parcourir"
     override val rescan = "Relancer la recherche"

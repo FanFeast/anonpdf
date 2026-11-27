@@ -85,7 +85,7 @@ internal object StringsZh : Strings() {
 
     override val editPdf = "编辑 PDF"
     override val editorIntro =
-        "旋转、裁剪、调整大小、删除和重新排列页面，添加文字、涂白、高亮或手绘，还能从这里打开所有其他工具——" +
+        "排列、裁剪和调整页面大小，添加文字、高亮、手绘或页眉页脚，涂黑敏感内容，拉直扫描件，还能从这里打开所有其他工具——" +
             "全程预览真实效果。保存之前不会写入任何内容。"
     override val revertAll = "全部还原"
     override val noEditsYet = "尚无修改"
@@ -503,7 +503,7 @@ internal object StringsZh : Strings() {
     override val nothingLeavesPhoneBody = "AnonPDF 完全没有网络权限，所以即使有东西试图上传，Android 也不会允许。无账户、无广告、无追踪。"
     override val editAPdf = "编辑 PDF"
     override val editAPdfBody =
-        "所有工具集中在一处：旋转、裁剪、调整大小、删除和重新排列页面，添加文字、涂白、高亮或手绘——" +
+        "所有工具集中在一处：排列、裁剪和调整页面大小，添加文字、高亮、手绘或页眉页脚，涂黑敏感内容，拉直扫描件——" +
             "可同时进行多项操作，保存前实时预览真实效果。"
 
     override val browse = "浏览"
