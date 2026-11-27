@@ -158,6 +158,11 @@ data class SetHeaderFooter(val options: HeaderFooterOptions?) : EditOp {
     override fun describe() = if (options == null) S.editRemoveHeaderFooter else S.editHeaderFooter
 }
 
+/** Keeps, burns in or removes every comment, highlight and other markup. */
+data class SetMarkups(val mode: MarkupMode) : EditOp {
+    override fun describe() = S.editMarkups(mode.label)
+}
+
 /** Replaces the document's bookmarks. An empty list removes them all. */
 data class SetBookmarks(val bookmarks: List<Bookmark>) : EditOp {
     override fun describe() =
@@ -193,6 +198,7 @@ data class EditPlan(
     val flattenForm: Boolean = false,
     /** Searches whose matches are blacked out, in the order they were added. */
     val redactions: List<Redaction> = emptyList(),
+    val markups: MarkupMode = MarkupMode.KEEP,
     /** The bookmarks to write, or null to keep the document's own. */
     val bookmarks: List<Bookmark>? = null,
     /**
@@ -213,6 +219,7 @@ data class EditPlan(
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || headerFooter != null || marks.isNotEmpty() ||
             formValues.isNotEmpty() || flattenForm || redactions.isNotEmpty() || bookmarks != null ||
+            markups != MarkupMode.KEEP ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
@@ -288,6 +295,7 @@ object EditPlanBuilder {
         is AddRedaction -> plan.copy(redactions = plan.redactions + op.redaction)
         ClearRedactions -> plan.copy(redactions = emptyList())
         is SetBookmarks -> plan.copy(bookmarks = op.bookmarks)
+        is SetMarkups -> plan.copy(markups = op.mode)
     }
 
     private fun EditPlan.mapTargets(
@@ -370,6 +378,7 @@ object PdfEditor {
             // Redacting burns the form in too: the preview always shows it burned
             // in, and what a field holds has to be on the page to be found there.
             if (plan.flattenForm || plan.redactions.isNotEmpty()) PdfForms.flatten(document)
+            PdfCleanup.applyMarkups(document, plan.markups)
 
             // Read while every page is in place, so each entry's page has an index.
             // Merged documents' bookmarks are here too: the merge appended them.
@@ -538,6 +547,7 @@ object PdfEditor {
             // appearance, which is exactly what a viewer shows for the saved file.
             // A form too broken to flatten still previews, just without it.
             runCatching { PdfForms.flatten(document) }
+            PdfCleanup.applyMarkups(document, plan.markups)
 
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             val page = originals.getOrNull(localIndex) ?: return false

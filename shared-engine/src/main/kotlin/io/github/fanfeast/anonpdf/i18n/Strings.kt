@@ -162,6 +162,7 @@ open class Strings {
     open val toolHeaderFooter = "Header & footer"
     open val toolRedact = "Redact"
     open val toolBookmarks = "Bookmarks"
+    open val toolCleanup = "Clean up"
     open val toolMerge = "Merge"
     open val toolSplit = "Split"
     open val toolExtract = "Extract"
@@ -330,6 +331,25 @@ open class Strings {
     open val presetDate = "Date"
     open val editHeaderFooter = "Header & footer"
     open val editRemoveHeaderFooter = "Remove header & footer"
+    // Clean up.
+    open val cleanupTitle = "Clean up"
+    open val markupsHeading = "Comments and markups"
+    open fun markupsFound(count: Int) =
+        if (count == 1) "This document has 1 comment, highlight or other markup."
+        else "This document has $count comments, highlights and other markups."
+    open val markupsNone = "This document has no comments or other markups."
+    open val markupKeep = "Keep"
+    open val markupFlatten = "Burn in"
+    open val markupRemove = "Remove"
+    open val markupsHint = "Burning in draws them, and any form, into the page for good. Links stay either way."
+    open val blankHeading = "Blank pages"
+    open val blankFind = "Find blank pages"
+    open val blankSearching = "Looking at every page…"
+    open fun blankFound(count: Int, pages: String) =
+        (if (count == 1) "1 blank page: " else "$count blank pages: ") + pages
+    open val blankNone = "No blank pages."
+    open val blankDelete = "Delete them"
+    open fun editMarkups(mode: String) = "Comments and markups: $mode"
     open fun markText(snippet: String, page: Int) = "Text \"$snippet\" · page $page"
     open fun markHighlight(page: Int) = "Highlight · page $page"
     open fun markWhiteout(page: Int) = "White-out · page $page"

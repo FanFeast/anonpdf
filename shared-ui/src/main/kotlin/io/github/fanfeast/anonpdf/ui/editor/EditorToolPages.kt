@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
@@ -81,6 +82,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
 
     MERGE({ S.toolMerge }, Icons.AutoMirrored.Filled.MergeType),
     BOOKMARKS({ S.toolBookmarks }, Icons.Filled.Bookmarks),
+    CLEANUP({ S.toolCleanup }, Icons.Filled.CleaningServices),
     SPLIT({ S.toolSplit }, Icons.Filled.ContentCut, handsOff = true),
     EXTRACT({ S.toolExtract }, Icons.Filled.FilterNone, handsOff = true),
     COMPRESS({ S.toolCompress }, Icons.Filled.Compress, handsOff = true),
@@ -154,6 +156,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
         listOf(
             EditorTool.MERGE,
             EditorTool.BOOKMARKS,
+            EditorTool.CLEANUP,
             EditorTool.SPLIT,
             EditorTool.EXTRACT,
             EditorTool.COMPRESS,
