@@ -63,7 +63,7 @@ enum class NumberPosition {
 }
 
 data class PageNumberOptions(
-    /** Supports the tokens {n} for the current number and {total} for the count. */
+    /** Supports the tokens of [PdfOps.fillTokens]: {n}, {n:6}, {total} and {date}. */
     val format: String = "{n}",
     val position: NumberPosition = NumberPosition.BOTTOM_CENTER,
     val startNumber: Int = 1,
@@ -73,6 +73,27 @@ data class PageNumberOptions(
     val marginPoints: Float = 28f,
     val color: Int = 0xFF000000.toInt(),
 )
+
+/**
+ * Text along the top and bottom of every page: up to one line in each of the six
+ * places, each with the tokens of [PdfOps.fillTokens]. Bates numbering is a
+ * prefix and a zero-padded number, as in "ACME-{n:6}".
+ */
+data class HeaderFooterOptions(
+    val slots: Map<NumberPosition, String> = emptyMap(),
+    val startNumber: Int = 1,
+    /** Leave a cover unmarked by starting later in the document. */
+    val firstPageIndex: Int = 0,
+    val fontSize: Float = 10f,
+    val marginPoints: Float = 28f,
+    val color: Int = 0xFF000000.toInt(),
+) {
+    val isEmpty: Boolean get() = slots.values.all { it.isBlank() }
+
+    fun slot(position: NumberPosition): String = slots[position].orEmpty()
+
+    fun withSlot(position: NumberPosition, text: String) = copy(slots = slots + (position to text))
+}
 
 data class ProtectOptions(
     /** Opens the document. Readers who know only this get the permissions below. */

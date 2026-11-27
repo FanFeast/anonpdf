@@ -93,8 +93,19 @@ internal object PdfDraw {
         page: PDPage,
         label: String,
         options: PageNumberOptions,
+    ) = labelPage(document, page, label, options.position, options.fontSize, options.marginPoints, options.color)
+
+    /** One line of text in one of the six places along a page's top and bottom edges. */
+    fun labelPage(
+        document: PDDocument,
+        page: PDPage,
+        label: String,
+        position: NumberPosition,
+        fontSize: Float,
+        marginPoints: Float,
+        color: Int,
     ) {
-        val line = PdfText.line(label, labelFont, bold = false, options.fontSize)
+        val line = PdfText.line(label, labelFont, bold = false, fontSize)
         if (line.isBlank) return
         PDPageContentStream(
             document,
@@ -105,25 +116,17 @@ internal object PdfDraw {
         ).use { stream ->
             stream.saveGraphicsState()
             val display = applyDisplayTransform(stream, page)
-            stream.setNonStrokingColor(
-                red(options.color),
-                green(options.color),
-                blue(options.color),
-            )
+            stream.setNonStrokingColor(red(color), green(color), blue(color))
             val width = line.width
-            val x = when (options.position) {
-                NumberPosition.TOP_LEFT, NumberPosition.BOTTOM_LEFT ->
-                    options.marginPoints
-                NumberPosition.TOP_CENTER, NumberPosition.BOTTOM_CENTER ->
-                    (display.width - width) / 2f
-                NumberPosition.TOP_RIGHT, NumberPosition.BOTTOM_RIGHT ->
-                    display.width - options.marginPoints - width
+            val x = when (position) {
+                NumberPosition.TOP_LEFT, NumberPosition.BOTTOM_LEFT -> marginPoints
+                NumberPosition.TOP_CENTER, NumberPosition.BOTTOM_CENTER -> (display.width - width) / 2f
+                NumberPosition.TOP_RIGHT, NumberPosition.BOTTOM_RIGHT -> display.width - marginPoints - width
             }
-            val y = when (options.position) {
-                NumberPosition.TOP_LEFT, NumberPosition.TOP_CENTER,
-                NumberPosition.TOP_RIGHT,
-                -> display.height - options.marginPoints
-                else -> options.marginPoints
+            val y = when (position) {
+                NumberPosition.TOP_LEFT, NumberPosition.TOP_CENTER, NumberPosition.TOP_RIGHT ->
+                    display.height - marginPoints
+                else -> marginPoints
             }
             line.draw(stream, x, y)
             stream.restoreGraphicsState()

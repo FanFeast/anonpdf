@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.File
+import java.time.LocalDate
 
 /**
  * One entry in the user-visible edit history.
@@ -153,6 +154,10 @@ data object ClearRedactions : EditOp {
     override fun describe() = S.editClearRedactions
 }
 
+data class SetHeaderFooter(val options: HeaderFooterOptions?) : EditOp {
+    override fun describe() = if (options == null) S.editRemoveHeaderFooter else S.editHeaderFooter
+}
+
 /** Replaces the document's bookmarks. An empty list removes them all. */
 data class SetBookmarks(val bookmarks: List<Bookmark>) : EditOp {
     override fun describe() =
@@ -179,6 +184,7 @@ data class EditPlan(
     val pages: List<PageState>,
     val watermark: WatermarkOptions? = null,
     val pageNumbers: PageNumberOptions? = null,
+    val headerFooter: HeaderFooterOptions? = null,
     /** Content added on top of pages, in the order it was added. */
     val marks: List<PageMark> = emptyList(),
     /** Form field values to set, by fully qualified field name. */
@@ -205,7 +211,7 @@ data class EditPlan(
         redactions.filter { sourceIndex in it.targets }.map { it.rule }
 
     val hasChanges: Boolean
-        get() = watermark != null || pageNumbers != null || marks.isNotEmpty() ||
+        get() = watermark != null || pageNumbers != null || headerFooter != null || marks.isNotEmpty() ||
             formValues.isNotEmpty() || flattenForm || redactions.isNotEmpty() || bookmarks != null ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
@@ -269,6 +275,7 @@ object EditPlanBuilder {
 
         is SetWatermark -> plan.copy(watermark = op.options)
         is SetPageNumbers -> plan.copy(pageNumbers = op.options)
+        is SetHeaderFooter -> plan.copy(headerFooter = op.options?.takeUnless { it.isEmpty })
 
         is AddMark -> plan.copy(marks = plan.marks + op.mark)
         is UpdateMark -> plan.copy(
@@ -412,6 +419,7 @@ object PdfEditor {
             stampWatermark(document, plan)
             onProgress(0.85f)
             stampPageNumbers(document, plan, firstOutputPosition = 0)
+            stampHeaderFooter(document, plan, firstOutputPosition = 0)
 
             with(PdfOps) { document.prepareForSave() }
             document.save(output)
@@ -547,6 +555,12 @@ object PdfEditor {
             // Tell the stamper where this page sits in the finished document so
             // the number shown is the number that will be printed.
             stampPageNumbers(
+                document = document,
+                plan = plan,
+                firstOutputPosition = outputPosition,
+                totalOutputPages = kept.size,
+            )
+            stampHeaderFooter(
                 document = document,
                 plan = plan,
                 firstOutputPosition = outputPosition,
@@ -788,6 +802,36 @@ object PdfEditor {
                 totalPages = totalOutputPages,
             )
             PdfDraw.labelPage(document, document.getPage(index), label, options)
+        }
+    }
+
+    /** Like [stampPageNumbers], for every slot of the header and footer. */
+    private fun stampHeaderFooter(
+        document: PDDocument,
+        plan: EditPlan,
+        firstOutputPosition: Int,
+        totalOutputPages: Int = document.numberOfPages,
+    ) {
+        val options = plan.headerFooter ?: return
+        val numbered = (totalOutputPages - options.firstPageIndex).coerceAtLeast(1)
+        // One date for the whole document, even one written across midnight.
+        val today = LocalDate.now()
+        for (index in 0 until document.numberOfPages) {
+            val outputPosition = firstOutputPosition + index
+            if (outputPosition < options.firstPageIndex) continue
+            for ((position, format) in options.slots) {
+                if (format.isBlank()) continue
+                val label = PdfOps.fillTokens(
+                    format,
+                    number = options.startNumber + outputPosition - options.firstPageIndex,
+                    total = options.startNumber + numbered - 1,
+                    date = today,
+                )
+                PdfDraw.labelPage(
+                    document, document.getPage(index), label,
+                    position, options.fontSize, options.marginPoints, options.color,
+                )
+            }
         }
     }
 }

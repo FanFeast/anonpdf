@@ -235,12 +235,16 @@ class LocaleSweepTest {
                 val panels = listOf(
                     S.toolCrop to "crop",
                     S.toolResize to "resize",
-                    S.toolWatermark to "watermark",
-                    S.toolNumbers to "numbers",
+                    // In the order the tool pages hold them: the sweep only swipes forward.
                     S.toolText to "text",
                     S.toolWhiteout to "whiteout",
+                    S.toolRedact to "redact",
                     S.toolHighlight to "highlight",
                     S.toolDraw to "draw",
+                    S.toolWatermark to "watermark",
+                    S.toolNumbers to "numbers",
+                    S.toolHeaderFooter to "header-footer",
+                    S.toolBookmarks to "bookmarks",
                 )
                 for ((label, name) in panels) {
                     openTool(label)
