@@ -408,6 +408,10 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
             style = MaterialTheme.typography.bodyMedium,
         )
 
+        // Nothing to set: which file is which is the order they were picked in,
+        // and the caveat above says so.
+        ToolId.COMPARE -> Unit
+
         ToolId.SPLIT -> {
             ChoiceChips(
                 label = S.howToSplit,

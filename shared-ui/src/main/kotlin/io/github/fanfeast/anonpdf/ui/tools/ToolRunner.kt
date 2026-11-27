@@ -4,6 +4,7 @@ import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
 import io.github.fanfeast.anonpdf.pdf.PageRanges
+import io.github.fanfeast.anonpdf.pdf.PdfCompare
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
@@ -27,6 +28,7 @@ class ToolRunner(private val store: DocumentStore) {
         onProgress: Progress,
     ): ToolResult = when (spec.id) {
         ToolId.MERGE -> runMerge(docs, onProgress)
+        ToolId.COMPARE -> runCompare(docs, onProgress)
         ToolId.SPLIT -> runSplit(docs.single(), options, onProgress)
         ToolId.EXTRACT -> runExtract(docs.single(), options, onProgress)
         ToolId.COMPRESS -> runCompress(docs.single(), options, onProgress)
@@ -50,6 +52,29 @@ class ToolRunner(private val store: DocumentStore) {
             file = output,
             suggestedName = "merged.pdf",
             note = S.mergedNote(docs.size, formatBytes(output.length())),
+        )
+    }
+
+    private suspend fun runCompare(docs: List<InputDoc>, onProgress: Progress): ToolResult {
+        require(docs.size == 2) { S.pickExactlyTwo }
+        val (original, changed) = docs
+        val output = store.newOutputFile("comparison", "pdf")
+        val found = PdfCompare.compare(
+            original = original.requireFile(),
+            changed = changed.requireFile(),
+            output = output,
+            originalPassword = original.password,
+            changedPassword = changed.password,
+            onProgress = onProgress,
+        )
+        return ToolResult.One(
+            file = output,
+            suggestedName = "${DocumentStore.stem(changed.name)}-compared.pdf",
+            note = if (found.identical) {
+                S.compareIdentical
+            } else {
+                S.compareNote(found.added, found.removed, found.pagesWithChanges)
+            },
         )
     }
 

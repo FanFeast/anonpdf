@@ -336,6 +336,19 @@ internal object StringsPt : Strings() {
     override val editColour = "Voltar às cores"
     override fun copyOfPage(page: Int) = "cópia da página $page"
     override val blankPageName = "página em branco"
+    override val compareTitle = "Comparar PDFs"
+    override val compareSummary = "Veja o que mudou entre duas versões de um documento"
+    override val compareCaveat =
+        "Escolha primeiro o original e depois a versão alterada. As palavras são comparadas; texto que faz parte de uma imagem, como em digitalizações, não."
+    override val pickExactlyTwo = "Escolha exatamente dois PDFs: o original e depois a versão alterada."
+    override fun compareOriginal(page: Int) = "Original · página $page"
+    override fun compareChanged(page: Int) = "Alterado · página $page"
+    override val compareNotInOriginal = "Não está no original"
+    override val compareNotInChanged = "Não está na versão alterada"
+    override fun compareNote(added: Int, removed: Int, pages: Int) =
+        "$added palavras adicionadas e $removed removidas, em ${this.pages(pages)}. " +
+            "As removidas estão em vermelho à esquerda e as adicionadas em verde à direita."
+    override val compareIdentical = "Os dois dizem o mesmo, palavra por palavra."
     override fun markText(snippet: String, page: Int) = "texto \"$snippet\" · página $page"
     override fun markHighlight(page: Int) = "destaque · página $page"
     override fun markWhiteout(page: Int) = "corretivo · página $page"
