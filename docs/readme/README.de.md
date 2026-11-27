@@ -46,9 +46,18 @@ bleibt unverändert.
 |---|---|---|
 | ![Text](../screenshots/editor-text.png) | ![Zeichnen](../screenshots/editor-draw.png) | ![Zusammenführen](../screenshots/editor-merge.png) |
 
-- **Alle Werkzeuge an einem Ort**, auf vier Seiten: *Seiten*, *Inhalt*,
-  *Ganze Datei* und *Umwandeln & sperren*. Die Werkzeuge für ganze Dateien
-  bekommen das Dokument mit deinen ausstehenden Änderungen.
+| Finden und schwärzen | Kopf- und Fußzeilen, Bates-Nummern | Zwei Fassungen vergleichen |
+|---|---|---|
+| ![Schwärzen](../screenshots/editor-redact.png) | ![Kopf- und Fußzeile](../screenshots/editor-header-footer.png) | ![Vergleichen](../screenshots/compare.png) |
+
+- **Alle Werkzeuge an einem Ort**, in sechs Gruppen: *Seiten*, *Inhalt*,
+  *Stempel*, *Scans*, *Ganze Datei* und *Umwandeln & sperren*. Tippe auf den
+  Namen einer Gruppe, um dorthin zu springen, oder wische. Die Werkzeuge für
+  ganze Dateien bekommen das Dokument mit deinen ausstehenden Änderungen.
+- **Finden und schwärzen**: Wörter eingeben oder E-Mail-Adressen,
+  Telefonnummern oder lange Nummern wählen; jeder Treffer wird geschwärzt und
+  aus der Datei entfernt, nicht nur verdeckt. Text in gescannten Bildern wird
+  nicht gefunden, und das Werkzeug sagt das.
 - **PDF-Formulare ausfüllen**: Textfelder, Kontrollkästchen, Optionsfelder und
   Auswahllisten, mit Vorschau beim Tippen und der Option, die Antworten beim
   Speichern festzuschreiben.
@@ -115,10 +124,12 @@ oder die Systemauswahl.
 
 **Bearbeiten** (alles in einem Durchgang, mit Vorschau): drehen, zuschneiden,
 Größe ändern (A3, A4, A5, Letter, Legal, Tabloid), löschen, umsortieren,
-zusammenführen, Formulare ausfüllen, Text, Abdeckung, Markierung, Zeichnung,
-Wasserzeichen und Seitenzahlen.
+zusammenführen, Formulare ausfüllen, Text, Abdeckung, Schwärzen, Markierung,
+Zeichnung, Wasserzeichen, Seitenzahlen, Kopf- und Fußzeilen mit Bates-Nummern,
+Lesezeichen, Kommentare entfernen oder einbrennen, leere Seiten finden, Scans
+begradigen, Graustufen, Seiten duplizieren und Leerseiten einfügen.
 
-**Ganze Dateien:** zusammenführen, teilen, Seiten entnehmen, verkleinern, PDF zu
+**Ganze Dateien:** zusammenführen, zwei Fassungen vergleichen (entfernte Wörter rot, neue grün), teilen, Seiten entnehmen, verkleinern, PDF zu
 JPG/PNG, Bilder zu PDF, Text entnehmen, mit AES-256 schützen oder ein Passwort
 entfernen, und signieren.
 

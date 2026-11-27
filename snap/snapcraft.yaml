@@ -17,7 +17,11 @@ description: |
   - Rotate, reorder, delete, crop and resize pages
   - Add pages from other PDFs, then keep editing them like any other page
   - Fill, highlight, draw, add text, a watermark or page numbers
+  - Find and black out words, emails and numbers, removed from the file
+  - Headers and footers with Bates numbers, and bookmarks
+  - Straighten scanned pages, remove comments, delete blank pages
   - Merge, split, extract pages and compress
+  - Compare two versions: removed words in red, added in green
   - Turn pages into pictures, or pictures into a PDF
   - Pull out the text, sign a page, add or remove a password
 

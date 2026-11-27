@@ -23,11 +23,16 @@ the feature graphic, made by `generate_store_graphics.py`.
     • Resize: scale by percentage, or refit onto A4, Letter, A3, A5, Legal or Tabloid
     • Add pages from other PDFs, then edit them like any other page
     • Add text, highlight, draw, or white out content (the page is flattened, so it is really gone)
-    • Text watermarks and page numbers
+    • Find and black out words, email addresses, phone numbers and long numbers, removed from the file and not just covered
+    • Watermarks, page numbers, and headers and footers with Bates numbers and the date
+    • Bookmarks: add, rename, reorder and nest the table of contents
+    • Clean up: remove or burn in comments, and find and delete blank pages
+    • Scans: straighten crooked pages, turn them grey, duplicate a page, add a blank one
     • Every change can be undone until you save, and your original file is never modified
 
     WHOLE-FILE TOOLS
     • Merge, split, and extract pages
+    • Compare two versions: removed words in red, added words in green, side by side
     • Compress: re-encode images only, or flatten pages for the smallest file
     • PDF to JPG or PNG, and pictures to PDF
     • Extract text to a .txt file

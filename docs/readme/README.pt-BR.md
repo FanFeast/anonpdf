@@ -45,9 +45,18 @@ gravado até você salvar, e o original nunca é modificado.
 |---|---|---|
 | ![Texto](../screenshots/editor-text.png) | ![Desenho](../screenshots/editor-draw.png) | ![Juntar](../screenshots/editor-merge.png) |
 
-- **Todas as ferramentas ficam aqui**, em quatro páginas: *Páginas*, *Conteúdo*,
-  *Arquivo inteiro* e *Converter e proteger*. As de arquivo inteiro recebem o
-  documento com suas alterações pendentes já aplicadas.
+| Encontrar e tarjar | Cabeçalhos, rodapés, números Bates | Comparar duas versões |
+|---|---|---|
+| ![Tarjar](../screenshots/editor-redact.png) | ![Cabeçalhos](../screenshots/editor-header-footer.png) | ![Comparar](../screenshots/compare.png) |
+
+- **Todas as ferramentas ficam aqui**, em seis grupos: *Páginas*, *Conteúdo*,
+  *Carimbos*, *Digitalizações*, *Arquivo inteiro* e *Converter e proteger*. Toque
+  no nome de um grupo para ir direto a ele, ou deslize. As de arquivo inteiro
+  recebem o documento com suas alterações pendentes já aplicadas.
+- **Encontrar e tarjar**: digite palavras ou escolha e-mails, telefones ou
+  números longos; cada ocorrência é tarjada de preto e removida do arquivo, não
+  só coberta. Texto dentro de imagens digitalizadas não é encontrado, e a
+  ferramenta avisa.
 - **Preencha formulários PDF**: caixas de texto, caixas de seleção, botões de opção
   e listas, com prévia enquanto você digita e a opção de travar as respostas na
   página ao salvar.
@@ -111,9 +120,12 @@ pastas, ou o seletor do sistema.
 
 **Edição** (tudo de uma vez, com prévia): girar, cortar, redimensionar (A3, A4, A5,
 Carta, Ofício, Tabloide), excluir, reordenar, juntar, preencher formulários, texto,
-corretivo, destaque, desenho, marca-d'água e números de página.
+corretivo, tarja, destaque, desenho, marca-d'água, números de página, cabeçalhos
+e rodapés com números Bates, marcadores, remover ou fixar comentários, achar
+páginas em branco, endireitar digitalizações, tons de cinza, duplicar páginas e
+adicionar páginas em branco.
 
-**Arquivos inteiros:** juntar, dividir, extrair páginas, comprimir, PDF em JPG/PNG,
+**Arquivos inteiros:** juntar, comparar duas versões (palavras removidas em vermelho, novas em verde), dividir, extrair páginas, comprimir, PDF em JPG/PNG,
 imagens em PDF, extrair texto, proteger com AES-256 ou remover uma senha, e assinar.
 
 **Ao salvar:** se quiser, remova as informações ocultas do PDF (autor, app que o

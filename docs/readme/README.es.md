@@ -45,9 +45,18 @@ Nada toca el disco hasta que guardas, y el original nunca se modifica.
 |---|---|---|
 | ![Texto](../screenshots/editor-text.png) | ![Dibujo](../screenshots/editor-draw.png) | ![Unir](../screenshots/editor-merge.png) |
 
-- **Todas las herramientas están aquí**, en cuatro páginas: *Páginas*,
-  *Contenido*, *Todo el archivo* y *Convertir y proteger*. Las de archivo
-  completo reciben el documento con tus cambios pendientes ya aplicados.
+| Buscar y tachar | Encabezados, pies y números Bates | Comparar dos versiones |
+|---|---|---|
+| ![Tachar](../screenshots/editor-redact.png) | ![Encabezados](../screenshots/editor-header-footer.png) | ![Comparar](../screenshots/compare.png) |
+
+- **Todas las herramientas están aquí**, en seis grupos: *Páginas*,
+  *Contenido*, *Sellos*, *Escaneos*, *Todo el archivo* y *Convertir y proteger*.
+  Toca el nombre de un grupo para ir a él, o desliza. Las de archivo completo
+  reciben el documento con tus cambios pendientes ya aplicados.
+- **Buscar y tachar**: escribe palabras o elige direcciones de correo, teléfonos
+  o números largos; cada coincidencia se tacha en negro y se elimina del
+  archivo, no solo se tapa. El texto dentro de imágenes escaneadas no se
+  encuentra, y la herramienta lo dice.
 - **Rellena formularios PDF**: cuadros de texto, casillas, botones de opción y
   listas, con vista previa mientras escribes y la opción de bloquear las
   respuestas en la página al guardar.
@@ -113,10 +122,12 @@ por carpetas, o el selector del sistema.
 
 **Editar** (todo en una pasada, con vista previa): girar, recortar, cambiar de
 tamaño (A3, A4, A5, Carta, Oficio, Tabloide), eliminar, reordenar, unir, rellenar
-formularios, texto, corrector, resaltado, dibujo, marca de agua y números de
-página.
+formularios, texto, corrector, tachado, resaltado, dibujo, marca de agua,
+números de página, encabezados y pies con números Bates, marcadores, quitar o
+fijar comentarios, buscar páginas en blanco, enderezar escaneos, escala de
+grises, duplicar páginas y añadir páginas en blanco.
 
-**Archivos completos:** unir, dividir, extraer páginas, comprimir, PDF a JPG/PNG,
+**Archivos completos:** unir, comparar dos versiones (palabras quitadas en rojo, nuevas en verde), dividir, extraer páginas, comprimir, PDF a JPG/PNG,
 imágenes a PDF, extraer texto, proteger con AES-256 o quitar una contraseña, y
 firmar.
 
