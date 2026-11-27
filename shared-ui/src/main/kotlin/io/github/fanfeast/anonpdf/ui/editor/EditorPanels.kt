@@ -3,6 +3,7 @@ package io.github.fanfeast.anonpdf.ui.editor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -15,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +36,9 @@ import io.github.fanfeast.anonpdf.pdf.PaperSize
 import io.github.fanfeast.anonpdf.pdf.PdfText
 import io.github.fanfeast.anonpdf.pdf.ResizeTarget
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
+import io.github.fanfeast.anonpdf.pdf.RedactCount
+import io.github.fanfeast.anonpdf.pdf.RedactKind
+import io.github.fanfeast.anonpdf.pdf.RedactRule
 import io.github.fanfeast.anonpdf.pdf.TextMark
 import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
 import io.github.fanfeast.anonpdf.pdf.WatermarkOptions
@@ -295,6 +300,73 @@ fun WatermarkPanel(
             onValueChange = { onChange(options.copy(fontSize = it)) },
             valueRange = 12f..140f,
             valueLabel = "${options.fontSize.roundToInt()} pt",
+        )
+    }
+}
+
+/**
+ * Find and black out. The preview above already shows the boxes; [count] is
+ * what the search finds across the pages it applies to, null while it looks.
+ */
+@Composable
+fun RedactPanel(
+    rule: RedactRule,
+    targetLabel: String,
+    count: RedactCount?,
+    hasExisting: Boolean,
+    onChange: (RedactRule) -> Unit,
+    onRemove: () -> Unit,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+) {
+    PanelFrame(
+        title = S.redactTitle,
+        subtitle = targetLabel,
+        onCancel = onCancel,
+        onApply = onApply,
+        applyEnabled = rule.isUsable && (count?.matches ?: 0) > 0,
+        onRemove = if (hasExisting) onRemove else null,
+    ) {
+        Text(S.redactLookFor, style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(8.dp))
+        // Wrapped rather than scrolled: every kind is worth seeing at a glance,
+        // and a mouse gives no hint that a row scrolls sideways.
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            RedactKind.entries.forEach { kind ->
+                FilterChip(
+                    selected = kind == rule.kind,
+                    onClick = { onChange(rule.copy(kind = kind)) },
+                    label = { Text(kind.label) },
+                )
+            }
+        }
+        if (rule.kind == RedactKind.WORDS) {
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = rule.text,
+                onValueChange = { onChange(rule.copy(text = it)) },
+                label = { Text(S.redactFind) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        if (rule.isUsable) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                when {
+                    count == null -> S.redactSearching
+                    count.matches == 0 -> S.redactNothing
+                    else -> S.redactFound(count.matches, count.pages)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Text(
+            S.redactNote,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

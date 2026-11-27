@@ -134,6 +134,7 @@ internal object StringsDe : Strings() {
     override val toolDraw = "Zeichnen"
     override val toolWatermark = "Wasserzeichen"
     override val toolNumbers = "Nummern"
+    override val toolRedact = "Schwärzen"
     override val toolMerge = "Zusammenf."
     override val toolSplit = "Teilen"
     override val toolExtract = "Entnehmen"
@@ -254,6 +255,23 @@ internal object StringsDe : Strings() {
     override val editRemoveContent = "Hinzugefügte Inhalte entfernen"
     override fun editFillForm(fields: Int, lock: Boolean) =
         (if (fields == 1) "1 Feld ausfüllen" else "$fields Felder ausfüllen") + if (lock) " · Formular festschreiben" else ""
+    override val redactTitle = "Suchen und schwärzen"
+    override val redactLookFor = "Suchen nach"
+    override val redactWords = "Wörter"
+    override val redactEmails = "E-Mail-Adressen"
+    override val redactPhones = "Telefonnummern"
+    override val redactNumbers = "Lange Nummern"
+    override val redactFind = "Zu schwärzende Wörter"
+    override fun quoted(text: String) = "„$text“"
+    override fun redactFound(matches: Int, pages: Int) = "$matches Treffer auf ${this.pages(pages)}"
+    override val redactNothing = "Auf diesen Seiten wurde nichts gefunden."
+    override val redactSearching = "Suche läuft…"
+    override val redactNote =
+        "Jeder Treffer wird schwarz abgedeckt und aus der Datei entfernt. Eine Seite mit Treffer wird als " +
+            "Bild gespeichert, ihr übriger Text lässt sich danach nicht mehr markieren. Text in Bildern, " +
+            "etwa bei Scans, wird nicht gefunden."
+    override fun editRedact(what: String, scope: String) = "$what schwärzen · $scope"
+    override val editClearRedactions = "Alle Schwärzungen entfernen"
     override fun markText(snippet: String, page: Int) = "Text „$snippet“ · Seite $page"
     override fun markHighlight(page: Int) = "Markierung · Seite $page"
     override fun markWhiteout(page: Int) = "Abdeckung · Seite $page"

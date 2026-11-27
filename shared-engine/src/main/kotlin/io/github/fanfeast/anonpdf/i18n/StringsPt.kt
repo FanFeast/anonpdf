@@ -134,6 +134,7 @@ internal object StringsPt : Strings() {
     override val toolDraw = "Desenhar"
     override val toolWatermark = "Marca-d'água"
     override val toolNumbers = "Números"
+    override val toolRedact = "Tarjar"
     override val toolMerge = "Juntar"
     override val toolSplit = "Dividir"
     override val toolExtract = "Extrair"
@@ -252,6 +253,23 @@ internal object StringsPt : Strings() {
     override val editRemoveContent = "Remover conteúdo adicionado"
     override fun editFillForm(fields: Int, lock: Boolean) =
         (if (fields == 1) "Preencher 1 campo" else "Preencher $fields campos") + if (lock) " · travar o formulário" else ""
+    override val redactTitle = "Localizar e tarjar"
+    override val redactLookFor = "Procurar"
+    override val redactWords = "Palavras"
+    override val redactEmails = "Endereços de e-mail"
+    override val redactPhones = "Telefones"
+    override val redactNumbers = "Números longos"
+    override val redactFind = "Palavras a tarjar"
+    override fun redactFound(matches: Int, pages: Int) =
+        (if (matches == 1) "1 resultado" else "$matches resultados") + " em ${this.pages(pages)}"
+    override val redactNothing = "Nada encontrado nestas páginas."
+    override val redactSearching = "Procurando…"
+    override val redactNote =
+        "Cada resultado é coberto de preto e removido do arquivo. Uma página com resultados é salva como " +
+            "imagem, então o resto do texto dela não poderá mais ser selecionado. Texto que faz parte de " +
+            "uma imagem, como em digitalizações, não é encontrado."
+    override fun editRedact(what: String, scope: String) = "Tarjar $what · $scope"
+    override val editClearRedactions = "Remover todas as tarjas"
     override fun markText(snippet: String, page: Int) = "texto \"$snippet\" · página $page"
     override fun markHighlight(page: Int) = "destaque · página $page"
     override fun markWhiteout(page: Int) = "corretivo · página $page"

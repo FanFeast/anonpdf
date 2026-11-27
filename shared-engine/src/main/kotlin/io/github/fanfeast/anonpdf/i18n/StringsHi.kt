@@ -132,6 +132,7 @@ internal object StringsHi : Strings() {
     override val toolDraw = "ड्रॉ करें"
     override val toolWatermark = "वॉटरमार्क"
     override val toolNumbers = "नंबर"
+    override val toolRedact = "काला करें"
     override val toolMerge = "जोड़ें"
     override val toolSplit = "बांटें"
     override val toolExtract = "निकालें"
@@ -245,6 +246,22 @@ internal object StringsHi : Strings() {
     override val editRemoveContent = "जोड़ी गई सामग्री हटाएं"
     override fun editFillForm(fields: Int, lock: Boolean) =
         "$fields फ़ील्ड भरें" + if (lock) " · फ़ॉर्म पक्का करें" else ""
+    override val redactTitle = "ढूँढें और काला करें"
+    override val redactLookFor = "क्या ढूँढें"
+    override val redactWords = "शब्द"
+    override val redactEmails = "ईमेल पते"
+    override val redactPhones = "फ़ोन नंबर"
+    override val redactNumbers = "लंबे नंबर"
+    override val redactFind = "काले करने वाले शब्द"
+    override fun redactFound(matches: Int, pages: Int) = "${this.pages(pages)} पर $matches मिलान"
+    override val redactNothing = "इन पेजों पर कुछ नहीं मिला।"
+    override val redactSearching = "ढूँढ रहे हैं…"
+    override val redactNote =
+        "हर मिलान को काले रंग से ढककर फ़ाइल से हटा दिया जाता है। जिस पेज पर मिलान हो, वह तस्वीर के रूप में " +
+            "सेव होता है, इसलिए उसका बाकी टेक्स्ट बाद में चुना नहीं जा सकेगा। तस्वीरों के अंदर का टेक्स्ट, " +
+            "जैसे स्कैन में, नहीं मिलता।"
+    override fun editRedact(what: String, scope: String) = "$what काला करें · $scope"
+    override val editClearRedactions = "सारे काले किए हिस्से हटाएँ"
     override fun markText(snippet: String, page: Int) = "टेक्स्ट \"$snippet\" · पेज $page"
     override fun markHighlight(page: Int) = "हाइलाइट · पेज $page"
     override fun markWhiteout(page: Int) = "व्हाइट-आउट · पेज $page"

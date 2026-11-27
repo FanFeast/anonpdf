@@ -94,6 +94,8 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.AddMark
+import io.github.fanfeast.anonpdf.pdf.AddRedaction
+import io.github.fanfeast.anonpdf.pdf.ClearRedactions
 import io.github.fanfeast.anonpdf.pdf.CropInsets
 import io.github.fanfeast.anonpdf.pdf.CropPages
 import io.github.fanfeast.anonpdf.pdf.DeletePages
@@ -114,7 +116,12 @@ import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.SizeF
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.PdfForms
+import io.github.fanfeast.anonpdf.pdf.PdfRedact
 import io.github.fanfeast.anonpdf.pdf.PreviewPage
+import io.github.fanfeast.anonpdf.pdf.RedactCount
+import io.github.fanfeast.anonpdf.pdf.RedactKind
+import io.github.fanfeast.anonpdf.pdf.RedactRule
+import io.github.fanfeast.anonpdf.pdf.Redaction
 import io.github.fanfeast.anonpdf.pdf.RemoveMark
 import io.github.fanfeast.anonpdf.pdf.ResizePages
 import io.github.fanfeast.anonpdf.pdf.ResizeTarget
@@ -203,6 +210,7 @@ internal sealed interface EditorMode {
     ) : EditorMode
     data class Watermarking(val options: WatermarkOptions) : EditorMode
     data class Numbering(val options: PageNumberOptions) : EditorMode
+    data class Redacting(val rule: RedactRule) : EditorMode
     data class AddingText(val mark: TextMark, val placed: Boolean) : EditorMode
     data class Filling(
         val highlight: Boolean,
@@ -479,6 +487,11 @@ fun EditorScreen(
             )
             is EditorMode.Watermarking -> plan.copy(watermark = current.options)
             is EditorMode.Numbering -> plan.copy(pageNumbers = current.options)
+            is EditorMode.Redacting -> if (current.rule.isUsable) {
+                plan.copy(redactions = plan.redactions + Redaction(current.rule, targets))
+            } else {
+                plan
+            }
             is EditorMode.FillingForm -> plan.copy(
                 formValues = plan.formValues + current.values,
                 flattenForm = current.flatten,
@@ -488,6 +501,23 @@ fun EditorScreen(
     }
 
     val kept = previewPlan.kept
+
+    // What the open redaction finds across its pages; null while it looks.
+    var redactCount by remember { mutableStateOf<RedactCount?>(null) }
+    val redactRule = (mode as? EditorMode.Redacting)?.rule
+    val redactTargets = state.targets()
+    LaunchedEffect(redactRule, redactTargets, extraSources.size) {
+        redactCount = null
+        val rule = redactRule?.takeIf { it.isUsable } ?: return@LaunchedEffect
+        delay(PREVIEW_DEBOUNCE_MS)
+        redactCount = try {
+            PdfRedact.count(planSources(), rule, redactTargets)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (t: Throwable) {
+            RedactCount(0, 0)
+        }
+    }
 
     val effectiveSizes = remember(previewPlan, document, extraSources.size) {
         kept.map { pageState ->
@@ -624,6 +654,7 @@ fun EditorScreen(
             EditorTool.PAGE_NUMBERS -> openMode(
                 EditorMode.Numbering(plan.pageNumbers ?: PageNumberOptions()),
             )
+            EditorTool.REDACT -> openMode(EditorMode.Redacting(RedactRule(RedactKind.WORDS)))
 
             EditorTool.TEXT -> if (page != null) {
                 openMode(
@@ -811,6 +842,7 @@ fun EditorScreen(
                         ?.let { applyInsert(it.where) }
                 },
                 onInsertCancel = ::cancelInsert,
+                redactCount = redactCount,
                 resultingSize = describeResult(
                     effectiveSizes.getOrNull(state.position),
                 ),
@@ -1288,6 +1320,7 @@ private fun DrawerBody(
     onSave: () -> Unit,
     onInsertApply: () -> Unit,
     onInsertCancel: () -> Unit,
+    redactCount: RedactCount?,
     resultingSize: String,
 ) {
     val markCount = currentSource?.let { plan.marksFor(it).size } ?: 0
@@ -1346,6 +1379,7 @@ private fun DrawerBody(
                 val highlighted = buildSet {
                     if (plan.watermark != null) add(EditorTool.WATERMARK)
                     if (plan.pageNumbers != null) add(EditorTool.PAGE_NUMBERS)
+                    if (plan.redactions.isNotEmpty()) add(EditorTool.REDACT)
                     if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
                 }
                 if (stacked) {
@@ -1431,6 +1465,23 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(SetPageNumbers(current.options))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.Redacting -> RedactPanel(
+            rule = current.rule,
+            targetLabel = state.targetLabel(),
+            count = redactCount,
+            hasExisting = plan.redactions.isNotEmpty(),
+            onChange = { onModeChange(current.copy(rule = it)) },
+            onRemove = {
+                state.apply(ClearRedactions)
+                onExitMode()
+            },
+            onCancel = onExitMode,
+            onApply = {
+                state.apply(AddRedaction(Redaction(current.rule, state.targets())))
                 onExitMode()
             },
         )

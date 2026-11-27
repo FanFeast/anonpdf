@@ -34,6 +34,7 @@ import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.apache.pdfbox.text.PDFTextStripper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -160,6 +161,34 @@ class DesktopAppTest {
         assertEquals("Jane Doe", fields.getValue("full_name").value)
         assertEquals("Yes", fields.getValue("agree").value)
     }
+
+    @Test
+    fun `found text is blacked out on the chosen pages and gone from the saved file`() =
+        runDesktopComposeUiTest(WIDTH, HEIGHT) {
+            setContent { DesktopApp(DesktopNavigator(pdf)) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+            onNodeWithText("All pages").performClick()
+            onNodeWithText("Redact").performClick()
+            onNode(hasSetTextAction()).performTextInput("page   2")
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("1 match on 1 page")).fetchSemanticsNodes().isNotEmpty()
+            }
+            onNodeWithText("Apply").assertIsEnabled().performClick()
+            onNodeWithText("1 edit").assertExists()
+
+            onNodeWithText("Save as…").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+            val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+            PdfOps.load(saved).use { document ->
+                fun text(page: Int) = PDFTextStripper().apply {
+                    startPage = page
+                    endPage = page
+                }.getText(document)
+                assertFalse(text(2).contains("Page 2"))
+                assertTrue("pages without a match keep their text", text(1).contains("Page 1"))
+            }
+        }
 
     @Test
     fun `closing a document returns to the start page`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {

@@ -134,6 +134,7 @@ internal object StringsEs : Strings() {
     override val toolDraw = "Dibujar"
     override val toolWatermark = "Marca de agua"
     override val toolNumbers = "Números"
+    override val toolRedact = "Tachar"
     override val toolMerge = "Unir"
     override val toolSplit = "Dividir"
     override val toolExtract = "Extraer"
@@ -253,6 +254,24 @@ internal object StringsEs : Strings() {
     override val editRemoveContent = "Quitar contenido añadido"
     override fun editFillForm(fields: Int, lock: Boolean) =
         (if (fields == 1) "Rellenar 1 campo" else "Rellenar $fields campos") + if (lock) " · bloquear el formulario" else ""
+    override val redactTitle = "Buscar y tachar"
+    override val redactLookFor = "Buscar"
+    override val redactWords = "Palabras"
+    override val redactEmails = "Correos electrónicos"
+    override val redactPhones = "Teléfonos"
+    override val redactNumbers = "Números largos"
+    override val redactFind = "Palabras que tachar"
+    override fun quoted(text: String) = "«$text»"
+    override fun redactFound(matches: Int, pages: Int) =
+        (if (matches == 1) "1 coincidencia" else "$matches coincidencias") + " en ${this.pages(pages)}"
+    override val redactNothing = "No se encontró nada en estas páginas."
+    override val redactSearching = "Buscando…"
+    override val redactNote =
+        "Cada coincidencia se cubre de negro y se elimina del archivo. Una página con coincidencias se " +
+            "guarda como imagen, así que el resto de su texto ya no se podrá seleccionar. No se encuentra " +
+            "el texto que forma parte de una imagen, como en un escaneo."
+    override fun editRedact(what: String, scope: String) = "Tachar $what · $scope"
+    override val editClearRedactions = "Quitar todos los tachados"
     override fun markText(snippet: String, page: Int) = "texto «$snippet» · página $page"
     override fun markHighlight(page: Int) = "resaltado · página $page"
     override fun markWhiteout(page: Int) = "corrector · página $page"
