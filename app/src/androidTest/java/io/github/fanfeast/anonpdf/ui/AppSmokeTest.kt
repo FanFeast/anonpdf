@@ -5,6 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.StrictMode
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
@@ -216,20 +218,18 @@ class AppSmokeTest {
         // Hand the edited document to a one-shot tool. Its tile is on a later
         // page of the tool drawer, so swipe the drawer until the tile is on
         // screen. The pager also lays out the pages either side of the one
-        // showing, so a tile existing is not enough: it has to be displayed, and
-        // so does the tile the swipe starts from.
+        // showing, so a tile existing is not enough: it has to be displayed.
         val compressTile = hasText("Compress") and hasClickAction()
-        // A tile every tool page has one of, so there is always something to swipe.
-        val anyTile = hasClickAction() and (
-            hasText("Crop") or hasText("Text") or hasText("Watermark") or hasText("Straighten") or
-                hasText("Split") or hasText("Unlock")
-            )
         fun SemanticsNodeInteractionCollection.firstShown() =
             fetchSemanticsNodes().indices.map { this[it] }.firstOrNull { it.isDisplayed() }
         for (swipe in 0 until TOOL_PAGES_TO_SWIPE) {
             if (compose.onAllNodes(compressTile).firstShown() != null) break
-            val from = compose.onAllNodes(anyTile).firstShown() ?: error("no tool tile on screen to swipe from")
-            from.performTouchInput { swipeLeft() }
+            // Across the whole pager, the lowest area that scrolls sideways: a
+            // swipe across one small tile can be too short to turn the page.
+            val scrollers = compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange))
+            val pager = scrollers.fetchSemanticsNodes().withIndex().maxByOrNull { it.value.boundsInRoot.top }
+                ?: error("no tool pager")
+            scrollers[pager.index].performTouchInput { swipeLeft() }
             compose.waitForIdle()
         }
         (compose.onAllNodes(compressTile).firstShown() ?: error("Compress never came on screen"))
