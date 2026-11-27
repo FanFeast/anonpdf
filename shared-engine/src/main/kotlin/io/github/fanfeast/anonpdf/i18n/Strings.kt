@@ -158,6 +158,7 @@ open class Strings {
     open val toolDraw = "Draw"
     open val toolWatermark = "Watermark"
     open val toolNumbers = "Numbers"
+    open val toolRedact = "Redact"
     open val toolMerge = "Merge"
     open val toolSplit = "Split"
     open val toolExtract = "Extract"
@@ -278,6 +279,25 @@ open class Strings {
     open val editRemoveContent = "Remove added content"
     open fun editFillForm(fields: Int, lock: Boolean) =
         (if (fields == 1) "Fill 1 field" else "Fill $fields fields") + if (lock) " · lock the form" else ""
+    // Find and redact.
+    open val redactTitle = "Find and black out"
+    open val redactLookFor = "Look for"
+    open val redactWords = "Words"
+    open val redactEmails = "Email addresses"
+    open val redactPhones = "Phone numbers"
+    open val redactNumbers = "Long numbers"
+    open val redactFind = "Words to black out"
+    open fun quoted(text: String) = "\"$text\""
+    open fun redactFound(matches: Int, pages: Int) =
+        (if (matches == 1) "1 match" else "$matches matches") + " on ${this.pages(pages)}"
+    open val redactNothing = "Nothing found on these pages."
+    open val redactSearching = "Searching…"
+    open val redactNote =
+        "Each match is covered in black and removed from the file. A page with a match is saved as a " +
+            "picture, so its other text can't be selected afterwards. Text inside pictures, as on a scan, " +
+            "isn't found."
+    open fun editRedact(what: String, scope: String) = "Black out $what · $scope"
+    open val editClearRedactions = "Remove all redactions"
     open fun markText(snippet: String, page: Int) = "Text \"$snippet\" · page $page"
     open fun markHighlight(page: Int) = "Highlight · page $page"
     open fun markWhiteout(page: Int) = "White-out · page $page"

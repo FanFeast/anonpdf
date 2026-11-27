@@ -156,6 +156,7 @@ internal object StringsRu : Strings() {
     override val toolDraw = "Рисовать"
     override val toolWatermark = "Водяной знак"
     override val toolNumbers = "Номера"
+    override val toolRedact = "Закрасить"
     override val toolMerge = "Объединить"
     override val toolSplit = "Разделить"
     override val toolExtract = "Извлечь"
@@ -274,6 +275,24 @@ internal object StringsRu : Strings() {
     override val editRemoveContent = "Убрать добавленное"
     override fun editFillForm(fields: Int, lock: Boolean) =
         "Заполнить: ${plural(fields, "поле", "поля", "полей")}" + if (lock) " · закрепить форму" else ""
+    override val redactTitle = "Найти и закрасить"
+    override val redactLookFor = "Искать"
+    override val redactWords = "Слова"
+    override val redactEmails = "Адреса эл. почты"
+    override val redactPhones = "Телефоны"
+    override val redactNumbers = "Длинные номера"
+    override val redactFind = "Слова, которые закрасить"
+    override fun quoted(text: String) = "«$text»"
+    override fun redactFound(matches: Int, pages: Int) =
+        "Найдено: " + plural(matches, "совпадение", "совпадения", "совпадений") + " · " + this.pages(pages)
+    override val redactNothing = "На этих страницах ничего не найдено."
+    override val redactSearching = "Поиск…"
+    override val redactNote =
+        "Каждое совпадение закрашивается чёрным и удаляется из файла. Страница с совпадением сохраняется " +
+            "как изображение, поэтому остальной текст на ней больше нельзя будет выделить. Текст внутри " +
+            "изображений, например на сканах, не находится."
+    override fun editRedact(what: String, scope: String) = "Закрасить $what · $scope"
+    override val editClearRedactions = "Убрать все закрашивания"
     override fun markText(snippet: String, page: Int) = "текст «$snippet» · страница $page"
     override fun markHighlight(page: Int) = "выделение · страница $page"
     override fun markWhiteout(page: Int) = "замазка · страница $page"

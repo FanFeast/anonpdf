@@ -141,6 +141,18 @@ data class FillForm(val values: Map<String, String>, val flatten: Boolean) : Edi
     override fun describe() = S.editFillForm(values.size, flatten)
 }
 
+/**
+ * Blacks out everything [Redaction.rule] finds on its pages. Each one adds to
+ * those before it; [ClearRedactions] takes them all away.
+ */
+data class AddRedaction(val redaction: Redaction) : EditOp {
+    override fun describe() = S.editRedact(redaction.rule.describe(), scopeOf(redaction.targets))
+}
+
+data object ClearRedactions : EditOp {
+    override fun describe() = S.editClearRedactions
+}
+
 /** What one output page looks like: where it came from and what was done to it. */
 data class PageState(
     val sourceIndex: Int,
@@ -167,6 +179,8 @@ data class EditPlan(
     val formValues: Map<String, String> = emptyMap(),
     /** Burn the form into the pages on export, so its answers cannot be changed. */
     val flattenForm: Boolean = false,
+    /** Searches whose matches are blacked out, in the order they were added. */
+    val redactions: List<Redaction> = emptyList(),
     /**
      * How many pages the plan started with. Defaults to the page count at
      * construction, and survives every [copy], which is what lets [hasChanges]
@@ -179,9 +193,12 @@ data class EditPlan(
 
     fun marksFor(sourceIndex: Int) = marks.filter { it.sourceIndex == sourceIndex }
 
+    fun redactionsFor(sourceIndex: Int) =
+        redactions.filter { sourceIndex in it.targets }.map { it.rule }
+
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || marks.isNotEmpty() ||
-            formValues.isNotEmpty() || flattenForm ||
+            formValues.isNotEmpty() || flattenForm || redactions.isNotEmpty() ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
@@ -252,6 +269,9 @@ object EditPlanBuilder {
         is RemoveMark -> plan.copy(marks = plan.marks.filterNot { it.id == op.id })
 
         is FillForm -> plan.copy(formValues = plan.formValues + op.values, flattenForm = op.flatten)
+
+        is AddRedaction -> plan.copy(redactions = plan.redactions + op.redaction)
+        ClearRedactions -> plan.copy(redactions = emptyList())
     }
 
     private fun EditPlan.mapTargets(
@@ -331,7 +351,9 @@ object PdfEditor {
             }
 
             // While every page is still attached, so each field is drawn onto its own.
-            if (plan.flattenForm) PdfForms.flatten(document)
+            // Redacting burns the form in too: the preview always shows it burned
+            // in, and what a field holds has to be on the page to be found there.
+            if (plan.flattenForm || plan.redactions.isNotEmpty()) PdfForms.flatten(document)
 
             val originals = (0 until document.numberOfPages).map { document.getPage(it) }
             originals.forEach { PdfOps.pinInheritedAttributes(it) }
@@ -347,7 +369,7 @@ object PdfEditor {
                 applyPageState(document, page, state)
                 // Marks go on after the page geometry is settled, so an opaque
                 // white-out lands exactly where the user drew it.
-                val marks = plan.marksFor(state.sourceIndex)
+                val marks = marksFor(page, plan, state.sourceIndex)
                 if (drawMarks(document, page, marks, scratchDir, droppedAnnotations)) {
                     flattenedAny = true
                 }
@@ -492,7 +514,7 @@ object PdfEditor {
 
             applyPageState(document, page, state)
             drawMarks(
-                document, page, plan.marksFor(state.sourceIndex), workDir,
+                document, page, marksFor(page, plan, state.sourceIndex), workDir,
                 droppedAnnotations = mutableSetOf(),
             )
             document.addPage(page)
@@ -532,6 +554,18 @@ object PdfEditor {
         } else {
             PdfDraw.scalePage(document, page, state.scale)
         }
+    }
+
+    /**
+     * What goes on [page]: black boxes over whatever the plan's redactions find,
+     * then the user's own marks. Searched once the page geometry is settled, so
+     * the boxes sit on the text as the reader will see it, and before the user's
+     * marks are drawn, so text the user typed is not mistaken for the document's.
+     */
+    private fun marksFor(page: PDPage, plan: EditPlan, sourceIndex: Int): List<PageMark> {
+        val rules = plan.redactionsFor(sourceIndex)
+        val covers = if (rules.isEmpty()) emptyList() else PdfRedact.cover(page, rules, sourceIndex)
+        return covers + plan.marksFor(sourceIndex)
     }
 
     /**

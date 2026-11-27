@@ -139,6 +139,7 @@ internal object StringsFr : Strings() {
     override val toolDraw = "Dessiner"
     override val toolWatermark = "Filigrane"
     override val toolNumbers = "Numéros"
+    override val toolRedact = "Caviarder"
     override val toolMerge = "Fusionner"
     override val toolSplit = "Diviser"
     override val toolExtract = "Extraire"
@@ -258,6 +259,24 @@ internal object StringsFr : Strings() {
     override val editRemoveContent = "Retirer le contenu ajouté"
     override fun editFillForm(fields: Int, lock: Boolean) =
         (if (fields == 1) "Remplir 1 champ" else "Remplir $fields champs") + if (lock) " · verrouiller le formulaire" else ""
+    override val redactTitle = "Rechercher et caviarder"
+    override val redactLookFor = "Rechercher"
+    override val redactWords = "Mots"
+    override val redactEmails = "Adresses e-mail"
+    override val redactPhones = "Numéros de téléphone"
+    override val redactNumbers = "Numéros longs"
+    override val redactFind = "Mots à caviarder"
+    override fun quoted(text: String) = "« $text »"
+    override fun redactFound(matches: Int, pages: Int) =
+        (if (matches <= 1) "$matches résultat" else "$matches résultats") + " sur ${this.pages(pages)}"
+    override val redactNothing = "Rien n'a été trouvé sur ces pages."
+    override val redactSearching = "Recherche…"
+    override val redactNote =
+        "Chaque résultat est recouvert de noir et retiré du fichier. Une page concernée est enregistrée " +
+            "comme image : le reste de son texte ne pourra plus être sélectionné. Le texte qui fait partie " +
+            "d'une image, comme sur un scan, n'est pas trouvé."
+    override fun editRedact(what: String, scope: String) = "Caviarder $what · $scope"
+    override val editClearRedactions = "Retirer tous les caviardages"
     override fun markText(snippet: String, page: Int) = "texte « $snippet » · page $page"
     override fun markHighlight(page: Int) = "surlignage · page $page"
     override fun markWhiteout(page: Int) = "correcteur · page $page"

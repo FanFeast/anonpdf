@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.FilterNone
+import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
@@ -69,6 +70,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     FILL_FORM({ S.toolFillForm }, Icons.Filled.EditNote),
     TEXT({ S.toolText }, Icons.Filled.TextFields),
     WHITEOUT({ S.toolWhiteout }, Icons.Filled.FormatColorFill),
+    REDACT({ S.toolRedact }, Icons.Filled.FindInPage),
     HIGHLIGHT({ S.toolHighlight }, Icons.Filled.Highlight),
     DRAW({ S.toolDraw }, Icons.Filled.Brush),
     WATERMARK({ S.toolWatermark }, Icons.Filled.WaterDrop),
@@ -130,6 +132,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
             EditorTool.FILL_FORM.takeIf { hasForm },
             EditorTool.TEXT,
             EditorTool.WHITEOUT,
+            EditorTool.REDACT,
             EditorTool.HIGHLIGHT,
             EditorTool.DRAW,
             EditorTool.WATERMARK,
