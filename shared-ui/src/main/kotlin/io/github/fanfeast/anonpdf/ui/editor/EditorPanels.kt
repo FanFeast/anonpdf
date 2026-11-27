@@ -29,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.CropInsets
+import io.github.fanfeast.anonpdf.pdf.HeaderFooterOptions
 import io.github.fanfeast.anonpdf.pdf.MarkRect
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PageOrientation
@@ -367,6 +368,93 @@ fun RedactPanel(
             S.redactNote,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Text in any of the six places along the top and bottom of every page, with
+ * page numbers, Bates numbers and the date as tokens. The preview above shows
+ * the current page as it will be stamped.
+ */
+@Composable
+fun HeaderFooterPanel(
+    pageCount: Int,
+    options: HeaderFooterOptions,
+    hasExisting: Boolean,
+    onChange: (HeaderFooterOptions) -> Unit,
+    onRemove: () -> Unit,
+    onCancel: () -> Unit,
+    onApply: () -> Unit,
+) {
+    PanelFrame(
+        title = S.headerFooterTitle,
+        subtitle = S.every_page,
+        onCancel = onCancel,
+        onApply = onApply,
+        applyEnabled = !options.isEmpty,
+        onRemove = if (hasExisting) onRemove else null,
+    ) {
+        for ((heading, row) in listOf(
+            S.headerLine to listOf(NumberPosition.TOP_LEFT, NumberPosition.TOP_CENTER, NumberPosition.TOP_RIGHT),
+            S.footerLine to listOf(NumberPosition.BOTTOM_LEFT, NumberPosition.BOTTOM_CENTER, NumberPosition.BOTTOM_RIGHT),
+        )) {
+            Text(heading, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+            row.forEachIndexed { index, position ->
+                val text = options.slot(position)
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { onChange(options.withSlot(position, it)) },
+                    label = { Text(listOf(S.slotLeft, S.slotCenter, S.slotRight)[index]) },
+                    singleLine = true,
+                    supportingText = undrawableHint(text),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+        Text(
+            S.tokensHint,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for ((label, position, token) in listOf(
+                Triple(S.presetPageCount, NumberPosition.BOTTOM_CENTER, "{n} / {total}"),
+                Triple(S.presetBates, NumberPosition.BOTTOM_RIGHT, "{n:6}"),
+                Triple(S.presetDate, NumberPosition.TOP_RIGHT, "{date}"),
+            )) {
+                // Added to what the place already holds, so a Bates prefix typed first stays.
+                OutlinedButton(onClick = { onChange(options.withSlot(position, options.slot(position) + token)) }) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(
+            value = options.startNumber.toString(),
+            onValueChange = { typed ->
+                typed.filter(Char::isDigit).take(9).toIntOrNull()?.let { onChange(options.copy(startNumber = it)) }
+            },
+            label = { Text(S.startNumberingAt) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        LabeledSlider(
+            label = S.skipFirstPages,
+            value = options.firstPageIndex.toFloat(),
+            onValueChange = { onChange(options.copy(firstPageIndex = it.roundToInt())) },
+            valueRange = 0f..(pageCount - 1).coerceAtLeast(1).toFloat(),
+            valueLabel = options.firstPageIndex.toString(),
+        )
+        LabeledSlider(
+            label = S.textSize,
+            value = options.fontSize,
+            onValueChange = { onChange(options.copy(fontSize = it)) },
+            valueRange = 6f..24f,
+            valueLabel = "${options.fontSize.roundToInt()} pt",
         )
     }
 }

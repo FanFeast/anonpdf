@@ -131,7 +131,9 @@ import io.github.fanfeast.anonpdf.pdf.RestorePages
 import io.github.fanfeast.anonpdf.pdf.ReversePages
 import io.github.fanfeast.anonpdf.pdf.RotatePages
 import io.github.fanfeast.anonpdf.pdf.ScalePages
+import io.github.fanfeast.anonpdf.pdf.HeaderFooterOptions
 import io.github.fanfeast.anonpdf.pdf.SetBookmarks
+import io.github.fanfeast.anonpdf.pdf.SetHeaderFooter
 import io.github.fanfeast.anonpdf.pdf.SetPageNumbers
 import io.github.fanfeast.anonpdf.pdf.SetWatermark
 import io.github.fanfeast.anonpdf.pdf.TextMark
@@ -213,6 +215,7 @@ internal sealed interface EditorMode {
     ) : EditorMode
     data class Watermarking(val options: WatermarkOptions) : EditorMode
     data class Numbering(val options: PageNumberOptions) : EditorMode
+    data class HeaderFootering(val options: HeaderFooterOptions) : EditorMode
     data class Redacting(val rule: RedactRule) : EditorMode
     data class Bookmarking(val items: List<Bookmark>, val selected: Int?) : EditorMode
     data class AddingText(val mark: TextMark, val placed: Boolean) : EditorMode
@@ -495,6 +498,7 @@ fun EditorScreen(
             )
             is EditorMode.Watermarking -> plan.copy(watermark = current.options)
             is EditorMode.Numbering -> plan.copy(pageNumbers = current.options)
+            is EditorMode.HeaderFootering -> plan.copy(headerFooter = current.options.takeUnless { it.isEmpty })
             is EditorMode.Redacting -> if (current.rule.isUsable) {
                 plan.copy(redactions = plan.redactions + Redaction(current.rule, targets))
             } else {
@@ -661,6 +665,9 @@ fun EditorScreen(
             )
             EditorTool.PAGE_NUMBERS -> openMode(
                 EditorMode.Numbering(plan.pageNumbers ?: PageNumberOptions()),
+            )
+            EditorTool.HEADER_FOOTER -> openMode(
+                EditorMode.HeaderFootering(plan.headerFooter ?: HeaderFooterOptions()),
             )
             EditorTool.REDACT -> openMode(EditorMode.Redacting(RedactRule(RedactKind.WORDS)))
             EditorTool.BOOKMARKS -> openMode(EditorMode.Bookmarking(plan.bookmarks ?: holder.bookmarks, null))
@@ -1388,6 +1395,7 @@ private fun DrawerBody(
                 val highlighted = buildSet {
                     if (plan.watermark != null) add(EditorTool.WATERMARK)
                     if (plan.pageNumbers != null) add(EditorTool.PAGE_NUMBERS)
+                    if (plan.headerFooter != null) add(EditorTool.HEADER_FOOTER)
                     if (plan.redactions.isNotEmpty()) add(EditorTool.REDACT)
                     if (plan.bookmarks != null) add(EditorTool.BOOKMARKS)
                     if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
@@ -1475,6 +1483,22 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(SetPageNumbers(current.options))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.HeaderFootering -> HeaderFooterPanel(
+            pageCount = plan.kept.size,
+            options = current.options,
+            hasExisting = plan.headerFooter != null,
+            onChange = { onModeChange(current.copy(options = it)) },
+            onRemove = {
+                state.apply(SetHeaderFooter(null))
+                onExitMode()
+            },
+            onCancel = onExitMode,
+            onApply = {
+                state.apply(SetHeaderFooter(current.options))
                 onExitMode()
             },
         )

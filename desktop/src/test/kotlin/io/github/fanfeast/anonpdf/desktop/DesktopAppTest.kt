@@ -215,6 +215,32 @@ class DesktopAppTest {
     }
 
     @Test
+    fun `a Bates number typed into the footer is stamped on every page`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithText("Header & footer").performClick()
+        // The six places, top row then bottom, then the start number: the sixth is bottom right.
+        onAllNodes(hasSetTextAction())[5].performTextInput("ACME-")
+        onNodeWithText("Bates number").performClick()
+        onNodeWithText("Apply").performClick()
+        onNodeWithText("1 edit").assertExists()
+
+        onNodeWithText("Save as…").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+        PdfOps.load(saved).use { document ->
+            for (page in 1..3) {
+                val text = PDFTextStripper().apply {
+                    startPage = page
+                    endPage = page
+                }.getText(document)
+                assertTrue(text, text.contains("ACME-00000$page"))
+            }
+        }
+    }
+
+    @Test
     fun `closing a document returns to the start page`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
         setContent { DesktopApp(DesktopNavigator(pdf)) }
         waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }

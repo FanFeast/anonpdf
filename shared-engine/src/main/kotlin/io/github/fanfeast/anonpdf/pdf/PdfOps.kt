@@ -19,6 +19,7 @@ import io.github.fanfeast.anonpdf.i18n.S
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.time.LocalDate
 import java.security.SecureRandom
 import kotlin.math.ceil
 import kotlin.math.max
@@ -274,10 +275,30 @@ object PdfOps {
         totalPages: Int,
     ): String {
         val numbered = (totalPages - options.firstPageIndex).coerceAtLeast(1)
-        return options.format
-            .replace("{n}", (options.startNumber + positionAmongNumbered).toString())
-            .replace("{total}", (options.startNumber + numbered - 1).toString())
+        return fillTokens(
+            options.format,
+            number = options.startNumber + positionAmongNumbered,
+            total = options.startNumber + numbered - 1,
+        )
     }
+
+    /**
+     * Fills in a label's tokens: {n} the page's number, {total} the last number,
+     * {date} today's date (year first, so it reads the same in every language).
+     * A width pads a number with zeros, so {n:6} on page 42 is 000042, which is
+     * what Bates numbering is.
+     */
+    fun fillTokens(format: String, number: Int, total: Int, date: LocalDate = LocalDate.now()): String =
+        TOKEN.replace(format) { match ->
+            val width = match.groupValues[2].toIntOrNull() ?: 0
+            when (match.groupValues[1]) {
+                "n" -> number.toString().padStart(width, '0')
+                "total" -> total.toString().padStart(width, '0')
+                else -> date.toString()
+            }
+        }
+
+    private val TOKEN = Regex("\\{(n|total|date)(?::(\\d{1,2}))?\\}")
 
     // ---------------------------------------------------------- stamp image
 

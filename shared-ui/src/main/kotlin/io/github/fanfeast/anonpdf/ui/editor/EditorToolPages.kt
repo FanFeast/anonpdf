@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.ShortText
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Crop
@@ -76,6 +77,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     DRAW({ S.toolDraw }, Icons.Filled.Brush),
     WATERMARK({ S.toolWatermark }, Icons.Filled.WaterDrop),
     PAGE_NUMBERS({ S.toolNumbers }, Icons.Filled.Numbers),
+    HEADER_FOOTER({ S.toolHeaderFooter }, Icons.Filled.ShortText),
 
     MERGE({ S.toolMerge }, Icons.AutoMirrored.Filled.MergeType),
     BOOKMARKS({ S.toolBookmarks }, Icons.Filled.Bookmarks),
@@ -137,8 +139,14 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
             EditorTool.REDACT,
             EditorTool.HIGHLIGHT,
             EditorTool.DRAW,
+        ),
+    ),
+    ToolPage(
+        S.groupStamps,
+        listOf(
             EditorTool.WATERMARK,
             EditorTool.PAGE_NUMBERS,
+            EditorTool.HEADER_FOOTER,
         ),
     ),
     ToolPage(
