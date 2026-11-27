@@ -219,8 +219,8 @@ class AppSmokeTest {
             if (compose.onAllNodes(compressTile).fetchSemanticsNodes().isEmpty()) {
                 // A tile every tool page has one of, so there is always something to swipe.
                 compose.onAllNodes(
-                    hasText("Crop") or hasText("Text") or hasText("Watermark") or hasText("Split") or
-                        hasText("Unlock"),
+                    hasText("Crop") or hasText("Text") or hasText("Watermark") or hasText("Straighten") or
+                        hasText("Split") or hasText("Unlock"),
                 )
                     .onFirst()
                     .performTouchInput { swipeLeft() }
@@ -293,7 +293,7 @@ class AppSmokeTest {
     }
 
     private companion object {
-        const val TOOL_PAGES_TO_SWIPE = 5
+        const val TOOL_PAGES_TO_SWIPE = 6
         const val TIMEOUT_MS = 15_000L
     }
 }

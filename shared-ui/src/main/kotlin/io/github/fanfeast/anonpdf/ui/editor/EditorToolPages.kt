@@ -22,8 +22,12 @@ import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Brush
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.FilterBAndW
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.filled.ShortText
+import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Crop
@@ -69,6 +73,11 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     DELETE({ S.toolDelete }, Icons.Filled.Delete),
     RESTORE({ S.toolRestore }, Icons.Filled.RestoreFromTrash),
     REVERSE({ S.toolReverse }, Icons.Filled.SwapVert),
+    DUPLICATE({ S.toolDuplicate }, Icons.Filled.ContentCopy),
+    BLANK_PAGE({ S.toolBlankPage }, Icons.AutoMirrored.Filled.InsertDriveFile),
+
+    STRAIGHTEN({ S.toolStraighten }, Icons.Filled.Straighten),
+    GREYSCALE({ S.toolGreyscale }, Icons.Filled.FilterBAndW),
 
     FILL_FORM({ S.toolFillForm }, Icons.Filled.EditNote),
     TEXT({ S.toolText }, Icons.Filled.TextFields),
@@ -78,7 +87,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     DRAW({ S.toolDraw }, Icons.Filled.Brush),
     WATERMARK({ S.toolWatermark }, Icons.Filled.WaterDrop),
     PAGE_NUMBERS({ S.toolNumbers }, Icons.Filled.Numbers),
-    HEADER_FOOTER({ S.toolHeaderFooter }, Icons.Filled.ShortText),
+    HEADER_FOOTER({ S.toolHeaderFooter }, Icons.AutoMirrored.Filled.ShortText),
 
     MERGE({ S.toolMerge }, Icons.AutoMirrored.Filled.MergeType),
     BOOKMARKS({ S.toolBookmarks }, Icons.Filled.Bookmarks),
@@ -130,6 +139,8 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
             EditorTool.RESIZE,
             if (currentPageDeleted) EditorTool.RESTORE else EditorTool.DELETE,
             EditorTool.REVERSE,
+            EditorTool.DUPLICATE,
+            EditorTool.BLANK_PAGE,
         ),
     ),
     ToolPage(
@@ -149,6 +160,13 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
             EditorTool.WATERMARK,
             EditorTool.PAGE_NUMBERS,
             EditorTool.HEADER_FOOTER,
+        ),
+    ),
+    ToolPage(
+        S.groupScan,
+        listOf(
+            EditorTool.STRAIGHTEN,
+            EditorTool.GREYSCALE,
         ),
     ),
     ToolPage(
