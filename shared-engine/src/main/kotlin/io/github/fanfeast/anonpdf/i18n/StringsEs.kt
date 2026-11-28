@@ -297,6 +297,59 @@ internal object StringsEs : Strings() {
     override val bookmarksHint = "Elige un marcador para ir a su página. Un marcador con sangría va dentro del de arriba."
     override fun editBookmarks(count: Int) = if (count == 1) "Poner 1 marcador" else "Poner $count marcadores"
     override val editRemoveBookmarks = "Quitar todos los marcadores"
+    // Recetas.
+    override val recipesTitle = "Recetas"
+    override val recipesHint =
+        "Una receta guarda los cambios que hiciste aquí para aplicarlos a otros archivos: uno a uno aquí, " +
+            "o muchos a la vez con la herramienta Aplicar una receta."
+    override val recipeSaveCurrent = "Guardar estos cambios como receta"
+    override val recipeName = "Nombre de la receta"
+    override val recipeSave = "Guardar receta"
+    override fun recipeSteps(count: Int) = if (count == 1) "1 paso" else "$count pasos"
+    override fun recipeSkipped(count: Int) =
+        (if (count == 1) "1 cambio solo sirve para este archivo" else "$count cambios solo sirven para este archivo") +
+            " (páginas añadidas, enderezado o marcadores) y no estarán en la receta."
+    override val recipePlacedNote =
+        "El texto, los dibujos y los recuadros van en el mismo sitio de cada archivo, ideal para archivos con el mismo diseño."
+    override val recipeNothingToSave = "Ninguno de estos cambios se puede aplicar a otro archivo."
+    override val recipesEmpty = "Aún no hay recetas."
+    override val recipeRun = "Aplicar"
+    override val recipeExport = "Exportar"
+    override val recipeDelete = "Eliminar receta"
+    override val recipeImport = "Importar una receta…"
+    override fun recipeSaved(name: String) = "Receta ${quoted(name)} guardada."
+    override fun recipeRan(name: String, count: Int) =
+        "Se aplicó ${quoted(name)}: " + (if (count == 1) "1 cambio." else "$count cambios.")
+    override fun recipeRanNothing(name: String) = "${quoted(name)} no encontró nada que cambiar en este archivo."
+    override fun recipeImported(name: String) = "Se añadió la receta ${quoted(name)}."
+    override fun recipeDeleted(name: String) = "Se eliminó ${quoted(name)}."
+    override val recipeExported = "Receta exportada."
+    override val recipeCouldNotRead = "No se pudo leer esa receta."
+    override val recipeAllPages = "todas las páginas"
+    override val recipeFirstPage = "primera página"
+    override val recipeLastPage = "última página"
+    override val recipeOddPages = "páginas impares"
+    override val recipeEvenPages = "páginas pares"
+    override fun recipeMove(scope: String, earlier: Boolean) =
+        "Mover $scope ${if (earlier) "hacia delante" else "hacia atrás"}"
+    override fun recipePlaced(what: String, scope: String) = "Colocar $what · $scope"
+    override val recipeHighlight = "un resaltado"
+    override val recipeWhiteout = "un recuadro para tapar"
+    override val recipeDrawing = "un dibujo"
+    override val notARecipe = "Ese archivo no es una receta de AnonPDF."
+    override val recipeFromNewerVersion = "Esa receta se hizo con una versión más nueva de AnonPDF. Actualiza la app para usarla."
+    override val recipeUntitled = "Receta sin nombre"
+    override val recipeToolTitle = "Aplicar una receta"
+    override val recipeToolSummary =
+        "Aplica una receta guardada a uno o varios PDF; cada uno se guarda como su propia copia editada."
+    override val recipeToolCaveat =
+        "Cada archivo recibe los pasos de la receta en orden. Un paso para una página que el archivo no tiene se omite."
+    override val recipeChoose = "Receta"
+    override val recipeNoneYet =
+        "Aún no hay recetas. Crea una en el editor: edita un archivo, abre Recetas y guarda tus cambios."
+    override val recipePickOne = "Elige una receta."
+    override fun recipeEditedWith(name: String) = "Editado con ${quoted(name)}."
+    override fun recipeEmptiesFile(name: String) = "La receta eliminaría todas las páginas de $name."
     override val headerFooterTitle = "Encabezado y pie de página"
     override val headerLine = "Encabezado"
     override val footerLine = "Pie de página"

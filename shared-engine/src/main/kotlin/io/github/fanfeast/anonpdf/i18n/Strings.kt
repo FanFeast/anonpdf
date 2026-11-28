@@ -323,6 +323,56 @@ open class Strings {
     open val bookmarksHint = "Pick a bookmark to go to its page. An indented bookmark sits under the one above it."
     open fun editBookmarks(count: Int) = if (count == 1) "Set 1 bookmark" else "Set $count bookmarks"
     open val editRemoveBookmarks = "Remove all bookmarks"
+    // Recipes.
+    open val recipesTitle = "Recipes"
+    open val recipesHint =
+        "A recipe keeps the edits you made here, to run on other files: one at a time here, " +
+            "or many at once with the Run a recipe tool."
+    open val recipeSaveCurrent = "Save these edits as a recipe"
+    open val recipeName = "Recipe name"
+    open val recipeSave = "Save recipe"
+    open fun recipeSteps(count: Int) = if (count == 1) "1 step" else "$count steps"
+    open fun recipeSkipped(count: Int) =
+        (if (count == 1) "1 edit only fits this file" else "$count edits only fit this file") +
+            " (added pages, straightening or bookmarks) and won't be in the recipe."
+    open val recipePlacedNote =
+        "Text, drawings and boxes go in the same spot on each file, which suits files with the same layout."
+    open val recipeNothingToSave = "None of these edits can be run on another file."
+    open val recipesEmpty = "No recipes yet."
+    open val recipeRun = "Run"
+    open val recipeExport = "Export"
+    open val recipeDelete = "Delete recipe"
+    open val recipeImport = "Import a recipe…"
+    open fun recipeSaved(name: String) = "Saved the recipe ${quoted(name)}."
+    open fun recipeRan(name: String, count: Int) =
+        "Ran ${quoted(name)}: " + (if (count == 1) "1 edit." else "$count edits.")
+    open fun recipeRanNothing(name: String) = "${quoted(name)} found nothing to change in this file."
+    open fun recipeImported(name: String) = "Added the recipe ${quoted(name)}."
+    open fun recipeDeleted(name: String) = "Deleted ${quoted(name)}."
+    open val recipeExported = "Recipe exported."
+    open val recipeCouldNotRead = "Could not read that recipe."
+    open val recipeAllPages = "all pages"
+    open val recipeFirstPage = "first page"
+    open val recipeLastPage = "last page"
+    open val recipeOddPages = "odd pages"
+    open val recipeEvenPages = "even pages"
+    open fun recipeMove(scope: String, earlier: Boolean) = "Move $scope ${if (earlier) "earlier" else "later"}"
+    open fun recipePlaced(what: String, scope: String) = "Place $what · $scope"
+    open val recipeHighlight = "a highlight"
+    open val recipeWhiteout = "a cover-up box"
+    open val recipeDrawing = "a drawing"
+    open val notARecipe = "That file isn't an AnonPDF recipe."
+    open val recipeFromNewerVersion = "That recipe was made by a newer AnonPDF. Update the app to use it."
+    open val recipeUntitled = "Untitled recipe"
+    open val recipeToolTitle = "Run a recipe"
+    open val recipeToolSummary = "Run a saved recipe on one or many PDFs; each is saved as its own edited copy."
+    open val recipeToolCaveat =
+        "Each file gets the recipe's steps in order. A step for a page a file doesn't have is skipped."
+    open val recipeChoose = "Recipe"
+    open val recipeNoneYet = "No recipes yet. Make one in the editor: edit a file, open Recipes and save your edits."
+    open val recipePickOne = "Choose a recipe."
+    open fun recipeEditedWith(name: String) = "Edited with ${quoted(name)}."
+    open fun recipeEmptiesFile(name: String) = "The recipe would delete every page of $name."
     // Header and footer.
     open val headerFooterTitle = "Header & footer"
     open val headerLine = "Header"

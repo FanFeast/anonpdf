@@ -11,6 +11,10 @@ import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImageFiles
 import io.github.fanfeast.anonpdf.pdf.PageImage
+import io.github.fanfeast.anonpdf.pdf.Recipe
+import io.github.fanfeast.anonpdf.pdf.RecipeStore
+import io.github.fanfeast.anonpdf.pdf.Recipes
+import io.github.fanfeast.anonpdf.desktop.RecipeFolder
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -64,6 +68,41 @@ private fun chooseFiles(multiple: Boolean, title: String, extensions: Set<String
         isVisible = true
     }
     return dialog.files.orEmpty().filter { it.isFile }
+}
+
+@Composable
+fun rememberRecipeStore(): RecipeStore = remember { RecipeStore(RecipeFolder.dir) }
+
+/** Opens the system file dialog for a recipe; [onPicked] gets its text, or null if it couldn't be read. */
+@Composable
+fun rememberOpenRecipe(onPicked: (String?) -> Unit): () -> Unit {
+    val callback by rememberUpdatedState(onPicked)
+    return remember {
+        {
+            chooseFiles(multiple = false, title = S.recipeImport, extensions = setOf("json")).firstOrNull()?.let { file ->
+                // A recipe is a few kilobytes; anything far bigger is something else.
+                callback(runCatching { file.takeIf { it.length() <= 1 shl 20 }?.readText() }.getOrNull())
+            }
+        }
+    }
+}
+
+/** Saves a recipe wherever the user picks; [onDone] says whether it worked. */
+@Composable
+fun rememberExportRecipe(onDone: (Boolean) -> Unit): (Recipe) -> Unit {
+    val callback by rememberUpdatedState(onDone)
+    return remember {
+        { recipe ->
+            val dialog = FileDialog(null as Frame?, S.recipeExport, FileDialog.SAVE).apply {
+                file = "${DocumentStore.sanitize(recipe.name)}.${Recipes.EXTENSION}"
+                isVisible = true
+            }
+            dialog.file?.let { name ->
+                val target = File(dialog.directory, if (name.endsWith(".json")) name else "$name.json")
+                callback(runCatching { target.writeText(Recipes.encode(recipe)) }.isSuccess)
+            }
+        }
+    }
 }
 
 fun DocumentRef.fileName(): String? = name

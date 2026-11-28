@@ -39,11 +39,14 @@ private fun scopeOf(targets: Set<Int>): String =
     if (targets.isEmpty()) S.noPages else S.pagesScope(targets.size, PageRanges.describe(targets.toList()))
 
 data class RotatePages(val degrees: Int, val targets: Set<Int>) : EditOp {
-    override fun describe() = S.editRotate(degrees, scopeOf(targets))
+    override fun describe() = describeOn(scopeOf(targets))
+    internal fun describeOn(scope: String) = S.editRotate(degrees, scope)
 }
 
 data class CropPages(val insets: CropInsets, val targets: Set<Int>) : EditOp {
-    override fun describe(): String {
+    override fun describe() = describeOn(scopeOf(targets))
+
+    internal fun describeOn(scope: String): String {
         val even = insets.left == insets.right && insets.top == insets.bottom &&
             insets.left == insets.top
         val amount = if (even) {
@@ -56,22 +59,25 @@ data class CropPages(val insets: CropInsets, val targets: Set<Int>) : EditOp {
                 "${(insets.bottom * 100).toInt()}%",
             )
         }
-        return S.editCrop(amount, scopeOf(targets))
+        return S.editCrop(amount, scope)
     }
 }
 
 data class ScalePages(val factor: Float, val targets: Set<Int>) : EditOp {
-    override fun describe() = S.editScale((factor * 100).toInt(), scopeOf(targets))
+    override fun describe() = describeOn(scopeOf(targets))
+    internal fun describeOn(scope: String) = S.editScale((factor * 100).toInt(), scope)
 }
 
 data class ResizePages(val target: ResizeTarget, val targets: Set<Int>) : EditOp {
-    override fun describe(): String {
+    override fun describe() = describeOn(scopeOf(targets))
+
+    internal fun describeOn(scope: String): String {
         val orientation = when (target.orientation) {
             PageOrientation.AUTO -> null
             PageOrientation.PORTRAIT -> S.portraitLower
             PageOrientation.LANDSCAPE -> S.landscapeLower
         }
-        return S.editResize(target.paper.label, orientation, target.fill, scopeOf(targets))
+        return S.editResize(target.paper.label, orientation, target.fill, scope)
     }
 }
 

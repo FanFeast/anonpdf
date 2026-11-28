@@ -3,6 +3,7 @@ package io.github.fanfeast.anonpdf.ui.tools
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.MergeType
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Difference
@@ -26,6 +27,7 @@ import io.github.fanfeast.anonpdf.i18n.S
 enum class ToolId {
     MERGE,
     COMPARE,
+    RECIPE,
     SPLIT,
     EXTRACT,
     COMPRESS,
@@ -65,6 +67,8 @@ class ToolSpec(
     val hasCustomScreen: Boolean = false,
     /** Shown as a caveat before running, when there is an honest trade-off. */
     private val caveatText: (() -> String)? = null,
+    /** How many files a [ToolInput.MULTIPLE_PDF] tool needs before it can run. */
+    val minimumFiles: Int = if (input == ToolInput.MULTIPLE_PDF) 2 else 1,
 ) {
     // Read on every use, not stored, so a change of language shows at once.
     val title: String get() = titleText()
@@ -93,6 +97,17 @@ object ToolCatalog {
             input = ToolInput.MULTIPLE_PDF,
             output = ToolOutput.PDF,
             caveatText = { S.compareCaveat },
+        ),
+        ToolSpec(
+            id = ToolId.RECIPE,
+            titleText = { S.recipeToolTitle },
+            summaryText = { S.recipeToolSummary },
+            icon = Icons.AutoMirrored.Filled.PlaylistPlay,
+            group = ToolGroup.FILES,
+            input = ToolInput.MULTIPLE_PDF,
+            output = ToolOutput.MANY_FILES,
+            caveatText = { S.recipeToolCaveat },
+            minimumFiles = 1,
         ),
         ToolSpec(
             id = ToolId.SPLIT,

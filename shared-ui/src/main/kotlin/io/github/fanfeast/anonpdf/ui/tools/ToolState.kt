@@ -7,6 +7,7 @@ import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.ImageFormat
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
 import io.github.fanfeast.anonpdf.pdf.PdfPageSizePreset
+import io.github.fanfeast.anonpdf.pdf.Recipe
 import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import java.io.File
@@ -69,6 +70,8 @@ enum class CropPreset(private val text: () -> String, val inset: Float) {
  * ceremony than it saves at this size.
  */
 class ToolOptionsState {
+    var recipe by mutableStateOf<Recipe?>(null)
+
     var pageRange by mutableStateOf("")
 
     var splitMode by mutableStateOf(SplitMode.RANGES)

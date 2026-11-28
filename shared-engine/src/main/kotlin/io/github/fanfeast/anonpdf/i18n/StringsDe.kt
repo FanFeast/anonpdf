@@ -297,6 +297,59 @@ internal object StringsDe : Strings() {
     override val bookmarksHint = "Wählen Sie ein Lesezeichen, um zu seiner Seite zu springen. Ein eingerücktes Lesezeichen gehört zu dem darüber."
     override fun editBookmarks(count: Int) = if (count == 1) "1 Lesezeichen festlegen" else "$count Lesezeichen festlegen"
     override val editRemoveBookmarks = "Alle Lesezeichen entfernen"
+    // Rezepte.
+    override val recipesTitle = "Rezepte"
+    override val recipesHint =
+        "Ein Rezept merkt sich die Änderungen, die du hier gemacht hast, um sie auf andere Dateien anzuwenden: " +
+            "einzeln hier oder viele auf einmal mit dem Werkzeug „Rezept ausführen“."
+    override val recipeSaveCurrent = "Diese Änderungen als Rezept speichern"
+    override val recipeName = "Name des Rezepts"
+    override val recipeSave = "Rezept speichern"
+    override fun recipeSteps(count: Int) = if (count == 1) "1 Schritt" else "$count Schritte"
+    override fun recipeSkipped(count: Int) =
+        (if (count == 1) "1 Änderung passt nur zu dieser Datei" else "$count Änderungen passen nur zu dieser Datei") +
+            " (eingefügte Seiten, Begradigen oder Lesezeichen) und kommen nicht ins Rezept."
+    override val recipePlacedNote =
+        "Text, Zeichnungen und Kästen landen in jeder Datei an derselben Stelle – gut für Dateien mit gleichem Aufbau."
+    override val recipeNothingToSave = "Keine dieser Änderungen lässt sich auf eine andere Datei anwenden."
+    override val recipesEmpty = "Noch keine Rezepte."
+    override val recipeRun = "Ausführen"
+    override val recipeExport = "Exportieren"
+    override val recipeDelete = "Rezept löschen"
+    override val recipeImport = "Rezept importieren…"
+    override fun recipeSaved(name: String) = "Rezept ${quoted(name)} gespeichert."
+    override fun recipeRan(name: String, count: Int) =
+        "${quoted(name)} ausgeführt: " + (if (count == 1) "1 Änderung." else "$count Änderungen.")
+    override fun recipeRanNothing(name: String) = "${quoted(name)} hat in dieser Datei nichts zu ändern gefunden."
+    override fun recipeImported(name: String) = "Rezept ${quoted(name)} hinzugefügt."
+    override fun recipeDeleted(name: String) = "${quoted(name)} gelöscht."
+    override val recipeExported = "Rezept exportiert."
+    override val recipeCouldNotRead = "Das Rezept konnte nicht gelesen werden."
+    override val recipeAllPages = "alle Seiten"
+    override val recipeFirstPage = "erste Seite"
+    override val recipeLastPage = "letzte Seite"
+    override val recipeOddPages = "ungerade Seiten"
+    override val recipeEvenPages = "gerade Seiten"
+    override fun recipeMove(scope: String, earlier: Boolean) =
+        "${scope.replaceFirstChar { it.uppercase() }} ${if (earlier) "nach vorn" else "nach hinten"} verschieben"
+    override fun recipePlaced(what: String, scope: String) = "$what platzieren · $scope"
+    override val recipeHighlight = "Markierung"
+    override val recipeWhiteout = "Abdeckkasten"
+    override val recipeDrawing = "Zeichnung"
+    override val notARecipe = "Diese Datei ist kein AnonPDF-Rezept."
+    override val recipeFromNewerVersion = "Dieses Rezept stammt aus einer neueren AnonPDF-Version. Aktualisiere die App, um es zu nutzen."
+    override val recipeUntitled = "Rezept ohne Namen"
+    override val recipeToolTitle = "Rezept ausführen"
+    override val recipeToolSummary =
+        "Ein gespeichertes Rezept auf eine oder viele PDFs anwenden; jede wird als eigene bearbeitete Kopie gespeichert."
+    override val recipeToolCaveat =
+        "Jede Datei durchläuft die Schritte des Rezepts der Reihe nach. Ein Schritt für eine Seite, die eine Datei nicht hat, wird übersprungen."
+    override val recipeChoose = "Rezept"
+    override val recipeNoneYet =
+        "Noch keine Rezepte. Erstelle eines im Editor: Datei bearbeiten, Rezepte öffnen und die Änderungen speichern."
+    override val recipePickOne = "Wähle ein Rezept."
+    override fun recipeEditedWith(name: String) = "Mit ${quoted(name)} bearbeitet."
+    override fun recipeEmptiesFile(name: String) = "Das Rezept würde jede Seite von $name löschen."
     override val headerFooterTitle = "Kopf- & Fußzeile"
     override val headerLine = "Kopfzeile"
     override val footerLine = "Fußzeile"

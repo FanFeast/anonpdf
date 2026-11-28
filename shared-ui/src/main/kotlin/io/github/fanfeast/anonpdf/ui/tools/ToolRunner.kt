@@ -6,11 +6,14 @@ import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
 import io.github.fanfeast.anonpdf.pdf.PageRanges
 import io.github.fanfeast.anonpdf.pdf.PdfCompare
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
+import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
+import io.github.fanfeast.anonpdf.pdf.Recipes
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.components.formatBytes
+import java.io.File
 
 /**
  * Translates a tool's on-screen options into calls on [PdfOps] / [PdfConvert].
@@ -29,6 +32,7 @@ class ToolRunner(private val store: DocumentStore) {
     ): ToolResult = when (spec.id) {
         ToolId.MERGE -> runMerge(docs, onProgress)
         ToolId.COMPARE -> runCompare(docs, onProgress)
+        ToolId.RECIPE -> runRecipe(docs, options, onProgress)
         ToolId.SPLIT -> runSplit(docs.single(), options, onProgress)
         ToolId.EXTRACT -> runExtract(docs.single(), options, onProgress)
         ToolId.COMPRESS -> runCompress(docs.single(), options, onProgress)
@@ -76,6 +80,40 @@ class ToolRunner(private val store: DocumentStore) {
                 S.compareNote(found.added, found.removed, found.pagesWithChanges)
             },
         )
+    }
+
+    /** Every file edited from scratch by the same recipe, each saved as its own copy. */
+    private suspend fun runRecipe(
+        docs: List<InputDoc>,
+        options: ToolOptionsState,
+        onProgress: Progress,
+    ): ToolResult {
+        val recipe = options.recipe ?: error(S.recipePickOne)
+        require(docs.isNotEmpty()) { S.choosePdf }
+        // Checked before anything is written, so one bad file doesn't leave half a batch.
+        val plans = docs.map { doc ->
+            Recipes.plan(recipe, doc.pageCount).also { require(it.kept.isNotEmpty()) { S.recipeEmptiesFile(doc.name) } }
+        }
+        val directory = store.newOutputDir("recipe")
+        val used = mutableSetOf<String>()
+        val files = docs.mapIndexed { index, doc ->
+            val stem = DocumentStore.stem(doc.name)
+            // Two inputs with the same name would otherwise overwrite each other.
+            var name = "$stem-edited.pdf"
+            var n = 2
+            while (!used.add(name)) name = "$stem-edited-${n++}.pdf"
+            val output = File(directory, name)
+            PdfEditor.applyPlan(doc.requireFile(), output, plans[index], doc.password) { value ->
+                onProgress((index + value) / docs.size)
+            }
+            output
+        }
+        val note = S.recipeEditedWith(recipe.name)
+        return if (files.size == 1) {
+            ToolResult.One(file = files.single(), suggestedName = files.single().name, note = note)
+        } else {
+            ToolResult.Many(files = files, note = "$note ${S.filesReady(files.size)}")
+        }
     }
 
     private suspend fun runSplit(
