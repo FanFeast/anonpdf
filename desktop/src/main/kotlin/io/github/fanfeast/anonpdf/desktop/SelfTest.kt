@@ -14,6 +14,7 @@ import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.PdfOcr
+import io.github.fanfeast.anonpdf.pdf.PictureFiles
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
 import io.github.fanfeast.anonpdf.pdf.RotatePages
@@ -114,7 +115,10 @@ internal object SelfTest {
         val pngs = PdfConvert.pdfToImages(edited, pagesDir, dpi = 60, format = ImageFormat.PNG, jpegQuality = 80, baseName = "page")
         check("pages export as images", (jpegs + pngs).size == 4 && (jpegs + pngs).all { ImageFiles.decode(it) != null })
         val fromImages = File(dir, "from-images.pdf")
-        PdfConvert.imagesToPdf(jpegs + pngs, ImageFiles::decode, fromImages, ImagesToPdfOptions())
+        PdfConvert.imagesToPdf(jpegs + pngs, { listOf({ ImageFiles.decode(it) }) }, fromImages, ImagesToPdfOptions())
+        // TIFF, WebP and JPEG 2000 go through Leptonica's own readers, in the package too.
+        val tiff = File(dir, "page.tif").also { javax.imageio.ImageIO.write(ImageFiles.decode(pngs.first()), "tiff", it) }
+        check("a TIFF is read", PictureFiles.throughLeptonica(tiff, File(dir, "tiff")).size == 1)
         check("images become a PDF", PdfOps.readMeta(fromImages).pageCount == 4)
         val smaller = File(dir, "smaller.pdf")
         val smart = PdfConvert.compressSmart(fromImages, smaller, jpegQuality = 0.4f, maxImageDimension = 200)

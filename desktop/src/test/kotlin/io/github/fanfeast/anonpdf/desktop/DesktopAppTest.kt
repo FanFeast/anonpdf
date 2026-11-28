@@ -533,6 +533,22 @@ class DesktopAppTest {
     }
 
     @Test
+    fun `a dropped Markdown file is laid out as a PDF`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+        runOnIdle { navigator.show(Pane.Tool(ToolId.TEXT_TO_PDF)) }
+        waitForIdle()
+        val notes = File(scratch, "notes.md").apply { writeText("# Minutes\n\n- Agreed the budget\n") }
+        runOnIdle { navigator.drop(listOf(notes)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("notes.md")).fetchSemanticsNodes().isNotEmpty() }
+        onNode(hasText("Text to PDF") and isButton and isEnabled()).performScrollTo().performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Laid out as a PDF.")).fetchSemanticsNodes().isNotEmpty() }
+        val made = File(scratch, "out").walk().single { it.name == "notes.pdf" }
+        val text = PdfOps.load(made).use { PDFTextStripper().getText(it) }
+        assertTrue(text, text.contains("Minutes") && text.contains("• Agreed the budget"))
+    }
+
+    @Test
     fun `without a language pack, reading text says how to get one`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
         val navigator = DesktopNavigator()
         setContent { DesktopApp(navigator) }
@@ -675,15 +691,20 @@ class DesktopAppTest {
     // window's drop target hands over, with the dropped files.
 
     @Test
-    fun `dropped files are sorted into PDFs and pictures, and the rest left out`() {
+    fun `dropped files are sorted into PDFs, pictures and text, and the rest left out`() {
         val picture = picture("photo.JPG")
         val notes = File(scratch, "notes.txt").apply { writeText("not a PDF") }
+        val sheet = File(scratch, "figures.xlsx").apply { writeText("not anything AnonPDF opens") }
         val folder = File(scratch, "folder.pdf").apply { mkdir() }
 
-        val dropped = sortDropped(listOf(pdf, picture, notes, folder))
+        val dropped = sortDropped(listOf(pdf, picture, notes, sheet, folder))
         assertEquals(listOf(pdf), dropped.pdfs)
         assertEquals(listOf(picture), dropped.images)
-        assertFalse("nothing usable is refused", DesktopNavigator().drop(listOf(notes, folder)))
+        assertEquals(listOf(notes), dropped.texts)
+        assertFalse("nothing usable is refused", DesktopNavigator().drop(listOf(sheet, folder)))
+        val navigator = DesktopNavigator()
+        assertTrue(navigator.drop(listOf(notes)))
+        assertEquals(Pane.Tool(ToolId.TEXT_TO_PDF), navigator.pane)
     }
 
     @Test

@@ -656,7 +656,7 @@ class PdfEngineTest {
 
         PdfConvert.imagesToPdf(
             images = listOf(first, second),
-            decode = TestPlatform::readImage,
+            decode = { file -> listOf({ TestPlatform.readImage(file) }) },
             output = output,
             options = ImagesToPdfOptions(pageSize = PdfPageSizePreset.FIT_IMAGE),
         )
@@ -677,13 +677,43 @@ class PdfEngineTest {
 
         PdfConvert.imagesToPdf(
             images = listOf(image),
-            decode = TestPlatform::readImage,
+            decode = { file -> listOf({ TestPlatform.readImage(file) }) },
             output = output,
             options = ImagesToPdfOptions(pageSize = PdfPageSizePreset.A4, marginPoints = 36f),
         )
 
         PdfOps.load(output).use { document ->
             assertEquals(PDRectangle.A4.width, document.getPage(0).mediaBox.width, 0.5f)
+        }
+    }
+
+    @Test
+    fun everyPageOfATiffBecomesAPage() = runBlocking {
+        // Two pictures as one TIFF, made by Leptonica itself so both platforms can.
+        val first = pngFile(300, 200)
+        val second = pngFile(200, 300)
+        val tiff = out("pages").resolveSibling("pages-${System.nanoTime()}.tif")
+        val pixa = org.bytedeco.leptonica.global.leptonica.pixaCreate(2)
+        listOf(first, second).forEach { png ->
+            val pix = org.bytedeco.leptonica.global.leptonica.pixRead(png.absolutePath)
+            org.bytedeco.leptonica.global.leptonica.pixaAddPix(pixa, pix, org.bytedeco.leptonica.global.leptonica.L_INSERT)
+        }
+        org.bytedeco.leptonica.global.leptonica.pixaWriteMultipageTiff(tiff.absolutePath, pixa)
+        org.bytedeco.leptonica.global.leptonica.pixaDestroy(pixa)
+
+        val pages = PictureFiles.throughLeptonica(tiff, File(tiff.parentFile, "tiff-pages"))
+        assertEquals(2, pages.size)
+        val output = out("from-tiff")
+        PdfConvert.imagesToPdf(
+            images = listOf(tiff),
+            decode = { pages.map { png -> { TestPlatform.readImage(png) } } },
+            output = output,
+            options = ImagesToPdfOptions(pageSize = PdfPageSizePreset.FIT_IMAGE),
+        )
+        PdfOps.load(output).use { document ->
+            assertEquals(2, document.numberOfPages)
+            assertTrue(document.getPage(0).mediaBox.width > document.getPage(0).mediaBox.height)
+            assertTrue(document.getPage(1).mediaBox.height > document.getPage(1).mediaBox.width)
         }
     }
 

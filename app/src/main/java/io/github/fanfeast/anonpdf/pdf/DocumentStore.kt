@@ -117,6 +117,24 @@ class DocumentStore(private val context: Context) {
     }.getOrNull()
 
     /**
+     * How to read each picture in [uri], for Images to PDF. Android reads the
+     * common kinds, HEIC and WebP included; TIFF (for its every page) and
+     * anything else it can't read go through Leptonica. Empty if neither can.
+     */
+    suspend fun decodeImages(uri: Uri): List<() -> PageImage?> = withContext(Dispatchers.IO) {
+        val name = displayName(uri).lowercase()
+        val tiff = name.endsWith(".tif") || name.endsWith(".tiff") || context.contentResolver.getType(uri) == "image/tiff"
+        if (!tiff) decodeImage(uri)?.let { return@withContext listOf({ it }) }
+        val local = materialize(uri, "picture")
+        try {
+            PictureFiles.throughLeptonica(local, File(workDir, "pictures-${System.nanoTime()}"))
+                .map { png -> { decodeImage(Uri.fromFile(png)) } }
+        } finally {
+            local.delete()
+        }
+    }
+
+    /**
      * Drops every scratch file. Called at launch and from Settings.
      *
      * Callers are on the main thread, and deleting a large cache there can freeze

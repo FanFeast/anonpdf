@@ -59,6 +59,16 @@ fun rememberOpenPdfs(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
     return { launcher.launch(arrayOf("application/pdf")) }
 }
 
+/** Opens the system picker for any number of text and Markdown files, for Text to PDF. */
+@Composable
+fun rememberOpenTextFiles(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) {
+        if (it.isNotEmpty()) onPicked(it)
+    }
+    // Markdown is labelled text/markdown by some providers and a bare binary by others.
+    return { launcher.launch(arrayOf("text/*", "application/octet-stream")) }
+}
+
 /** Opens the system picker for any number of images, for Images to PDF. */
 @Composable
 fun rememberOpenImages(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {

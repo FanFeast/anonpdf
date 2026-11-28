@@ -11,8 +11,12 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /** Files dropped onto the window, already sorted by the platform into what the screens take. */
-data class Dropped(val pdfs: List<DocumentRef>, val images: List<DocumentRef>) {
-    val isEmpty: Boolean get() = pdfs.isEmpty() && images.isEmpty()
+data class Dropped(
+    val pdfs: List<DocumentRef>,
+    val images: List<DocumentRef>,
+    val texts: List<DocumentRef> = emptyList(),
+) {
+    val isEmpty: Boolean get() = pdfs.isEmpty() && images.isEmpty() && texts.isEmpty()
 }
 
 /**

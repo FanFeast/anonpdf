@@ -52,6 +52,18 @@ class DocumentStore(private val root: File = File(System.getProperty("java.io.tm
     /** Reads a picture for Images to PDF, upright; null if it is not one we can read. */
     fun decodeImage(file: File): PageImage? = ImageFiles.decode(file)
 
+    /**
+     * How to read each picture in [file], for Images to PDF. ImageIO reads the
+     * common kinds; TIFF (for its every page), WebP and JPEG 2000 go through
+     * Leptonica. Empty if neither can read it.
+     */
+    suspend fun decodeImages(file: File): List<() -> PageImage?> = withContext(Dispatchers.IO) {
+        val tiff = file.extension.lowercase() in setOf("tif", "tiff")
+        if (!tiff) decodeImage(file)?.let { return@withContext listOf({ it }) }
+        PictureFiles.throughLeptonica(file, File(workDir, "pictures-${System.nanoTime()}"))
+            .map { png -> { decodeImage(png) } }
+    }
+
     companion object {
         fun sanitize(name: String): String = FileNames.sanitize(name)
 
