@@ -198,6 +198,8 @@ internal object PdfDraw {
                     is FillMark -> drawFill(stream, mark, display)
                     is InkMark -> drawInk(stream, mark, display)
                     is TextMark -> drawText(stream, mark, display)
+                    // Not drawn: it becomes a form field once the page is drawn.
+                    is FieldMark -> Unit
                 }
             }
             stream.restoreGraphicsState()

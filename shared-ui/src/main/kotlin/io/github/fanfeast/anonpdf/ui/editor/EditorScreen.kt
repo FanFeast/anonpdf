@@ -96,6 +96,8 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.AddMark
+import io.github.fanfeast.anonpdf.pdf.FieldMark
+import io.github.fanfeast.anonpdf.pdf.NewFieldKind
 import io.github.fanfeast.anonpdf.pdf.SetPageLabels
 import io.github.fanfeast.anonpdf.pdf.PdfArrange
 import io.github.fanfeast.anonpdf.pdf.LabelRange
@@ -260,6 +262,7 @@ internal sealed interface EditorMode {
         val widthRatio: Float,
     ) : EditorMode
     data class Inserting(val where: InsertPosition) : EditorMode
+    data class AddingField(val kind: NewFieldKind, val name: String, val rect: MarkRect?) : EditorMode
 
     /**
      * Answers given so far, by field name, on top of those already in the plan.
@@ -273,7 +276,7 @@ internal sealed interface EditorMode {
 
     /** True when the user works directly on the page, so page paging gets out of the way. */
     val interactsWithPage: Boolean
-        get() = this is Cropping || this is Filling || this is Inking || this is AddingText
+        get() = this is Cropping || this is Filling || this is Inking || this is AddingText || this is AddingField
 }
 
 @Composable
@@ -837,6 +840,10 @@ fun EditorScreen(
                 }
             }
             EditorTool.BOOKMARKS -> openMode(EditorMode.Bookmarking(plan.bookmarks ?: holder.bookmarks, null))
+            EditorTool.ADD_FIELD -> if (page != null) {
+                val number = plan.marks.count { it is FieldMark } + (holder.formInfo?.fields?.size ?: 0) + 1
+                openMode(EditorMode.AddingField(NewFieldKind.TEXT, S.fieldDefaultName(number), null))
+            }
             EditorTool.PAGE_LABELS -> openMode(
                 EditorMode.Labelling((plan.pageLabels ?: holder.pageLabels).ifEmpty { listOf(LabelRange(0)) }),
             )
@@ -1498,6 +1505,14 @@ private fun PageOverlays(
             modifier = modifier,
         )
 
+        is EditorMode.AddingField -> RectMarkOverlay(
+            rect = mode.rect,
+            colour = Color(0xFF4A6FA5),
+            opacity = 0.3f,
+            onChange = { onModeChange(mode.copy(rect = it)) },
+            modifier = modifier,
+        )
+
         is EditorMode.Inking -> InkOverlay(
             strokes = mode.strokes,
             colour = Color(mode.colour),
@@ -1746,6 +1761,21 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(TiltPages(state.targets().associateWith { current.angle }))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.AddingField -> FieldPanel(
+            kind = current.kind,
+            name = current.name,
+            placed = current.rect?.tidied()?.isDegenerate == false,
+            onChange = { kind, name -> onModeChange(current.copy(kind = kind, name = name)) },
+            onCancel = onExitMode,
+            onApply = {
+                val rect = current.rect?.tidied()
+                if (rect != null && !rect.isDegenerate && currentSource != null) {
+                    state.apply(AddMark(FieldMark(state.nextMarkId(), currentSource, current.kind, current.name.trim(), rect)))
+                }
                 onExitMode()
             },
         )

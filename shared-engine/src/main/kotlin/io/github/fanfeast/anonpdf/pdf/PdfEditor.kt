@@ -447,9 +447,12 @@ object PdfEditor {
                 // Marks go on after the page geometry is settled, so an opaque
                 // white-out lands exactly where the user drew it.
                 val marks = marksFor(page, plan, state.sourceIndex)
-                if (drawMarks(document, page, marks, scratchDir, droppedAnnotations)) {
+                if (drawMarks(document, page, marks.filterNot { it is FieldMark }, scratchDir, droppedAnnotations)) {
                     flattenedAny = true
                 }
+                // Fields last, onto the page as it now is, so a field drawn over a
+                // flattened page is still a field.
+                PdfFields.add(document, page, marks.filterIsInstance<FieldMark>())
                 document.addPage(page)
                 onProgress(0.25f + 0.5f * (position + 1f) / kept.size)
             }
@@ -472,6 +475,9 @@ object PdfEditor {
                     originals.getOrNull(index)?.takeIf { index in keptIndices }
                 }
             }
+
+            // Fields added here are locked with the rest when the form is.
+            if (plan.flattenForm && plan.marks.any { it is FieldMark }) PdfForms.flatten(document)
 
             stampWatermark(document, plan)
             onProgress(0.85f)
@@ -628,10 +634,18 @@ object PdfEditor {
             originals.forEach { document.pages.remove(it) }
 
             applyPageState(document, page, state)
+            val marks = marksFor(page, plan, state.sourceIndex)
             drawMarks(
-                document, page, marksFor(page, plan, state.sourceIndex), workDir,
+                document, page, marks.filterNot { it is FieldMark }, workDir,
                 droppedAnnotations = mutableSetOf(),
             )
+            // New fields burned in too, for the reason above: what is drawn is
+            // the field as a viewer shows it.
+            val fields = marks.filterIsInstance<FieldMark>()
+            if (fields.isNotEmpty()) {
+                PdfFields.add(document, page, fields)
+                runCatching { PdfForms.flatten(document) }
+            }
             document.addPage(page)
 
             stampWatermark(document, plan)

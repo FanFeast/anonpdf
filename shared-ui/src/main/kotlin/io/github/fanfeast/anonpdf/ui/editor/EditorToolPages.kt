@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Input
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Numbers
@@ -97,6 +98,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     TEXT({ S.toolText }, Icons.Filled.TextFields),
     WHITEOUT({ S.toolWhiteout }, Icons.Filled.FormatColorFill),
     REDACT({ S.toolRedact }, Icons.Filled.FindInPage),
+    ADD_FIELD({ S.toolAddField }, Icons.Filled.Input),
     HIGHLIGHT({ S.toolHighlight }, Icons.Filled.Highlight),
     DRAW({ S.toolDraw }, Icons.Filled.Brush),
     WATERMARK({ S.toolWatermark }, Icons.Filled.WaterDrop),
@@ -169,6 +171,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
             EditorTool.REDACT,
             EditorTool.HIGHLIGHT,
             EditorTool.DRAW,
+            EditorTool.ADD_FIELD,
         ),
     ),
     ToolPage(

@@ -88,6 +88,24 @@ data class FillMark(
         if (isHighlight) S.markHighlight(sourceIndex + 1) else S.markWhiteout(sourceIndex + 1)
 }
 
+/** What kind of form field a [FieldMark] makes. */
+enum class NewFieldKind { TEXT, MULTILINE, CHECKBOX }
+
+/**
+ * A new form field, filled in by whoever opens the saved file: a text box, a
+ * box for several lines, or a checkbox, where [rect] is on the page. [name] is
+ * what form tools and the field's own tooltip call it.
+ */
+data class FieldMark(
+    override val id: Long,
+    override val sourceIndex: Int,
+    val kind: NewFieldKind,
+    val name: String,
+    val rect: MarkRect,
+) : PageMark {
+    override fun describe() = S.markField(name, sourceIndex + 1)
+}
+
 /** Freehand ink. Points are page fractions, so strokes survive a resize. */
 data class InkMark(
     override val id: Long,
