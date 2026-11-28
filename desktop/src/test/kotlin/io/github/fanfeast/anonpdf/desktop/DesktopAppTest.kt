@@ -516,6 +516,23 @@ class DesktopAppTest {
     }
 
     @Test
+    fun `a document is laid out as a booklet ready to fold`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+        runOnIdle { navigator.show(Pane.Tool(ToolId.LAYOUT)) }
+        waitForIdle()
+        runOnIdle { navigator.drop(listOf(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Booklet")).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithText("Booklet").performClick()
+        // Three pages fill one sheet, printed on both sides.
+        onNodeWithText("2 sheets to print.").assertExists()
+        onNode(hasText("Print layout") and isButton and isEnabled()).performScrollTo().performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val printed = File(scratch, "out").listFiles { file -> file.name.contains("-print") }!!.single()
+        PdfOps.load(printed).use { assertEquals(2, it.numberOfPages) }
+    }
+
+    @Test
     fun `without a language pack, reading text says how to get one`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
         val navigator = DesktopNavigator()
         setContent { DesktopApp(navigator) }

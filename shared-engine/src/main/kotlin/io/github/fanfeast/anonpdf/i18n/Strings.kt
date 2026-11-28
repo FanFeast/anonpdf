@@ -357,6 +357,19 @@ open class Strings {
     open val labelStyleNone = "None"
     open val editPageLabels = "Set the page labels"
     open val editRemovePageLabels = "Remove the page labels"
+    // Print layouts.
+    open val layoutTitle = "Print layout"
+    open val layoutSummary = "Several pages to a sheet, a folded booklet, or a poster across sheets"
+    open val layoutKind = "Layout"
+    open val layoutPerSheet = "Pages per sheet"
+    open val layoutBooklet = "Booklet"
+    open val layoutPoster = "Poster"
+    open val layoutPaper = "Paper"
+    open val layoutPosterSize = "Sheets for each page"
+    open val layoutBookletHint =
+        "Print on both sides, flipping on the short edge, then fold the stack in half: the pages read in order. Blank pages fill out the last sheet."
+    open val layoutPosterHint = "Each page is enlarged across the sheets, to trim at the margins and join."
+    open fun layoutSheets(sheets: Int) = if (sheets == 1) "1 sheet to print." else "$sheets sheets to print."
     // Mix pages.
     open val mixTitle = "Mix pages"
     open val mixSummary = "Interleave PDFs page by page, as for a two-sided scan"
