@@ -1,6 +1,8 @@
 package io.github.fanfeast.anonpdf.ui.tools
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -416,6 +418,25 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
 
         ToolId.RECIPE -> RecipePicker(options)
 
+        ToolId.MIX -> {
+            Text(S.mergeOrderHint, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = options.mixReverseLast, role = Role.Checkbox) { options.mixReverseLast = it },
+            ) {
+                Checkbox(checked = options.mixReverseLast, onCheckedChange = null)
+                Text(S.mixReverseLast, modifier = Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
+            }
+            Text(
+                S.mixReverseHint,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         ToolId.SPLIT -> {
             ChoiceChips(
                 label = S.howToSplit,
@@ -632,7 +653,7 @@ private fun CheckRow(label: String, checked: Boolean, onChange: (Boolean) -> Uni
 }
 
 @Composable
-private fun NumberStepper(
+internal fun NumberStepper(
     label: String,
     value: Int,
     onChange: (Int) -> Unit,

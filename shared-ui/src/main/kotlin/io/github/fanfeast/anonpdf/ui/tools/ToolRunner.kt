@@ -4,6 +4,7 @@ import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
 import io.github.fanfeast.anonpdf.pdf.OcrPacks
+import io.github.fanfeast.anonpdf.pdf.PdfArrange
 import io.github.fanfeast.anonpdf.pdf.PageRanges
 import io.github.fanfeast.anonpdf.pdf.PdfCompare
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
@@ -36,6 +37,7 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
     ): ToolResult = when (spec.id) {
         ToolId.MERGE -> runMerge(docs, onProgress)
         ToolId.COMPARE -> runCompare(docs, onProgress)
+        ToolId.MIX -> runMix(docs, options, onProgress)
         ToolId.RECIPE -> runRecipe(docs, options, onProgress)
         ToolId.SPLIT -> runSplit(docs.single(), options, onProgress)
         ToolId.EXTRACT -> runExtract(docs.single(), options, onProgress)
@@ -62,6 +64,18 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
             file = output,
             suggestedName = "merged.pdf",
             note = S.mergedNote(docs.size, formatBytes(output.length())),
+        )
+    }
+
+    private suspend fun runMix(docs: List<InputDoc>, options: ToolOptionsState, onProgress: Progress): ToolResult {
+        require(docs.size >= 2) { S.pickTwoPdfs }
+        docs.firstOrNull { it.password != null }?.let { error(S.removePasswordFirst(it.name)) }
+        val output = store.newOutputFile("mixed", "pdf")
+        PdfArrange.mix(docs.map { it.requireFile() }, output, options.mixReverseLast, onProgress)
+        return ToolResult.One(
+            file = output,
+            suggestedName = "${DocumentStore.stem(docs.first().name)}-mixed.pdf",
+            note = S.mixNote(docs.sumOf { it.pageCount }),
         )
     }
 

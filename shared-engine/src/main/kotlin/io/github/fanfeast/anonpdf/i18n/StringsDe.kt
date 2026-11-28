@@ -297,6 +297,28 @@ internal object StringsDe : Strings() {
     override val bookmarksHint = "Wählen Sie ein Lesezeichen, um zu seiner Seite zu springen. Ein eingerücktes Lesezeichen gehört zu dem darüber."
     override fun editBookmarks(count: Int) = if (count == 1) "1 Lesezeichen festlegen" else "$count Lesezeichen festlegen"
     override val editRemoveBookmarks = "Alle Lesezeichen entfernen"
+    // Seitenbeschriftungen und Seiten mischen.
+    override val toolPageLabels = "Beschriftung"
+    override val pageLabelsTitle = "Seitenbeschriftungen"
+    override val pageLabelsHint =
+        "Was ein PDF-Reader als Nummer jeder Seite zeigt, etwa i, ii, iii für die Vorseiten. Die Seiten selbst ändern sich nicht."
+    override fun labelFrom(page: Int) = "Ab Seite $page"
+    override val labelStartsOn = "Beginnt auf Seite"
+    override val labelStyle = "Zählweise"
+    override val labelPrefix = "Vor der Nummer"
+    override val labelStart = "Beginnen bei"
+    override val labelAddRange = "Neuen Abschnitt beginnen…"
+    override val labelRemoveRange = "Diesen Abschnitt entfernen"
+    override fun labelsPreview(labels: String) = "Seiten heißen: $labels"
+    override val labelStyleNone = "Keine"
+    override val editPageLabels = "Seitenbeschriftungen festlegen"
+    override val editRemovePageLabels = "Seitenbeschriftungen entfernen"
+    override val mixTitle = "Seiten mischen"
+    override val mixSummary = "PDFs Seite für Seite verzahnen, etwa bei einem beidseitigen Scan"
+    override val mixReverseLast = "Letzte Datei von hinten nach vorn nehmen"
+    override val mixReverseHint =
+        "Für einen beidseitigen Scan mit einem einseitigen Scanner: Vorderseiten scannen, Stapel umdrehen, Rückseiten scannen, dann zuerst die Vorderseiten und danach die Rückseiten hinzufügen."
+    override fun mixNote(pages: Int) = "Zu ${pages(pages)} gemischt."
     // Eigenschaften und Anhänge.
     override val propertiesTitle = "Eigenschaften"
     override val toolProperties = "Eigenschaften"

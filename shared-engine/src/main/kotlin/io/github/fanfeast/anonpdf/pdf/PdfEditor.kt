@@ -185,6 +185,11 @@ data class SetBookmarks(val bookmarks: List<Bookmark>) : EditOp {
         if (bookmarks.isEmpty()) S.editRemoveBookmarks else S.editBookmarks(bookmarks.size)
 }
 
+/** Replaces the document's page labels; an empty list removes them. */
+data class SetPageLabels(val ranges: List<LabelRange>) : EditOp {
+    override fun describe() = if (ranges.isEmpty()) S.editRemovePageLabels else S.editPageLabels
+}
+
 /** Replaces the document's title, author, subject and keywords. */
 data class SetProperties(val properties: DocProperties) : EditOp {
     override fun describe() = S.editProperties
@@ -231,6 +236,8 @@ data class EditPlan(
     val greyscale: Boolean = false,
     /** The bookmarks to write, or null to keep the document's own. */
     val bookmarks: List<Bookmark>? = null,
+    /** The page labels to write, by output position, or null to keep the document's own. */
+    val pageLabels: List<LabelRange>? = null,
     /** The properties to write, or null to keep the document's own. */
     val properties: DocProperties? = null,
     /** Files to take out of the document and put in, or null to leave them. */
@@ -253,7 +260,7 @@ data class EditPlan(
     val hasChanges: Boolean
         get() = watermark != null || pageNumbers != null || headerFooter != null || marks.isNotEmpty() ||
             formValues.isNotEmpty() || flattenForm || redactions.isNotEmpty() || bookmarks != null ||
-            markups != MarkupMode.KEEP || greyscale || properties != null || attachments != null ||
+            markups != MarkupMode.KEEP || greyscale || properties != null || attachments != null || pageLabels != null ||
             pages.size != basePageCount ||
             pages.withIndex().any { (position, state) ->
                 state.sourceIndex != position || !state.isUntouched
@@ -332,6 +339,7 @@ object EditPlanBuilder {
         is SetMarkups -> plan.copy(markups = op.mode)
         is SetGreyscale -> plan.copy(greyscale = op.on)
         is SetProperties -> plan.copy(properties = op.properties)
+        is SetPageLabels -> plan.copy(pageLabels = op.ranges)
         is SetAttachments -> plan.copy(attachments = op.changes.takeUnless { it.isEmpty })
         is TiltPages -> plan.copy(
             pages = plan.pages.map { page -> op.angles[page.sourceIndex]?.let { page.copy(tilt = it) } ?: page },
@@ -470,6 +478,7 @@ object PdfEditor {
             stampPageNumbers(document, plan, firstOutputPosition = 0)
             stampHeaderFooter(document, plan, firstOutputPosition = 0)
             if (plan.greyscale) document.pages.forEach { PdfScan.greyPage(document, it) }
+            plan.pageLabels?.let { PdfArrange.writeLabels(document, it) }
             plan.properties?.let { PdfDocInfo.applyProperties(document, it) }
             plan.attachments?.let { PdfDocInfo.applyAttachments(document, it) }
 

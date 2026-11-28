@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.fanfeast.anonpdf.i18n.S
 
@@ -29,6 +30,7 @@ import io.github.fanfeast.anonpdf.i18n.S
 enum class ToolId {
     MERGE,
     COMPARE,
+    MIX,
     RECIPE,
     SPLIT,
     EXTRACT,
@@ -101,6 +103,15 @@ object ToolCatalog {
             input = ToolInput.MULTIPLE_PDF,
             output = ToolOutput.PDF,
             caveatText = { S.compareCaveat },
+        ),
+        ToolSpec(
+            id = ToolId.MIX,
+            titleText = { S.mixTitle },
+            summaryText = { S.mixSummary },
+            icon = Icons.Filled.Shuffle,
+            group = ToolGroup.FILES,
+            input = ToolInput.MULTIPLE_PDF,
+            output = ToolOutput.PDF,
         ),
         ToolSpec(
             id = ToolId.RECIPE,

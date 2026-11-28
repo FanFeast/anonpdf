@@ -302,6 +302,28 @@ internal object StringsFr : Strings() {
     override val bookmarksHint = "Choisissez un signet pour aller à sa page. Un signet en retrait se range sous celui du dessus."
     override fun editBookmarks(count: Int) = if (count <= 1) "Définir $count signet" else "Définir $count signets"
     override val editRemoveBookmarks = "Retirer tous les signets"
+    // Étiquettes de page et mélange de pages.
+    override val toolPageLabels = "Étiquettes"
+    override val pageLabelsTitle = "Étiquettes de page"
+    override val pageLabelsHint =
+        "Ce qu'un lecteur PDF affiche comme numéro de chaque page, comme i, ii, iii pour les pages liminaires. Les pages ne changent pas."
+    override fun labelFrom(page: Int) = "À partir de la page $page"
+    override val labelStartsOn = "Commence à la page"
+    override val labelStyle = "Numérotation"
+    override val labelPrefix = "Avant le numéro"
+    override val labelStart = "Commencer à"
+    override val labelAddRange = "Commencer une nouvelle série…"
+    override val labelRemoveRange = "Retirer cette série"
+    override fun labelsPreview(labels: String) = "Les pages se lisent : $labels"
+    override val labelStyleNone = "Aucune"
+    override val editPageLabels = "Définir les étiquettes de page"
+    override val editRemovePageLabels = "Retirer les étiquettes de page"
+    override val mixTitle = "Mélanger les pages"
+    override val mixSummary = "Intercaler des PDF page par page, comme pour un scan recto verso"
+    override val mixReverseLast = "Prendre le dernier fichier de la fin au début"
+    override val mixReverseHint =
+        "Pour un scan recto verso avec un scanner recto : scannez les rectos, retournez la pile, scannez les versos, puis ajoutez d'abord les rectos et ensuite les versos."
+    override fun mixNote(pages: Int) = "Mélangé en ${pages(pages)}."
     // Propriétés et pièces jointes.
     override val propertiesTitle = "Propriétés"
     override val toolProperties = "Propriétés"

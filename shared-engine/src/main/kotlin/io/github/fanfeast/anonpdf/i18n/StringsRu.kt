@@ -318,6 +318,28 @@ internal object StringsRu : Strings() {
     override val bookmarksHint = "Выберите закладку, чтобы перейти к её странице. Закладка с отступом вложена в ту, что выше."
     override fun editBookmarks(count: Int) = "Задать закладки: $count"
     override val editRemoveBookmarks = "Удалить все закладки"
+    // Метки страниц и смешивание страниц.
+    override val toolPageLabels = "Метки"
+    override val pageLabelsTitle = "Метки страниц"
+    override val pageLabelsHint =
+        "То, что программа для PDF показывает как номер каждой страницы, например i, ii, iii для вступительных. Сами страницы не меняются."
+    override fun labelFrom(page: Int) = "Со страницы $page"
+    override val labelStartsOn = "Начинается со страницы"
+    override val labelStyle = "Нумерация"
+    override val labelPrefix = "Перед номером"
+    override val labelStart = "Начать с"
+    override val labelAddRange = "Начать новую серию меток…"
+    override val labelRemoveRange = "Удалить эту серию"
+    override fun labelsPreview(labels: String) = "Страницы будут называться: $labels"
+    override val labelStyleNone = "Нет"
+    override val editPageLabels = "Задать метки страниц"
+    override val editRemovePageLabels = "Удалить метки страниц"
+    override val mixTitle = "Смешать страницы"
+    override val mixSummary = "Чередовать PDF постранично, как при двустороннем сканировании"
+    override val mixReverseLast = "Брать последний файл с конца"
+    override val mixReverseHint =
+        "Для двустороннего скана на одностороннем сканере: отсканируйте лицевые стороны, переверните стопку, отсканируйте обороты, затем добавьте сначала лицевые, потом обороты."
+    override fun mixNote(pages: Int) = "Смешано: ${pages(pages)}."
     // Свойства и вложения.
     override val propertiesTitle = "Свойства"
     override val toolProperties = "Свойства"

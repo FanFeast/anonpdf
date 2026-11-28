@@ -96,6 +96,9 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.AddMark
+import io.github.fanfeast.anonpdf.pdf.SetPageLabels
+import io.github.fanfeast.anonpdf.pdf.PdfArrange
+import io.github.fanfeast.anonpdf.pdf.LabelRange
 import io.github.fanfeast.anonpdf.pdf.SetProperties
 import io.github.fanfeast.anonpdf.pdf.SetAttachments
 import io.github.fanfeast.anonpdf.pdf.PdfDocInfo
@@ -242,6 +245,7 @@ internal sealed interface EditorMode {
     data class Redacting(val rule: RedactRule) : EditorMode
     data class Bookmarking(val items: List<Bookmark>, val selected: Int?) : EditorMode
     data class CleaningUp(val markups: MarkupMode) : EditorMode
+    data class Labelling(val ranges: List<LabelRange>) : EditorMode
     data class EditingProperties(val properties: DocProperties, val attachments: AttachmentChanges) : EditorMode
     data class Straightening(val angle: Float, val measuring: Boolean = false, val message: String? = null) : EditorMode
     data class AddingText(val mark: TextMark, val placed: Boolean) : EditorMode
@@ -345,6 +349,9 @@ fun EditorScreen(
                     val properties = runCatching {
                         PdfDocInfo.readProperties(outcome.session.sourceFile, outcome.session.password)
                     }.getOrDefault(DocProperties())
+                    val labels = runCatching {
+                        PdfArrange.readLabels(outcome.session.sourceFile, outcome.session.password)
+                    }.getOrDefault(emptyList())
                     val attachments = runCatching {
                         PdfDocInfo.readAttachments(outcome.session.sourceFile, outcome.session.password)
                     }.getOrDefault(emptyList())
@@ -359,6 +366,7 @@ fun EditorScreen(
                     holder.formInfo = form
                     holder.bookmarks = bookmarks
                     holder.properties = properties
+                    holder.pageLabels = labels
                     holder.attachments = attachments
                     editor = EditorState(outcome.session.pageCount)
                     preview = null
@@ -829,6 +837,9 @@ fun EditorScreen(
                 }
             }
             EditorTool.BOOKMARKS -> openMode(EditorMode.Bookmarking(plan.bookmarks ?: holder.bookmarks, null))
+            EditorTool.PAGE_LABELS -> openMode(
+                EditorMode.Labelling((plan.pageLabels ?: holder.pageLabels).ifEmpty { listOf(LabelRange(0)) }),
+            )
             EditorTool.PROPERTIES -> openMode(
                 EditorMode.EditingProperties(plan.properties ?: holder.properties, plan.attachments ?: AttachmentChanges()),
             )
@@ -1038,6 +1049,7 @@ fun EditorScreen(
                 onShowPending = { showPending = true },
                 onSave = ::save,
                 ownProperties = holder.properties,
+                ownLabels = holder.pageLabels,
                 ownAttachments = holder.attachments,
                 onAttach = attachFiles,
                 onInsertApply = {
@@ -1559,6 +1571,7 @@ private fun DrawerBody(
     onShowPending: () -> Unit,
     onSave: () -> Unit,
     ownProperties: DocProperties,
+    ownLabels: List<LabelRange>,
     ownAttachments: List<AttachedFile>,
     onAttach: () -> Unit,
     onInsertApply: () -> Unit,
@@ -1631,6 +1644,7 @@ private fun DrawerBody(
                     if (plan.redactions.isNotEmpty()) add(EditorTool.REDACT)
                     if (plan.bookmarks != null) add(EditorTool.BOOKMARKS)
                     if (plan.properties != null || plan.attachments != null) add(EditorTool.PROPERTIES)
+                    if (plan.pageLabels != null) add(EditorTool.PAGE_LABELS)
                     if (plan.markups != MarkupMode.KEEP) add(EditorTool.CLEANUP)
                     if (plan.greyscale) add(EditorTool.GREYSCALE)
                     if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
@@ -1732,6 +1746,22 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(TiltPages(state.targets().associateWith { current.angle }))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.Labelling -> LabelsPanel(
+            ranges = current.ranges,
+            pageCount = plan.kept.size,
+            hasExisting = (plan.pageLabels ?: ownLabels).isNotEmpty(),
+            onChange = { onModeChange(EditorMode.Labelling(it)) },
+            onRemove = {
+                state.apply(SetPageLabels(emptyList()))
+                onExitMode()
+            },
+            onCancel = onExitMode,
+            onApply = {
+                state.apply(SetPageLabels(current.ranges))
                 onExitMode()
             },
         )
