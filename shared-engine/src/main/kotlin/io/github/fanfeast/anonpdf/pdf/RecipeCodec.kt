@@ -87,6 +87,12 @@ internal object RecipeCodec {
                     out["right"] = mark.rect.right; out["bottom"] = mark.rect.bottom
                     out["color"] = color(mark.color); out["opacity"] = mark.opacity
                 }
+                is FieldMark -> {
+                    out["do"] = "field"
+                    out["kind"] = mark.kind.name; out["name"] = mark.name
+                    out["left"] = mark.rect.left; out["top"] = mark.rect.top
+                    out["right"] = mark.rect.right; out["bottom"] = mark.rect.bottom
+                }
                 is InkMark -> {
                     out["do"] = "ink"
                     out["strokes"] = mark.strokes.map { stroke -> stroke.flatMap { (x, y) -> listOf(x, y) } }
@@ -181,6 +187,12 @@ internal object RecipeCodec {
                     id = 0, sourceIndex = 0,
                     rect = MarkRect(r.fraction("left"), r.fraction("top"), r.fraction("right"), r.fraction("bottom")).tidied(),
                     color = r.color("color", 0xFFFFFFFF.toInt()), opacity = r.fraction("opacity", 1f),
+                ),
+            )
+            "field" -> AddMark(
+                FieldMark(
+                    id = 0, sourceIndex = 0, kind = enumValueOf(r.string("kind", "TEXT")), name = r.string("name").take(120),
+                    rect = MarkRect(r.fraction("left"), r.fraction("top"), r.fraction("right"), r.fraction("bottom")).tidied(),
                 ),
             )
             "ink" -> AddMark(

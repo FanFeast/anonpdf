@@ -357,6 +357,16 @@ open class Strings {
     open val labelStyleNone = "None"
     open val editPageLabels = "Set the page labels"
     open val editRemovePageLabels = "Remove the page labels"
+    // New form fields.
+    open fun markField(name: String, page: Int) = "a field \"$name\" on page $page"
+    open val toolAddField = "Field"
+    open val addFieldTitle = "Add a form field"
+    open val fieldKindText = "Text"
+    open val fieldKindMultiline = "Long text"
+    open val fieldKindCheckbox = "Checkbox"
+    open val fieldName = "Field name"
+    open fun fieldDefaultName(number: Int) = "Field $number"
+    open val fieldDrawHint = "Drag on the page where the field goes. Whoever opens the saved file can fill it in."
     // Extract text: formats.
     open val textFormat = "Save as"
     open val formatText = "Text"

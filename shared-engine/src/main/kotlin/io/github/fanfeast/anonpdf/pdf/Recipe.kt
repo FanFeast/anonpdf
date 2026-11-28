@@ -96,6 +96,7 @@ private fun PageMark.kind(): String = when (this) {
     is TextMark -> S.quoted(text.lineSequence().firstOrNull()?.take(24).orEmpty())
     is FillMark -> if (isHighlight) S.recipeHighlight else S.recipeWhiteout
     is InkMark -> S.recipeDrawing
+    is FieldMark -> S.quoted(name)
 }
 
 /** A named list of steps, recorded from one edit and replayed on other documents. */
@@ -263,4 +264,5 @@ private fun PageMark.moved(id: Long, page: Int): PageMark = when (this) {
     is TextMark -> copy(id = id, sourceIndex = page)
     is FillMark -> copy(id = id, sourceIndex = page)
     is InkMark -> copy(id = id, sourceIndex = page)
+    is FieldMark -> copy(id = id, sourceIndex = page)
 }

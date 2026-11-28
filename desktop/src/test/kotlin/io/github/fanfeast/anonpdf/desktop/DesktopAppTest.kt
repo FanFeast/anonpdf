@@ -17,6 +17,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.performTouchInput
+import kotlinx.coroutines.runBlocking
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.performScrollTo
@@ -578,6 +580,28 @@ class DesktopAppTest {
         waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("1 table found.")).fetchSemanticsNodes().isNotEmpty() }
         val csv = File(scratch, "out").walk().single { it.extension == "csv" }
         assertEquals("Item,Price\nTea,2.50\nCake,3.10\n", csv.readText())
+    }
+
+    @Test
+    fun `a text field drawn on the page is a real field in the saved file`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithText("Field").performScrollTo().performClick()
+        onNode(hasText("Add a form field")).assertExists()
+        onNode(hasText("Apply") and isButton).assertIsNotEnabled()
+        onNode(hasSetTextAction()).performTextReplacement("Reference")
+        // Drag out the box on the page, which fills the middle of the window.
+        onRoot().performTouchInput { swipe(start = Offset(560f, 300f), end = Offset(760f, 340f), durationMillis = 300) }
+        onNode(hasText("Apply") and isButton).assertIsEnabled().performClick()
+        onNodeWithText("1 edit").assertExists()
+
+        onNodeWithText("Save as…").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+        val fields = runBlocking { PdfForms.read(saved) }.fields
+        assertEquals(listOf("Reference"), fields.map { it.name })
+        assertEquals(0, fields.single().widgets.single().sourceIndex)
     }
 
     @Test
