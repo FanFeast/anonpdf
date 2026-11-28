@@ -85,6 +85,20 @@ fun ResultCard(
         }
     }
 
+    // Markdown, JSON and CSV: a type providers don't add their own extension for,
+    // so the file keeps the name it was offered under.
+    val createOther = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/octet-stream"),
+    ) { destination ->
+        if (destination == null) return@rememberLauncherForActivityResult
+        val single = result as? ToolResult.One ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching { store.export(single.file, destination) }
+                .onSuccess { onMessage(S.saved) }
+                .onFailure { onMessage(it.friendlyMessage(S.couldNotSaveFile)) }
+        }
+    }
+
     val pickFolder = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { treeUri ->
@@ -138,7 +152,9 @@ fun ResultCard(
                 is ToolResult.One -> {
                     Button(
                         onClick = {
-                            if (result.isText) {
+                            if (result.isText && !result.suggestedName.endsWith(".txt")) {
+                                createOther.launch(result.suggestedName)
+                            } else if (result.isText) {
                                 createText.launch(result.suggestedName)
                             } else {
                                 createPdf.launch(result.suggestedName)
@@ -230,6 +246,9 @@ private fun shareResult(
 private fun mimeFor(file: File): String = when (file.extension.lowercase()) {
     "pdf" -> "application/pdf"
     "txt" -> "text/plain"
+    "md" -> "text/markdown"
+    "csv" -> "text/csv"
+    "json" -> "application/json"
     "png" -> "image/png"
     "jpg", "jpeg" -> "image/jpeg"
     else -> "application/octet-stream"

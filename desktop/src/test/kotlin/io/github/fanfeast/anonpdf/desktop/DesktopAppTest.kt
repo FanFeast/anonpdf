@@ -549,6 +549,38 @@ class DesktopAppTest {
     }
 
     @Test
+    fun `a table on a page is saved as a CSV file`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val sheet = File(scratch, "prices.pdf")
+        PDDocument().use { document ->
+            val page = PDPage(PDRectangle.A4)
+            document.addPage(page)
+            PDPageContentStream(document, page).use { stream ->
+                listOf(listOf("Item", "Price"), listOf("Tea", "2.50"), listOf("Cake", "3.10")).forEachIndexed { row, cells ->
+                    cells.forEachIndexed { column, cell ->
+                        stream.beginText()
+                        stream.setFont(PDType1Font.HELVETICA, 12f)
+                        stream.newLineAtOffset(72f + column * 200f, 700f - row * 18f)
+                        stream.showText(cell)
+                        stream.endText()
+                    }
+                }
+            }
+            document.save(sheet)
+        }
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+        runOnIdle { navigator.show(Pane.Tool(ToolId.EXTRACT_TEXT)) }
+        waitForIdle()
+        runOnIdle { navigator.drop(listOf(sheet)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Tables (CSV)")).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithText("Tables (CSV)").performClick()
+        onNode(hasText("Extract text") and isButton and isEnabled()).performScrollTo().performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("1 table found.")).fetchSemanticsNodes().isNotEmpty() }
+        val csv = File(scratch, "out").walk().single { it.extension == "csv" }
+        assertEquals("Item,Price\nTea,2.50\nCake,3.10\n", csv.readText())
+    }
+
+    @Test
     fun `without a language pack, reading text says how to get one`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
         val navigator = DesktopNavigator()
         setContent { DesktopApp(navigator) }

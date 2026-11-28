@@ -14,6 +14,7 @@ import io.github.fanfeast.anonpdf.pdf.PdfImages
 import io.github.fanfeast.anonpdf.pdf.PdfLayout
 import io.github.fanfeast.anonpdf.pdf.PdfOcr
 import io.github.fanfeast.anonpdf.pdf.PdfOps
+import io.github.fanfeast.anonpdf.pdf.PdfStructure
 import io.github.fanfeast.anonpdf.pdf.Progress
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
 import io.github.fanfeast.anonpdf.pdf.Recipes
@@ -47,7 +48,7 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
         ToolId.PDF_TO_IMAGES -> runPdfToImages(docs.single(), options, onProgress)
         ToolId.IMAGES_TO_PDF -> runImagesToPdf(images, options, onProgress)
         ToolId.TEXT_TO_PDF -> runTextToPdf(images, onProgress)
-        ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
+        ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), options, onProgress)
         ToolId.OCR -> runOcr(docs.single(), options, onProgress)
         ToolId.EXTRACT_FILES -> runExtractFiles(docs.single(), options, onProgress)
         ToolId.LAYOUT -> runLayout(docs.single(), options, onProgress)
@@ -305,7 +306,41 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
         }
     }
 
-    private suspend fun runExtractText(doc: InputDoc, onProgress: Progress): ToolResult {
+    private suspend fun runExtractText(doc: InputDoc, options: ToolOptionsState, onProgress: Progress): ToolResult =
+        if (options.textFormat == TextFormat.TEXT) runPlainText(doc, onProgress) else runStructured(doc, options.textFormat, onProgress)
+
+    /** Markdown, JSON or tables, from where the text sits on the page. */
+    private suspend fun runStructured(doc: InputDoc, format: TextFormat, onProgress: Progress): ToolResult {
+        val stem = DocumentStore.stem(doc.name)
+        val read = PdfStructure.read(doc.requireFile(), doc.password, onProgress)
+        if (format == TextFormat.TABLES) {
+            val tables = PdfStructure.tables(read.pages)
+            require(tables.isNotEmpty()) { if (read.pages.flatten().isEmpty()) S.probablyScans else S.noTablesFound }
+            val directory = store.newOutputDir("$stem-tables")
+            val files = tables.mapIndexed { index, table ->
+                File(directory, "$stem-p${table.page}-${index + 1}.csv").apply { writeText(PdfStructure.csv(table.rows)) }
+            }
+            val note = S.tablesFound(files.size)
+            return if (files.size == 1) {
+                ToolResult.One(file = files.single(), suggestedName = "$stem.csv", isText = true, note = note)
+            } else {
+                ToolResult.Many(files = files, isText = true, note = note)
+            }
+        }
+        val output = store.newOutputFile("$stem-${format.extension}", format.extension)
+        output.writeText(
+            if (format == TextFormat.MARKDOWN) PdfStructure.markdown(read.pages) else PdfStructure.json(read.pages, read.sizes),
+        )
+        val letters = read.pages.flatten().sumOf { line -> line.text.count(Char::isLetterOrDigit) }
+        return ToolResult.One(
+            file = output,
+            suggestedName = "$stem.${format.extension}",
+            isText = true,
+            note = if (letters < 20) S.probablyScans else null,
+        )
+    }
+
+    private suspend fun runPlainText(doc: InputDoc, onProgress: Progress): ToolResult {
         val text = PdfOps.extractText(doc.requireFile(), doc.password, onProgress)
         val stem = DocumentStore.stem(doc.name)
         val output = store.newOutputFile("$stem-text", "txt")

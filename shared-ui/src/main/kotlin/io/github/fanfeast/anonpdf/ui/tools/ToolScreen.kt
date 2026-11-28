@@ -628,10 +628,17 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
             )
         }
 
-        ToolId.EXTRACT_TEXT -> Text(
-            S.textToTxt,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        ToolId.EXTRACT_TEXT -> {
+            ChoiceChips(
+                label = S.textFormat,
+                options = TextFormat.entries,
+                selected = options.textFormat,
+                onSelect = { options.textFormat = it },
+                optionLabel = { it.label },
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(options.textFormat.hint, style = MaterialTheme.typography.bodyMedium)
+        }
 
         ToolId.PROTECT -> {
             OutlinedTextField(
