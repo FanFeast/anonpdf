@@ -59,6 +59,11 @@ internal object RecipeCodec {
             }
             is SetMarkups -> out.put("do", "markups").also { out["mode"] = op.mode.name }
             is SetGreyscale -> out.put("do", "greyscale").also { out["on"] = op.on }
+            is SetProperties -> {
+                out["do"] = "properties"
+                out["title"] = op.properties.title; out["author"] = op.properties.author
+                out["subject"] = op.properties.subject; out["keywords"] = op.properties.keywords
+            }
             is FillForm -> {
                 out["do"] = "fillForm"
                 out["values"] = op.values
@@ -139,6 +144,9 @@ internal object RecipeCodec {
             "redact" -> AddRedaction(Redaction(RedactRule(enumValueOf(r.string("find")), r.string("text", "")), none))
             "markups" -> SetMarkups(enumValueOf(r.string("mode")))
             "greyscale" -> SetGreyscale(r.bool("on", true))
+            "properties" -> SetProperties(
+                DocProperties(r.string("title", ""), r.string("author", ""), r.string("subject", ""), r.string("keywords", "")),
+            )
             "fillForm" -> FillForm(
                 (json["values"] as? Map<*, *>).orEmpty().entries.associate { (k, v) -> (k as String) to (v as String) },
                 r.bool("flatten"),

@@ -82,10 +82,11 @@ class RecipeTest {
                 InsertPages(3, 2, 3, "other.pdf"),
                 TiltPages(mapOf(0 to 2f)),
                 SetBookmarks(listOf(Bookmark("Intro", 0))),
+                SetAttachments(AttachmentChanges(removed = setOf("old.xlsx"))),
                 SetGreyscale(true),
             ),
         )
-        assertEquals(3, recorded.skipped)
+        assertEquals(4, recorded.skipped)
         assertEquals(listOf<EditOp>(SetGreyscale(true)), recorded.steps.map { it.op })
     }
 
@@ -146,6 +147,7 @@ class RecipeTest {
             RecipeStep(AddRedaction(Redaction(RedactRule(RedactKind.PHONES), emptySet())), PageChoice.First),
             RecipeStep(SetMarkups(MarkupMode.FLATTEN)),
             RecipeStep(SetGreyscale(true)),
+            RecipeStep(SetProperties(DocProperties("Report", "Ada", "", "q3"))),
             RecipeStep(FillForm(mapOf("name" to "Ada", "note" to "line 1\nline 2"), flatten = true)),
             RecipeStep(AddMark(TextMark(0, 0, "Approved ✓ अनुमोदित", 0.25f, 0.5f, 14f, 0xFF00AA00.toInt(), true)), PageChoice.Positions(listOf(1))),
             RecipeStep(AddMark(FillMark(0, 0, MarkRect(0.1f, 0.2f, 0.3f, 0.4f), 0xFFFFFF00.toInt(), 0.4f)), PageChoice.First),

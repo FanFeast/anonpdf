@@ -117,9 +117,9 @@ object Recipes {
      * header and footer, markups, grey) keep only their final value; deletes
      * that were later restored are dropped; each mark keeps its final shape.
      *
-     * Inserting another file's pages, straightening (measured page by page) and
-     * bookmarks (which name pages of this document) are left out and counted in
-     * [Recorded.skipped].
+     * Inserting another file's pages, straightening (measured page by page),
+     * bookmarks (which name pages of this document) and attached files are left
+     * out and counted in [Recorded.skipped].
      */
     fun record(pageCount: Int, ops: List<EditOp>): Recorded {
         // A restore undoes part of an earlier delete; fold it in so neither is recorded.
@@ -142,8 +142,8 @@ object Recipes {
             when (op) {
                 is AddMark -> lastTouch[op.mark.id] = i
                 is UpdateMark -> lastTouch[op.mark.id] = i
-                is SetWatermark, is SetPageNumbers, is SetHeaderFooter, is SetMarkups, is SetGreyscale, is FillForm ->
-                    lastOfKind[op.javaClass] = i
+                is SetWatermark, is SetPageNumbers, is SetHeaderFooter, is SetMarkups, is SetGreyscale, is FillForm,
+                is SetProperties -> lastOfKind[op.javaClass] = i
                 ClearRedactions -> lastClear = i
                 else -> Unit
             }
@@ -178,9 +178,9 @@ object Recipes {
                 is FillForm -> if (lastOfKind[op.javaClass] == i) {
                     steps += RecipeStep(FillForm(formValues, op.flatten))
                 }
-                is SetWatermark, is SetPageNumbers, is SetHeaderFooter, is SetMarkups, is SetGreyscale ->
+                is SetWatermark, is SetPageNumbers, is SetHeaderFooter, is SetMarkups, is SetGreyscale, is SetProperties ->
                     if (lastOfKind[op.javaClass] == i) steps += RecipeStep(op)
-                is InsertPages, is TiltPages, is SetBookmarks -> skipped++
+                is InsertPages, is TiltPages, is SetBookmarks, is SetAttachments -> skipped++
                 // Folded into the deletes above; removed marks and cleared
                 // redactions simply never appear.
                 is RestorePages, is RemoveMark, ClearRedactions -> Unit

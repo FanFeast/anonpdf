@@ -96,6 +96,13 @@ import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.AddMark
+import io.github.fanfeast.anonpdf.pdf.SetProperties
+import io.github.fanfeast.anonpdf.pdf.SetAttachments
+import io.github.fanfeast.anonpdf.pdf.PdfDocInfo
+import io.github.fanfeast.anonpdf.pdf.DocProperties
+import io.github.fanfeast.anonpdf.pdf.AttachmentChanges
+import io.github.fanfeast.anonpdf.pdf.Attachment
+import io.github.fanfeast.anonpdf.pdf.AttachedFile
 import io.github.fanfeast.anonpdf.pdf.AddRedaction
 import io.github.fanfeast.anonpdf.pdf.Bookmark
 import io.github.fanfeast.anonpdf.pdf.PdfBookmarks
@@ -153,6 +160,7 @@ import io.github.fanfeast.anonpdf.ui.common.OnFilesDropped
 import io.github.fanfeast.anonpdf.ui.common.documentRefOf
 import io.github.fanfeast.anonpdf.ui.common.memoryBytes
 import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenAnyFiles
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdf
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdfs
 import io.github.fanfeast.anonpdf.ui.common.toImageBitmap
@@ -234,6 +242,7 @@ internal sealed interface EditorMode {
     data class Redacting(val rule: RedactRule) : EditorMode
     data class Bookmarking(val items: List<Bookmark>, val selected: Int?) : EditorMode
     data class CleaningUp(val markups: MarkupMode) : EditorMode
+    data class EditingProperties(val properties: DocProperties, val attachments: AttachmentChanges) : EditorMode
     data class Straightening(val angle: Float, val measuring: Boolean = false, val message: String? = null) : EditorMode
     data class AddingText(val mark: TextMark, val placed: Boolean) : EditorMode
     data class Filling(
@@ -333,6 +342,12 @@ fun EditorScreen(
                     val bookmarks = runCatching {
                         PdfBookmarks.read(outcome.session.sourceFile, outcome.session.password)
                     }.getOrDefault(emptyList())
+                    val properties = runCatching {
+                        PdfDocInfo.readProperties(outcome.session.sourceFile, outcome.session.password)
+                    }.getOrDefault(DocProperties())
+                    val attachments = runCatching {
+                        PdfDocInfo.readAttachments(outcome.session.sourceFile, outcome.session.password)
+                    }.getOrDefault(emptyList())
                     session?.close()
                     extraSources.forEach { it.close() }
                     extraSources.clear()
@@ -343,6 +358,8 @@ fun EditorScreen(
                     session = outcome.session
                     holder.formInfo = form
                     holder.bookmarks = bookmarks
+                    holder.properties = properties
+                    holder.attachments = attachments
                     editor = EditorState(outcome.session.pageCount)
                     preview = null
                     previewPage?.close()
@@ -812,6 +829,9 @@ fun EditorScreen(
                 }
             }
             EditorTool.BOOKMARKS -> openMode(EditorMode.Bookmarking(plan.bookmarks ?: holder.bookmarks, null))
+            EditorTool.PROPERTIES -> openMode(
+                EditorMode.EditingProperties(plan.properties ?: holder.properties, plan.attachments ?: AttachmentChanges()),
+            )
 
             EditorTool.TEXT -> if (page != null) {
                 openMode(
@@ -918,6 +938,25 @@ fun EditorScreen(
         mode = EditorMode.Normal
     }
 
+    // Each picked file is copied into the workspace now, so it is still there,
+    // unchanged, when the document is saved.
+    val attachFiles = rememberOpenAnyFiles { picked ->
+        scope.launch {
+            val dir = store.newOutputDir("attach")
+            val added = picked.mapIndexedNotNull { index, file ->
+                runCatching {
+                    val copy = File(dir, "$index-${DocumentStore.sanitize(file.name)}")
+                    file.open().use { input -> copy.outputStream().use { input.copyTo(it) } }
+                    Attachment(file.name, copy)
+                }.getOrNull()
+            }
+            if (added.size < picked.size) snackbarHost.showSnackbar(S.couldNotOpenFile)
+            val current = mode as? EditorMode.EditingProperties ?: return@launch
+            val list = added.fold(current.attachments.added) { list, attachment -> attachment.replacing(list) }
+            mode = current.copy(attachments = current.attachments.copy(added = list))
+        }
+    }
+
     fun cancelInsert() {
         insertReady.forEach { it.close() }
         insertReady = emptyList()
@@ -998,6 +1037,9 @@ fun EditorScreen(
                 onPickTool = ::pick,
                 onShowPending = { showPending = true },
                 onSave = ::save,
+                ownProperties = holder.properties,
+                ownAttachments = holder.attachments,
+                onAttach = attachFiles,
                 onInsertApply = {
                     (mode as? EditorMode.Inserting)
                         ?.let { applyInsert(it.where) }
@@ -1516,6 +1558,9 @@ private fun DrawerBody(
     onPickTool: (EditorTool) -> Unit,
     onShowPending: () -> Unit,
     onSave: () -> Unit,
+    ownProperties: DocProperties,
+    ownAttachments: List<AttachedFile>,
+    onAttach: () -> Unit,
     onInsertApply: () -> Unit,
     onInsertCancel: () -> Unit,
     redactCount: RedactCount?,
@@ -1585,6 +1630,7 @@ private fun DrawerBody(
                     if (plan.headerFooter != null) add(EditorTool.HEADER_FOOTER)
                     if (plan.redactions.isNotEmpty()) add(EditorTool.REDACT)
                     if (plan.bookmarks != null) add(EditorTool.BOOKMARKS)
+                    if (plan.properties != null || plan.attachments != null) add(EditorTool.PROPERTIES)
                     if (plan.markups != MarkupMode.KEEP) add(EditorTool.CLEANUP)
                     if (plan.greyscale) add(EditorTool.GREYSCALE)
                     if (plan.formValues.isNotEmpty() || plan.flattenForm) add(EditorTool.FILL_FORM)
@@ -1686,6 +1732,23 @@ private fun DrawerBody(
             onCancel = onExitMode,
             onApply = {
                 state.apply(TiltPages(state.targets().associateWith { current.angle }))
+                onExitMode()
+            },
+        )
+
+        is EditorMode.EditingProperties -> PropertiesPanel(
+            properties = current.properties,
+            own = ownAttachments,
+            changes = current.attachments,
+            onPropertiesChange = { onModeChange(current.copy(properties = it)) },
+            onChangesChange = { onModeChange(current.copy(attachments = it)) },
+            onAttach = onAttach,
+            onCancel = onExitMode,
+            onApply = {
+                if (current.properties != (plan.properties ?: ownProperties)) state.apply(SetProperties(current.properties))
+                if (current.attachments != (plan.attachments ?: AttachmentChanges())) {
+                    state.apply(SetAttachments(current.attachments))
+                }
                 onExitMode()
             },
         )

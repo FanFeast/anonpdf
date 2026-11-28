@@ -458,6 +458,27 @@ class DesktopAppTest {
         }
 
     @Test
+    fun `a title and author are set in Properties and saved with the file`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithText("Properties").performScrollTo().performClick()
+        onNodeWithText("No files attached.").assertExists()
+        onNode(hasSetTextAction() and hasText("Title")).performTextInput("Board minutes")
+        onNode(hasSetTextAction() and hasText("Author")).performTextInput("The Secretary")
+        onNodeWithText("Apply").performClick()
+        onNodeWithText("1 edit").assertExists()
+
+        onNodeWithText("Save as…").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+        PdfOps.load(saved).use { document ->
+            assertEquals("Board minutes", document.documentInformation.title)
+            assertEquals("The Secretary", document.documentInformation.author)
+        }
+    }
+
+    @Test
     fun `without a language pack, reading text says how to get one`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
         val navigator = DesktopNavigator()
         setContent { DesktopApp(navigator) }

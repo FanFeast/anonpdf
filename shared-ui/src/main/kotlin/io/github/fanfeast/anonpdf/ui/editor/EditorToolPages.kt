@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Numbers
@@ -102,6 +103,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     HEADER_FOOTER({ S.toolHeaderFooter }, Icons.AutoMirrored.Filled.ShortText),
 
     MERGE({ S.toolMerge }, Icons.AutoMirrored.Filled.MergeType),
+    PROPERTIES({ S.toolProperties }, Icons.Filled.Info),
     BOOKMARKS({ S.toolBookmarks }, Icons.Filled.Bookmarks),
     CLEANUP({ S.toolCleanup }, Icons.Filled.CleaningServices),
     SPLIT({ S.toolSplit }, Icons.Filled.ContentCut, handsOff = true),
@@ -188,6 +190,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
         listOf(
             EditorTool.MERGE,
             EditorTool.BOOKMARKS,
+            EditorTool.PROPERTIES,
             EditorTool.CLEANUP,
             EditorTool.SPLIT,
             EditorTool.EXTRACT,

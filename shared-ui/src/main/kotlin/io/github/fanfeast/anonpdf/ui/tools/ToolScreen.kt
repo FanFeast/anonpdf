@@ -516,6 +516,21 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
 
         ToolId.OCR -> OcrOptions(options)
 
+        ToolId.EXTRACT_FILES -> {
+            ChoiceChips(
+                label = S.extractFilesWhat,
+                options = ExtractWhat.entries,
+                selected = options.extractWhat,
+                onSelect = { options.extractWhat = it },
+                optionLabel = { it.label },
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (options.extractWhat == ExtractWhat.IMAGES) S.extractImagesHint else S.extractAttachmentsHint,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        }
+
         ToolId.EXTRACT_TEXT -> Text(
             S.textToTxt,
             style = MaterialTheme.typography.bodyMedium,

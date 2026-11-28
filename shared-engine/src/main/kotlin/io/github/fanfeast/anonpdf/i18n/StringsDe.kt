@@ -297,6 +297,33 @@ internal object StringsDe : Strings() {
     override val bookmarksHint = "Wählen Sie ein Lesezeichen, um zu seiner Seite zu springen. Ein eingerücktes Lesezeichen gehört zu dem darüber."
     override fun editBookmarks(count: Int) = if (count == 1) "1 Lesezeichen festlegen" else "$count Lesezeichen festlegen"
     override val editRemoveBookmarks = "Alle Lesezeichen entfernen"
+    // Eigenschaften und Anhänge.
+    override val propertiesTitle = "Eigenschaften"
+    override val toolProperties = "Eigenschaften"
+    override val propTitle = "Titel"
+    override val propAuthor = "Autor"
+    override val propSubject = "Thema"
+    override val propKeywords = "Stichwörter"
+    override val propertiesHint = "PDF-Reader zeigen sie in den Dokumenteigenschaften, den Titel oft auch in der Titelleiste des Fensters."
+    override val attachmentsLabel = "Angehängte Dateien"
+    override val attachmentsNone = "Keine Dateien angehängt."
+    override val attachFile = "Datei anhängen…"
+    override fun removeAttachment(name: String) = "$name entfernen"
+    override val attachmentNew = "neu"
+    override val editProperties = "Titel, Autor, Thema und Stichwörter festlegen"
+    override fun editAttachments(added: Int, removed: Int) = listOfNotNull(
+        added.takeIf { it > 0 }?.let { if (it == 1) "1 Datei anhängen" else "$it Dateien anhängen" },
+        removed.takeIf { it > 0 }?.let { if (it == 1) "1 angehängte Datei entfernen" else "$it angehängte Dateien entfernen" },
+    ).joinToString(", ")
+    override val extractFilesTitle = "Bilder & Anhänge"
+    override val extractFilesSummary = "Die Originalbilder aus einem PDF holen oder die angehängten Dateien"
+    override val extractImages = "Bilder"
+    override val extractAttachments = "Angehängte Dateien"
+    override val extractFilesWhat = "Was speichern"
+    override val extractImagesHint = "Jedes Bild so, wie es eingefügt wurde: Ein JPEG bleibt dasselbe JPEG, alles andere wird als PNG gespeichert."
+    override val extractAttachmentsHint = "Jede an das PDF angehängte Datei unter ihrem Namen. Öffne nur, was du erwartest."
+    override val noImagesFound = "Dieses PDF enthält keine Bilder."
+    override val noAttachmentsFound = "An dieses PDF sind keine Dateien angehängt."
     // Rezepte.
     override val recipesTitle = "Rezepte"
     override val recipesHint =

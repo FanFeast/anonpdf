@@ -62,10 +62,11 @@ fun rememberOpenImages(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
 fun choosePdfs(multiple: Boolean, title: String = S.openAPdf): List<File> =
     chooseFiles(multiple, title, setOf("pdf"))
 
-private fun chooseFiles(multiple: Boolean, title: String, extensions: Set<String>): List<File> {
+/** [extensions] null means any file at all. */
+private fun chooseFiles(multiple: Boolean, title: String, extensions: Set<String>?): List<File> {
     val dialog = FileDialog(null as Frame?, title, FileDialog.LOAD).apply {
         isMultipleMode = multiple
-        setFilenameFilter { _, name -> name.substringAfterLast('.', "").lowercase() in extensions }
+        if (extensions != null) setFilenameFilter { _, name -> name.substringAfterLast('.', "").lowercase() in extensions }
         isVisible = true
     }
     return dialog.files.orEmpty().filter { it.isFile }
@@ -81,6 +82,19 @@ fun rememberOpenOcrPacks(onPicked: (List<PickedFile>) -> Unit): () -> Unit {
     return remember {
         {
             chooseFiles(multiple = true, title = S.ocrAddPack, extensions = setOf("traineddata"))
+                .takeIf { it.isNotEmpty() }
+                ?.let { files -> callback(files.map { file -> PickedFile(file.name) { file.inputStream() } }) }
+        }
+    }
+}
+
+/** Opens the system file dialog for files of any kind, any number at once: attachments. */
+@Composable
+fun rememberOpenAnyFiles(onPicked: (List<PickedFile>) -> Unit): () -> Unit {
+    val callback by rememberUpdatedState(onPicked)
+    return remember {
+        {
+            chooseFiles(multiple = true, title = S.attachFile, extensions = null)
                 .takeIf { it.isNotEmpty() }
                 ?.let { files -> callback(files.map { file -> PickedFile(file.name) { file.inputStream() } }) }
         }

@@ -280,6 +280,33 @@ internal object StringsZh : Strings() {
     override val bookmarksHint = "选择书签即可跳到对应页面。缩进的书签归属于它上面的那一个。"
     override fun editBookmarks(count: Int) = "设置 $count 个书签"
     override val editRemoveBookmarks = "移除所有书签"
+    // 属性和附件。
+    override val propertiesTitle = "属性"
+    override val toolProperties = "属性"
+    override val propTitle = "标题"
+    override val propAuthor = "作者"
+    override val propSubject = "主题"
+    override val propKeywords = "关键词"
+    override val propertiesHint = "PDF 阅读器会在文档属性中显示它们，标题也常显示在窗口标题栏。"
+    override val attachmentsLabel = "附加的文件"
+    override val attachmentsNone = "没有附加文件。"
+    override val attachFile = "附加文件…"
+    override fun removeAttachment(name: String) = "移除 $name"
+    override val attachmentNew = "新"
+    override val editProperties = "设置标题、作者、主题和关键词"
+    override fun editAttachments(added: Int, removed: Int) = listOfNotNull(
+        added.takeIf { it > 0 }?.let { "附加 $it 个文件" },
+        removed.takeIf { it > 0 }?.let { "移除 $it 个附件" },
+    ).joinToString("，")
+    override val extractFilesTitle = "保存图片或附件"
+    override val extractFilesSummary = "取出 PDF 中的原始图片，或附加在其中的文件"
+    override val extractImages = "图片"
+    override val extractAttachments = "附加的文件"
+    override val extractFilesWhat = "保存什么"
+    override val extractImagesHint = "每张图片按放入时的样子保存：JPEG 仍是原来的 JPEG，其他格式保存为 PNG。"
+    override val extractAttachmentsHint = "PDF 中附加的每个文件，使用其原名。只打开你预期的文件。"
+    override val noImagesFound = "此 PDF 中没有图片。"
+    override val noAttachmentsFound = "此 PDF 没有附加文件。"
     // 配方。
     override val recipesTitle = "配方"
     override val recipesHint = "配方会记住你在这里做的修改，以便用在其他文件上：在这里逐个运行，或用“运行配方”工具一次处理多个。"

@@ -12,6 +12,14 @@ import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import java.io.File
 
+enum class ExtractWhat(private val text: () -> String) {
+    IMAGES({ S.extractImages }),
+    ATTACHMENTS({ S.extractAttachments }),
+    ;
+
+    val label: String get() = text()
+}
+
 /** A document the user handed to a tool, plus what we learned by opening it. */
 data class InputDoc(
     val ref: DocumentRef,
@@ -75,6 +83,8 @@ class ToolOptionsState {
     /** OCR language pack codes, in the order the user ticked them: Tesseract tries the first first. */
     var ocrLanguages by mutableStateOf<List<String>>(emptyList())
     var ocrRedoText by mutableStateOf(false)
+
+    var extractWhat by mutableStateOf(ExtractWhat.IMAGES)
 
     var pageRange by mutableStateOf("")
 
