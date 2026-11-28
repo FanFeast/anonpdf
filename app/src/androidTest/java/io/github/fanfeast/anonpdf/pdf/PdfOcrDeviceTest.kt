@@ -33,7 +33,7 @@ class PdfOcrDeviceTest {
     }
 
     @Test
-    fun a_scanned_page_becomes_searchable() = runBlocking {
+    fun a_scanned_page_becomes_searchable(): Unit = runBlocking {
         val assets = InstrumentationRegistry.getInstrumentation().context.assets
         assumeTrue("no language pack to test with", "eng.traineddata" in assets.list("").orEmpty())
         val scratch = TestPlatform.scratchDir("ocr").apply { deleteRecursively(); mkdirs() }
