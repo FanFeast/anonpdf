@@ -87,9 +87,10 @@ internal object StringsDe : Strings() {
 
     override val editPdf = "PDF bearbeiten"
     override val editorIntro =
-        "Seiten drehen, zuschneiden, skalieren, löschen und umsortieren, Text, Abdeckungen, " +
-            "Markierungen oder Zeichnungen hinzufügen und jedes andere Werkzeug von hier aus " +
-            "erreichen – immer mit einer Vorschau des echten Ergebnisses. Geschrieben wird erst beim Speichern."
+        "Seiten ordnen, zuschneiden und skalieren, Text, Markierungen, Zeichnungen oder " +
+            "Kopfzeilen hinzufügen, Vertrauliches schwärzen, Scans begradigen und jedes andere " +
+            "Werkzeug von hier aus erreichen – immer mit einer Vorschau des echten Ergebnisses. " +
+            "Geschrieben wird erst beim Speichern."
     override val revertAll = "Alles zurücksetzen"
     override val noEditsYet = "Noch keine Änderungen"
     override val applyingEditsFirst = "Deine Änderungen werden zuerst angewendet…"
@@ -432,6 +433,7 @@ internal object StringsDe : Strings() {
     override val addPdfs = "PDFs hinzufügen"
     override val addImages = "Bilder hinzufügen"
     override val addOneMore = "Füge mindestens eine weitere Datei hinzu. Sie werden in der Reihenfolge der Liste zusammengeführt."
+    override val addChangedVersion = "Füge jetzt die geänderte Fassung hinzu, mit der verglichen wird."
     override fun imageNumber(number: Int) = "Bild $number"
     override val locked = "gesperrt"
     override val unlocked = "entsperrt"
@@ -537,9 +539,10 @@ internal object StringsDe : Strings() {
             "es deine Dokumente hochlädt, selbst wenn etwas es versuchte. Kein Konto, keine Werbung, kein Tracking."
     override val editAPdf = "PDF bearbeiten"
     override val editAPdfBody =
-        "Alle Werkzeuge an einem Ort: Seiten drehen, zuschneiden, skalieren, löschen und umsortieren, " +
-            "Text, Abdeckungen, Markierungen oder Zeichnungen hinzufügen – mehreres auf einmal, mit " +
-            "einer Live-Vorschau des echten Ergebnisses vor dem Speichern."
+        "Alle Werkzeuge an einem Ort: Seiten ordnen, zuschneiden und skalieren, Text, " +
+            "Markierungen, Zeichnungen oder Kopfzeilen hinzufügen, Vertrauliches schwärzen, " +
+            "Scans begradigen – mehreres auf einmal, mit einer Live-Vorschau des echten " +
+            "Ergebnisses vor dem Speichern."
 
     override val browse = "Durchsuchen"
     override val rescan = "Neu suchen"

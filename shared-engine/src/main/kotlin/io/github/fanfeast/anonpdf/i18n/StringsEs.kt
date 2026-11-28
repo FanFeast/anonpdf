@@ -87,9 +87,10 @@ internal object StringsEs : Strings() {
 
     override val editPdf = "Editar PDF"
     override val editorIntro =
-        "Gira, recorta, cambia de tamaño, elimina y reordena páginas, añade texto, corrector, " +
-            "resaltados o dibujos, y llega a cualquier otra herramienta desde aquí, siempre con una " +
-            "vista previa del resultado real. No se escribe nada hasta que guardas."
+        "Ordena, recorta y cambia el tamaño de las páginas, añade texto, resaltados, dibujos " +
+            "o encabezados, tacha lo confidencial, endereza escaneos y llega a cualquier otra " +
+            "herramienta desde aquí, siempre con una vista previa del resultado real. No se " +
+            "escribe nada hasta que guardas."
     override val revertAll = "Deshacer todo"
     override val noEditsYet = "Aún no hay cambios"
     override val applyingEditsFirst = "Aplicando primero tus cambios…"
@@ -435,6 +436,7 @@ internal object StringsEs : Strings() {
     override val addPdfs = "Añadir PDF"
     override val addImages = "Añadir imágenes"
     override val addOneMore = "Añade al menos un archivo más. Se unen en el orden de la lista."
+    override val addChangedVersion = "Ahora añade la versión cambiada con la que comparar."
     override fun imageNumber(number: Int) = "Imagen $number"
     override val locked = "bloqueado"
     override val unlocked = "desbloqueado"
@@ -541,9 +543,9 @@ internal object StringsEs : Strings() {
             "aunque algo lo intentara. Sin cuenta, sin anuncios, sin rastreo."
     override val editAPdf = "Editar un PDF"
     override val editAPdfBody =
-        "Todas las herramientas en un sitio: gira, recorta, cambia de tamaño, elimina y reordena " +
-            "páginas, añade texto, corrector, resaltados o dibujos, varias a la vez y con una vista " +
-            "previa real antes de guardar."
+        "Todas las herramientas en un sitio: ordena, recorta y cambia el tamaño de las " +
+            "páginas, añade texto, resaltados, dibujos o encabezados, tacha lo confidencial, " +
+            "endereza escaneos; varias a la vez y con una vista previa real antes de guardar."
 
     override val browse = "Explorar"
     override val rescan = "Volver a buscar"

@@ -235,7 +235,7 @@ fun ToolScreen(
                         if (docs.size in 1..1) {
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                S.addOneMore,
+                                if (toolId == ToolId.COMPARE) S.addChangedVersion else S.addOneMore,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

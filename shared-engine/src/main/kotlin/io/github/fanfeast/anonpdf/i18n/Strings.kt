@@ -111,9 +111,9 @@ open class Strings {
 
     open val editPdf = "Edit PDF"
     open val editorIntro =
-        "Rotate, crop, resize, delete and reorder pages, add text, white-out, highlights or " +
-            "drawings, and reach every other tool from here — all with a preview of the real " +
-            "result. Nothing is written until you save."
+        "Arrange, crop and resize pages, add text, highlights, drawings or headers, black " +
+            "out what must go, straighten scans, and reach every other tool from here — all with " +
+            "a preview of the real result. Nothing is written until you save."
     open val revertAll = "Revert all"
     open val noEditsYet = "No edits yet"
     open val applyingEditsFirst = "Applying your edits first…"
@@ -472,6 +472,7 @@ open class Strings {
     open val addPdfs = "Add PDFs"
     open val addImages = "Add images"
     open val addOneMore = "Add at least one more file. They are merged in the order listed above."
+    open val addChangedVersion = "Now add the changed version to compare it with."
     open fun imageNumber(number: Int) = "Image $number"
     open val locked = "locked"
     open val unlocked = "unlocked"
@@ -578,9 +579,9 @@ open class Strings {
             "documents even if something tried. No account, no ads, no tracking."
     open val editAPdf = "Edit a PDF"
     open val editAPdfBody =
-        "Every tool in one place: rotate, crop, resize, delete and reorder pages, add text, " +
-            "white-out, highlights or drawings — several at once, with a live preview of the real " +
-            "result before you save."
+        "Every tool in one place: arrange, crop and resize pages, add text, highlights, " +
+            "drawings or headers, black out what must go, straighten scans — several at once, " +
+            "with a live preview of the real result before you save."
 
     // ------------------------------------------------------- Android: browse
 

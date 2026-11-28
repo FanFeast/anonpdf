@@ -2,8 +2,8 @@ package io.github.fanfeast.anonpdf.ui.editor
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,29 +11,29 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
+import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.FilterBAndW
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.CleaningServices
-import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.Compress
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.FilterBAndW
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.FindInPage
 import androidx.compose.material.icons.filled.FormatColorFill
@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Numbers
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.RestoreFromTrash
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.WaterDrop
@@ -52,12 +53,22 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.i18n.S
+import kotlinx.coroutines.launch
 
 /**
  * Everything the editor can do, in the order the pages present them.
@@ -208,38 +219,47 @@ fun ToolPager(
     onPick: (EditorTool) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
     Column(modifier) {
+        // Every group by name, so it is plain what else there is and any of it
+        // is one tap away instead of several swipes.
+        val tabs = rememberScrollState()
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .horizontalScroll(tabs)
+                .padding(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
-                pages[pagerState.currentPage].title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Spacer(Modifier.weight(1f))
-            // Dots, so it is obvious there is more than one page to swipe through.
-            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                pages.indices.forEach { index ->
-                    Box(
-                        Modifier
-                            .size(if (index == pagerState.currentPage) 7.dp else 5.dp)
-                            .background(
-                                if (index == pagerState.currentPage) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.outlineVariant
-                                },
-                                CircleShape,
-                            ),
-                    )
+            pages.forEachIndexed { index, page ->
+                val selected = index == pagerState.targetPage
+                val tabScroll = remember { mutableIntStateOf(0) }
+                // Keep the group being shown in view as the pager is swiped along.
+                LaunchedEffect(selected) {
+                    if (selected) tabs.animateScrollTo(tabScroll.intValue - 40)
                 }
+                Text(
+                    page.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = if (selected) {
+                        MaterialTheme.colorScheme.onSecondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    maxLines = 1,
+                    modifier = Modifier
+                        .onPlaced { tabScroll.intValue = it.positionInParent().x.toInt() }
+                        .clip(CircleShape)
+                        .background(
+                            if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+                        )
+                        .selectable(selected = selected, role = Role.Tab) {
+                            scope.launch { pagerState.animateScrollToPage(index) }
+                        }
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                )
             }
         }
-        Spacer(Modifier.height(2.dp))
 
         // Every page gets the same height, whether it holds one row of tools or
         // two. Without this, swiping from the one short page onto a taller one

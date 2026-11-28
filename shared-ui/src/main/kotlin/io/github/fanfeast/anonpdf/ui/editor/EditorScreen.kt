@@ -196,13 +196,15 @@ private const val DETAIL_DEBOUNCE_MS = 120L
 private const val AUTO_SCROLL_EDGE_PX = 110f
 private const val AUTO_SCROLL_STEP_PX = 14f
 
-/** Drawer heights it snaps to: out of the way, tools showing, everything showing. */
 /** From this width on, the controls sit in a panel beside the page, not under it. */
 private val WIDE_LAYOUT_MIN_WIDTH = 840.dp
 private val SIDE_PANEL_WIDTH = 400.dp
 
+/** Drawer heights it snaps to: out of the way, tools showing, everything showing. */
 private val DRAWER_HIDDEN = 36.dp
-private val DRAWER_COMPACT = 356.dp
+
+/** Tall enough for both rows of tools, labels included, above the save row. */
+private val DRAWER_COMPACT = 384.dp
 private val DRAWER_FULL = 460.dp
 
 /** Below this the drawer shows nothing but its handle. */

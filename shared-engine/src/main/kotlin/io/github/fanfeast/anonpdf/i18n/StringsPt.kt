@@ -87,9 +87,10 @@ internal object StringsPt : Strings() {
 
     override val editPdf = "Editar PDF"
     override val editorIntro =
-        "Gire, corte, redimensione, exclua e reordene páginas, adicione texto, corretivo, " +
-            "destaques ou desenhos e chegue a qualquer outra ferramenta daqui — sempre com uma " +
-            "prévia do resultado real. Nada é gravado até você salvar."
+        "Organize, corte e redimensione páginas, adicione texto, destaques, desenhos ou " +
+            "cabeçalhos, tarje o que é sigiloso, endireite digitalizações e chegue a qualquer " +
+            "outra ferramenta daqui — sempre com uma prévia do resultado real. Nada é gravado " +
+            "até você salvar."
     override val revertAll = "Desfazer tudo"
     override val noEditsYet = "Nenhuma alteração ainda"
     override val applyingEditsFirst = "Aplicando suas alterações primeiro…"
@@ -433,6 +434,7 @@ internal object StringsPt : Strings() {
     override val addPdfs = "Adicionar PDFs"
     override val addImages = "Adicionar imagens"
     override val addOneMore = "Adicione pelo menos mais um arquivo. Eles são juntados na ordem da lista acima."
+    override val addChangedVersion = "Agora adicione a versão alterada para comparar."
     override fun imageNumber(number: Int) = "Imagem $number"
     override val locked = "bloqueado"
     override val unlocked = "desbloqueado"
@@ -537,9 +539,10 @@ internal object StringsPt : Strings() {
             "documentos mesmo que algo tentasse. Sem conta, sem anúncios, sem rastreamento."
     override val editAPdf = "Editar um PDF"
     override val editAPdfBody =
-        "Todas as ferramentas num só lugar: gire, corte, redimensione, exclua e reordene páginas, " +
-            "adicione texto, corretivo, destaques ou desenhos — várias de uma vez, com prévia ao vivo " +
-            "do resultado real antes de salvar."
+        "Todas as ferramentas num só lugar: organize, corte e redimensione páginas, adicione " +
+            "texto, destaques, desenhos ou cabeçalhos, tarje o que é sigiloso, endireite " +
+            "digitalizações — várias de uma vez, com prévia ao vivo do resultado real antes de " +
+            "salvar."
 
     override val browse = "Navegar"
     override val rescan = "Procurar de novo"

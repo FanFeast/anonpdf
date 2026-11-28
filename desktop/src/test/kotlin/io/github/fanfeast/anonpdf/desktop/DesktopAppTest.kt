@@ -3,6 +3,8 @@ package io.github.fanfeast.anonpdf.desktop
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
@@ -103,6 +105,26 @@ class DesktopAppTest {
             assertEquals(90, document.getPage(0).rotation)
             assertEquals(0, document.getPage(1).rotation)
         }
+    }
+
+    @Test
+    fun `on a narrow window each group of tools is one tap away`() = runDesktopComposeUiTest(NARROW, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+        fun tab(name: String) = onNode(hasText(name) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+
+        onNodeWithText("Left").assertExists()
+        tab("Pages").assertIsSelected()
+        // The last group, with no swiping.
+        tab("Convert & lock").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Protect")).fetchSemanticsNodes().isNotEmpty() }
+        tab("Convert & lock").assertIsSelected()
+        tab("Pages").assertIsNotSelected()
+
+        tab("Stamps").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Watermark")).fetchSemanticsNodes().isNotEmpty() }
+        onNodeWithText("Watermark").performClick()
+        onNodeWithText("Apply").assertExists()
     }
 
     /** A one-page form: a name to type and a box to tick. */
@@ -359,14 +381,12 @@ class DesktopAppTest {
         // In the sidebar; the start page also has a card for it.
         onNode(hasText("Compare PDFs") and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)).performClick()
         waitForIdle()
-        runOnIdle {
-            navigator.drop(
-                listOf(
-                    onePagePdf("contract v1.pdf", "The fee is 500 dollars per month."),
-                    onePagePdf("contract v2.pdf", "The fee is 650 dollars per month."),
-                ),
-            )
+        runOnIdle { navigator.drop(listOf(onePagePdf("contract v1.pdf", "The fee is 500 dollars per month."))) }
+        // One file in, it asks for the other version, not for files to merge.
+        waitUntil(timeoutMillis = TIMEOUT_MS) {
+            onAllNodes(hasText("Now add the changed version to compare it with.")).fetchSemanticsNodes().isNotEmpty()
         }
+        runOnIdle { navigator.drop(listOf(onePagePdf("contract v2.pdf", "The fee is 650 dollars per month."))) }
         waitUntil(timeoutMillis = TIMEOUT_MS) {
             onAllNodes(hasText("contract v2.pdf", substring = true)).fetchSemanticsNodes().isNotEmpty()
         }
@@ -533,6 +553,9 @@ class DesktopAppTest {
         const val TIMEOUT_MS = 20_000L
         const val WIDTH = 1440
         const val HEIGHT = 960
+
+        /** Narrow enough for the phone layout: the page above, the tools in a drawer. */
+        const val NARROW = 660
 
         val isButton = SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button)
     }
