@@ -86,6 +86,8 @@ class ToolOptionsState {
 
     var extractWhat by mutableStateOf(ExtractWhat.IMAGES)
 
+    var mixReverseLast by mutableStateOf(true)
+
     var pageRange by mutableStateOf("")
 
     var splitMode by mutableStateOf(SplitMode.RANGES)

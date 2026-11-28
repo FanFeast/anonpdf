@@ -287,6 +287,28 @@ internal object StringsHi : Strings() {
     override val bookmarksHint = "किसी बुकमार्क को चुनें तो उसका पेज खुल जाएगा। अंदर किया गया बुकमार्क ऊपर वाले के नीचे आता है।"
     override fun editBookmarks(count: Int) = "$count बुकमार्क सेट करें"
     override val editRemoveBookmarks = "सारे बुकमार्क हटाएँ"
+    // पेज लेबल और पेज मिलाना।
+    override val toolPageLabels = "लेबल"
+    override val pageLabelsTitle = "पेज लेबल"
+    override val pageLabelsHint =
+        "PDF रीडर हर पेज के नंबर के रूप में क्या दिखाए, जैसे शुरुआती पेजों के लिए i, ii, iii। पेज ख़ुद नहीं बदलते।"
+    override fun labelFrom(page: Int) = "पेज $page से"
+    override val labelStartsOn = "इस पेज से शुरू"
+    override val labelStyle = "गिनती"
+    override val labelPrefix = "नंबर से पहले"
+    override val labelStart = "यहाँ से शुरू करें"
+    override val labelAddRange = "लेबल का नया क्रम शुरू करें…"
+    override val labelRemoveRange = "यह क्रम हटाएँ"
+    override fun labelsPreview(labels: String) = "पेज कहलाएँगे: $labels"
+    override val labelStyleNone = "कोई नहीं"
+    override val editPageLabels = "पेज लेबल तय करें"
+    override val editRemovePageLabels = "पेज लेबल हटाएँ"
+    override val mixTitle = "पेज मिलाएँ"
+    override val mixSummary = "PDF को पेज-दर-पेज बारी-बारी से जोड़ें, जैसे दोनों तरफ़ के स्कैन में"
+    override val mixReverseLast = "आख़िरी फ़ाइल को पीछे से आगे की ओर लें"
+    override val mixReverseHint =
+        "एक तरफ़ वाले स्कैनर से दोनों तरफ़ स्कैन के लिए: आगे के पन्ने स्कैन करें, गड्डी पलटें, पीछे के पन्ने स्कैन करें, फिर पहले आगे वाले और उसके बाद पीछे वाले जोड़ें।"
+    override fun mixNote(pages: Int) = "${pages(pages)} में मिलाया गया।"
     // गुण और अटैचमेंट।
     override val propertiesTitle = "गुण"
     override val toolProperties = "गुण"

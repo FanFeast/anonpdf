@@ -59,6 +59,12 @@ internal object RecipeCodec {
             }
             is SetMarkups -> out.put("do", "markups").also { out["mode"] = op.mode.name }
             is SetGreyscale -> out.put("do", "greyscale").also { out["on"] = op.on }
+            is SetPageLabels -> {
+                out["do"] = "pageLabels"
+                out["ranges"] = op.ranges.map {
+                    linkedMapOf("from" to it.firstPage + 1, "style" to it.style.name, "prefix" to it.prefix, "start" to it.start)
+                }
+            }
             is SetProperties -> {
                 out["do"] = "properties"
                 out["title"] = op.properties.title; out["author"] = op.properties.author
@@ -144,6 +150,17 @@ internal object RecipeCodec {
             "redact" -> AddRedaction(Redaction(RedactRule(enumValueOf(r.string("find")), r.string("text", "")), none))
             "markups" -> SetMarkups(enumValueOf(r.string("mode")))
             "greyscale" -> SetGreyscale(r.bool("on", true))
+            "pageLabels" -> SetPageLabels(
+                (json["ranges"] as? List<*>).orEmpty().map { item ->
+                    val range = Fields(item as Map<*, *>)
+                    LabelRange(
+                        firstPage = (range.int("from", 1) - 1).coerceAtLeast(0),
+                        style = enumValueOf(range.string("style", "DECIMAL")),
+                        prefix = range.string("prefix", ""),
+                        start = range.int("start", 1).coerceAtLeast(1),
+                    )
+                },
+            )
             "properties" -> SetProperties(
                 DocProperties(r.string("title", ""), r.string("author", ""), r.string("subject", ""), r.string("keywords", "")),
             )

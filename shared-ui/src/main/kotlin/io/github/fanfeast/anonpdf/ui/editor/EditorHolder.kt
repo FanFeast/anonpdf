@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import io.github.fanfeast.anonpdf.pdf.AttachedFile
 import io.github.fanfeast.anonpdf.pdf.Bookmark
 import io.github.fanfeast.anonpdf.pdf.DocProperties
+import io.github.fanfeast.anonpdf.pdf.LabelRange
 import io.github.fanfeast.anonpdf.pdf.FormInfo
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
@@ -35,6 +36,7 @@ class EditorHolder : ViewModel() {
 
     /** The opened document's own properties and attached files, read along with it. */
     var properties by mutableStateOf(DocProperties())
+    var pageLabels by mutableStateOf<List<LabelRange>>(emptyList())
     var attachments by mutableStateOf<List<AttachedFile>>(emptyList())
 
     /**

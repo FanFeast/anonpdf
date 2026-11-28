@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Article
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import androidx.compose.material.icons.automirrored.filled.Label
 import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.automirrored.filled.RotateLeft
 import androidx.compose.material.icons.automirrored.filled.RotateRight
@@ -103,6 +104,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     HEADER_FOOTER({ S.toolHeaderFooter }, Icons.AutoMirrored.Filled.ShortText),
 
     MERGE({ S.toolMerge }, Icons.AutoMirrored.Filled.MergeType),
+    PAGE_LABELS({ S.toolPageLabels }, Icons.AutoMirrored.Filled.Label),
     PROPERTIES({ S.toolProperties }, Icons.Filled.Info),
     BOOKMARKS({ S.toolBookmarks }, Icons.Filled.Bookmarks),
     CLEANUP({ S.toolCleanup }, Icons.Filled.CleaningServices),
@@ -175,6 +177,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
             EditorTool.WATERMARK,
             EditorTool.PAGE_NUMBERS,
             EditorTool.HEADER_FOOTER,
+            EditorTool.PAGE_LABELS,
         ),
     ),
     ToolPage(

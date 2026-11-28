@@ -295,6 +295,28 @@ internal object StringsPt : Strings() {
     override val bookmarksHint = "Escolha um marcador para ir à página dele. Um marcador recuado fica dentro do de cima."
     override fun editBookmarks(count: Int) = if (count == 1) "Definir 1 marcador" else "Definir $count marcadores"
     override val editRemoveBookmarks = "Remover todos os marcadores"
+    // Rótulos de página e misturar páginas.
+    override val toolPageLabels = "Rótulos"
+    override val pageLabelsTitle = "Rótulos de página"
+    override val pageLabelsHint =
+        "O que um leitor de PDF mostra como número de cada página, como i, ii, iii nas páginas iniciais. As páginas não mudam."
+    override fun labelFrom(page: Int) = "A partir da página $page"
+    override val labelStartsOn = "Começa na página"
+    override val labelStyle = "Numeração"
+    override val labelPrefix = "Antes do número"
+    override val labelStart = "Começar em"
+    override val labelAddRange = "Começar uma nova sequência…"
+    override val labelRemoveRange = "Remover esta sequência"
+    override fun labelsPreview(labels: String) = "As páginas ficam: $labels"
+    override val labelStyleNone = "Nenhuma"
+    override val editPageLabels = "Definir os rótulos de página"
+    override val editRemovePageLabels = "Remover os rótulos de página"
+    override val mixTitle = "Misturar páginas"
+    override val mixSummary = "Intercalar PDFs página a página, como num escaneamento frente e verso"
+    override val mixReverseLast = "Pegar o último arquivo de trás para frente"
+    override val mixReverseHint =
+        "Para frente e verso num scanner de um lado só: escaneie as frentes, vire a pilha, escaneie os versos e então adicione primeiro as frentes e depois os versos."
+    override fun mixNote(pages: Int) = "Misturado em ${pages(pages)}."
     // Propriedades e anexos.
     override val propertiesTitle = "Propriedades"
     override val toolProperties = "Propriedades"

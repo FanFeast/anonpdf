@@ -143,7 +143,7 @@ object Recipes {
                 is AddMark -> lastTouch[op.mark.id] = i
                 is UpdateMark -> lastTouch[op.mark.id] = i
                 is SetWatermark, is SetPageNumbers, is SetHeaderFooter, is SetMarkups, is SetGreyscale, is FillForm,
-                is SetProperties -> lastOfKind[op.javaClass] = i
+                is SetProperties, is SetPageLabels -> lastOfKind[op.javaClass] = i
                 ClearRedactions -> lastClear = i
                 else -> Unit
             }
@@ -178,7 +178,8 @@ object Recipes {
                 is FillForm -> if (lastOfKind[op.javaClass] == i) {
                     steps += RecipeStep(FillForm(formValues, op.flatten))
                 }
-                is SetWatermark, is SetPageNumbers, is SetHeaderFooter, is SetMarkups, is SetGreyscale, is SetProperties ->
+                is SetWatermark, is SetPageNumbers, is SetHeaderFooter, is SetMarkups, is SetGreyscale, is SetProperties,
+                is SetPageLabels ->
                     if (lastOfKind[op.javaClass] == i) steps += RecipeStep(op)
                 is InsertPages, is TiltPages, is SetBookmarks, is SetAttachments -> skipped++
                 // Folded into the deletes above; removed marks and cleared

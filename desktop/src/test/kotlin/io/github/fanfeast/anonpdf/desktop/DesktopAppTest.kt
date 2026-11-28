@@ -479,6 +479,43 @@ class DesktopAppTest {
     }
 
     @Test
+    fun `front pages are labelled in roman numerals and the rest from 1`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        setContent { DesktopApp(DesktopNavigator(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+        onNodeWithText("Labels").performScrollTo().performClick()
+        onNodeWithText("i, ii, iii").performClick()
+        onNodeWithText("Start a new run of labels…").performClick()
+        onNodeWithText("Pages read: i, 1, 2").assertExists()
+        onNodeWithText("Apply").performClick()
+
+        onNodeWithText("Save as…").performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Done")).fetchSemanticsNodes().isNotEmpty() }
+        val saved = File(scratch, "out").listFiles { file -> file.name.endsWith("-edited.pdf") }!!.single()
+        PdfOps.load(saved).use { document ->
+            assertEquals(listOf("i", "1", "2"), document.documentCatalog.pageLabels.labelsByPageIndices.toList())
+        }
+    }
+
+    @Test
+    fun `a two-sided scan's fronts and backs are mixed back into order`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+        runOnIdle { navigator.show(Pane.Tool(ToolId.MIX)) }
+        waitForIdle()
+        runOnIdle { navigator.drop(listOf(pagesPdf("fronts.pdf", 2), pagesPdf("backs.pdf", 2))) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("backs.pdf", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        onNode(hasText("Mix pages") and isButton and isEnabled()).performScrollTo().performClick()
+        waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Mixed into 4 pages.")).fetchSemanticsNodes().isNotEmpty() }
+        val mixed = File(scratch, "out").listFiles { file -> file.name.startsWith("mixed") }!!.single()
+        // Fronts say Page 1, Page 2; the backs, taken back to front, Page 2 then Page 1.
+        val pages = PdfOps.load(mixed).use { document ->
+            (1..4).map { PDFTextStripper().apply { startPage = it; endPage = it }.getText(document).trim() }
+        }
+        assertEquals(listOf("Page 1", "Page 2", "Page 2", "Page 1"), pages)
+    }
+
+    @Test
     fun `without a language pack, reading text says how to get one`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
         val navigator = DesktopNavigator()
         setContent { DesktopApp(navigator) }
