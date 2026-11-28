@@ -52,7 +52,10 @@ fun ResultCard(
     val hiddenInfo = rememberHiddenInfoChoice(result)
 
     fun saveOne(single: ToolResult.One) {
-        val destination = chooseSaveFile(single.suggestedName, if (single.isText) "txt" else "pdf")
+        val destination = chooseSaveFile(
+            single.suggestedName,
+            single.suggestedName.substringAfterLast('.', if (single.isText) "txt" else "pdf"),
+        )
             ?: return
         scope.launch {
             runCatching { store.export(hiddenInfo.fileFor(single.file, store), destination) }

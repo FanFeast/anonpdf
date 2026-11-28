@@ -14,6 +14,17 @@ import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import java.io.File
 
+enum class TextFormat(val extension: String, private val text: () -> String, private val hintText: () -> String) {
+    TEXT("txt", { S.formatText }, { S.formatTextHint }),
+    MARKDOWN("md", { S.formatMarkdown }, { S.formatMarkdownHint }),
+    JSON("json", { S.formatJson }, { S.formatJsonHint }),
+    TABLES("csv", { S.formatTables }, { S.formatTablesHint }),
+    ;
+
+    val label: String get() = text()
+    val hint: String get() = hintText()
+}
+
 enum class LayoutKind(private val text: () -> String) {
     PER_SHEET({ S.layoutPerSheet }),
     BOOKLET({ S.layoutBooklet }),
@@ -98,6 +109,8 @@ class ToolOptionsState {
     var extractWhat by mutableStateOf(ExtractWhat.IMAGES)
 
     var mixReverseLast by mutableStateOf(true)
+
+    var textFormat by mutableStateOf(TextFormat.TEXT)
 
     var layoutKind by mutableStateOf(LayoutKind.PER_SHEET)
     var layoutPerSheet by mutableStateOf(2)

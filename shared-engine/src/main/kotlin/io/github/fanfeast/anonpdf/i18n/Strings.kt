@@ -357,6 +357,20 @@ open class Strings {
     open val labelStyleNone = "None"
     open val editPageLabels = "Set the page labels"
     open val editRemovePageLabels = "Remove the page labels"
+    // Extract text: formats.
+    open val textFormat = "Save as"
+    open val formatText = "Text"
+    open val formatMarkdown = "Markdown"
+    open val formatJson = "JSON"
+    open val formatTables = "Tables (CSV)"
+    open val formatTextHint = "The text as it reads, page by page, in a plain .txt file."
+    open val formatMarkdownHint =
+        "Headings from larger type, paragraphs joined back together, lists and tables kept, in a .md file."
+    open val formatJsonHint = "Every line with its page, position and type size, for other programs to read."
+    open val formatTablesHint =
+        "Each table found on the pages as its own .csv file, which any spreadsheet opens. Found from how the text lines up; a scan needs Recognise text first."
+    open val noTablesFound = "No tables were found: no run of lines whose columns line up."
+    open fun tablesFound(count: Int) = if (count == 1) "1 table found." else "$count tables found."
     // Text to PDF.
     open val textToPdfTitle = "Text to PDF"
     open val textToPdfSummary = "Turn text and Markdown files into PDFs"
@@ -662,7 +676,6 @@ open class Strings {
     open val marginSlim = "Slim"
     open val marginMedium = "Medium"
     open val marginWide = "Wide"
-    open val textToTxt = "Text is written to a .txt file in reading order."
     open val newPassword = "New password"
     open val confirmPassword = "Confirm password"
     open val allowReadersTo = "Allow readers to"
