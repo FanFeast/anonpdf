@@ -228,6 +228,36 @@ jobs:
           files: dist/*
           prerelease: ${{ contains(github.ref_name, '-') }}
 
+  language-packs:
+    # The OCR language packs, attached to the release so they can be fetched by
+    # hand from the same place as the app. Tesseract's own tessdata_fast models,
+    # pinned by commit and checked against docs/ocr/language-packs.sha256.
+    name: OCR language packs
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch and check the packs
+        run: |
+          set -euo pipefail
+          mkdir packs
+          cd packs
+          for file in $(awk '{ print $2 }' ../docs/ocr/language-packs.sha256); do
+            curl -fsSL -o "$file" \
+              "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/$file"
+          done
+          sha256sum -c ../docs/ocr/language-packs.sha256
+
+      - name: Attach to the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packs/*.traineddata
+          prerelease: ${{ contains(github.ref_name, '-') }}
+
   snap:
     # The snap, attached to the release and, once the store credential is set,
     # published to the Snap Store: candidates (v1.2.0-rc.1) to the candidate

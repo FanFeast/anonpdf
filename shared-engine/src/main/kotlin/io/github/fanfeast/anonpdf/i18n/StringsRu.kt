@@ -370,6 +370,31 @@ internal object StringsRu : Strings() {
     override val recipePickOne = "Выберите рецепт."
     override fun recipeEditedWith(name: String) = "Изменено рецептом ${quoted(name)}."
     override fun recipeEmptiesFile(name: String) = "Рецепт удалил бы все страницы файла $name."
+    // Распознавание текста (OCR).
+    override val ocrPickLanguage = "Выберите хотя бы один язык."
+    override val ocrCouldNotStart = "Не удалось запустить распознавание с этими языковыми пакетами."
+    override val ocrNotAPack = "Этот файл — не языковой пакет OCR. Пакеты — это файлы с расширением .traineddata."
+    override fun ocrNotAPackNamed(names: String) = "Не языковой пакет: $names. Пакеты — это файлы с расширением .traineddata."
+    override val ocrUnavailable = "Распознавание текста недоступно на этом устройстве."
+    override val ocrTitle = "Распознать текст (OCR)"
+    override val ocrSummary = "Сделать скан доступным для поиска и выделения"
+    override val ocrCaveat =
+        "Выполняется на этом устройстве, несколько секунд на страницу. Страницы выглядят так же; у них появляется невидимый слой текста."
+    override val toolOcr = "Читать текст"
+    override val ocrLanguages = "Языки"
+    override val ocrNoPacks =
+        "Языков пока нет. Для чтения нужен пакет для каждого языка — файл .traineddata. " +
+            "Скачайте нужные со страницы выпусков AnonPDF на GitHub или из коллекции tessdata_fast " +
+            "проекта Tesseract и добавьте их здесь. AnonPDF сам ничего не скачивает."
+    override val ocrPacksHere = "Языковые пакеты на этом устройстве"
+    override val ocrAddPack = "Добавить языковой пакет…"
+    override fun ocrRemovePack(language: String) = "Удалить: $language"
+    override val ocrRedoText = "Читать и страницы, на которых уже есть текст"
+    override fun ocrNote(read: Int, skipped: Int) =
+        "Текст распознан: ${plural(read, "страница", "страницы", "страниц")}." +
+            if (skipped > 0) " Уже с текстом: ${plural(skipped, "страница", "страницы", "страниц")}." else ""
+    override fun ocrNothingRead(skipped: Int) =
+        if (skipped > 0) "Нечего добавить: на каждой странице уже есть текст или нет надписей." else "Слова не найдены."
     override val headerFooterTitle = "Колонтитулы"
     override val headerLine = "Верхний колонтитул"
     override val footerLine = "Нижний колонтитул"
@@ -699,6 +724,8 @@ internal object StringsRu : Strings() {
             "резервного копирования. Его можно выключить или очистить в Настройках."
     override val storesWorking =
         "Рабочие копии редактируемого файла в кеше приложения. Они временные, Android может удалить их в любой момент."
+    override val storesRecipes = "Рецепты, которые вы сохраняете, и только когда вы решили сохранить."
+    override val storesOcrPacks = "Добавленные вами языковые пакеты OCR."
     override val storesPrefs = "Ваши настройки отображения. Это весь список."
     override val noTrustNeeded =
         "Ничего из этого не нужно принимать на веру. Исходный код открыт, а список разрешений виден " +
@@ -711,6 +738,10 @@ internal object StringsRu : Strings() {
             "чтения и записи структуры PDF."
     override val licenceAndroidX = "Лицензия Apache 2.0. Copyright The Android Open Source Project."
     override val licenceKotlin = "Лицензия Apache 2.0. Copyright JetBrains s.r.o."
+    override val licenceTesseract =
+        "Apache License 2.0. Copyright Google и участники Tesseract. Используется для чтения текста на сканах."
+    override val licenceLeptonica = "Лицензия BSD 2-Clause. Copyright Dan Bloomberg и участники Leptonica. Библиотека изображений Tesseract."
+    override val licenceJavaCpp = "Apache License 2.0. Copyright Samuel Audet. Связывает приложение с Tesseract."
     override val cryptoNote =
         "Защита паролем использует AES-256 через собственные криптографические библиотеки Android. " +
             "Сторонних криптобиблиотек нет."

@@ -9,9 +9,11 @@ import io.github.fanfeast.anonpdf.pdf.ImageStamp
 import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
 import io.github.fanfeast.anonpdf.pdf.InkMark
 import io.github.fanfeast.anonpdf.pdf.MarkRect
+import io.github.fanfeast.anonpdf.pdf.OcrPacks
 import io.github.fanfeast.anonpdf.pdf.PageNumberOptions
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
+import io.github.fanfeast.anonpdf.pdf.PdfOcr
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
 import io.github.fanfeast.anonpdf.pdf.RotatePages
@@ -25,6 +27,7 @@ import org.apache.pdfbox.pdmodel.PDPage
 import org.apache.pdfbox.pdmodel.PDPageContentStream
 import org.apache.pdfbox.pdmodel.common.PDRectangle
 import org.apache.pdfbox.pdmodel.font.PDType1Font
+import org.bytedeco.tesseract.TessBaseAPI
 import java.awt.image.BufferedImage
 import java.io.File
 
@@ -128,6 +131,19 @@ internal object SelfTest {
         val ink = BufferedImage(120, 40, BufferedImage.TYPE_INT_ARGB).apply { setRGB(10, 10, 0xFF000000.toInt()) }
         PdfOps.stampImages(source, signed, listOf(ImageStamp(pageIndex = 1, bitmap = ink, centerXRatio = 0.5f, centerYRatio = 0.8f, widthRatio = 0.3f)))
         check("a signature is stamped", PdfOps.load(signed).use { it.getPage(1).resources.xObjectNames.any() })
+
+        // Text recognition: the native library has to be in the download and load
+        // from it. With a language pack to hand (CI passes one), read a page too.
+        check("the text recogniser loads", runCatching { TessBaseAPI.Version().string.isNotBlank() }.getOrDefault(false))
+        System.getenv("ANONPDF_TESSDATA")?.let(::File)?.resolve("eng.traineddata")?.takeIf { it.canRead() }?.let { pack ->
+            val packs = OcrPacks(File(dir, "packs"))
+            pack.inputStream().use { packs.install(pack.name, it) }
+            val scan = File(dir, "scan.pdf")
+            PdfConvert.compressByRasterizing(source, scan, dpi = 200, jpegQuality = 0.9f)
+            val read = File(dir, "read.pdf")
+            PdfOcr.recognise(scan, read, packs, listOf("eng"))
+            check("text is recognised on a scan", PdfOps.extractText(read).contains("Body2"))
+        }
 
         dir.deleteRecursively()
         if (failures.isEmpty()) {

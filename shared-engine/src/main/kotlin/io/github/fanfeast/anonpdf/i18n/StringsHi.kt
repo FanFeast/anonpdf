@@ -337,6 +337,30 @@ internal object StringsHi : Strings() {
     override val recipePickOne = "कोई रेसिपी चुनें।"
     override fun recipeEditedWith(name: String) = "\"$name\" से बदला गया।"
     override fun recipeEmptiesFile(name: String) = "यह रेसिपी $name के सारे पेज हटा देगी।"
+    // टेक्स्ट पहचान (OCR)।
+    override val ocrPickLanguage = "कम से कम एक भाषा चुनें।"
+    override val ocrCouldNotStart = "इन भाषा पैक से टेक्स्ट पहचान शुरू नहीं हो सकी।"
+    override val ocrNotAPack = "यह फ़ाइल OCR भाषा पैक नहीं है। पैक .traineddata पर ख़त्म होने वाली फ़ाइलें होती हैं।"
+    override fun ocrNotAPackNamed(names: String) = "भाषा पैक नहीं: $names। पैक .traineddata पर ख़त्म होने वाली फ़ाइलें होती हैं।"
+    override val ocrUnavailable = "इस डिवाइस पर टेक्स्ट पहचान उपलब्ध नहीं है।"
+    override val ocrTitle = "टेक्स्ट पहचानें (OCR)"
+    override val ocrSummary = "स्कैन किए PDF को खोजने और चुनने लायक बनाएँ"
+    override val ocrCaveat =
+        "इसी डिवाइस पर पढ़ा जाता है, हर पेज में कुछ सेकंड। पेज बिल्कुल वैसे ही दिखते हैं; उन पर टेक्स्ट की एक अदृश्य परत जुड़ जाती है।"
+    override val toolOcr = "टेक्स्ट पढ़ें"
+    override val ocrLanguages = "भाषाएँ"
+    override val ocrNoPacks =
+        "अभी कोई भाषा नहीं। पढ़ने के लिए हर भाषा का एक पैक चाहिए: एक .traineddata फ़ाइल। " +
+            "ज़रूरी पैक GitHub पर AnonPDF के रिलीज़ पेज से या Tesseract के tessdata_fast संग्रह से डाउनलोड करें, " +
+            "फिर यहाँ जोड़ें। AnonPDF ख़ुद कभी कुछ डाउनलोड नहीं करता।"
+    override val ocrPacksHere = "इस डिवाइस पर भाषा पैक"
+    override val ocrAddPack = "भाषा पैक जोड़ें…"
+    override fun ocrRemovePack(language: String) = "$language हटाएँ"
+    override val ocrRedoText = "जिन पेजों पर पहले से टेक्स्ट है, उन्हें भी पढ़ें"
+    override fun ocrNote(read: Int, skipped: Int) =
+        "$read पेज का टेक्स्ट पढ़ा गया।" + if (skipped > 0) " $skipped पेज पर टेक्स्ट पहले से था।" else ""
+    override fun ocrNothingRead(skipped: Int) =
+        if (skipped > 0) "जोड़ने लायक कोई शब्द नहीं मिला: हर पेज पर पहले से टेक्स्ट है या कुछ लिखा नहीं है।" else "कोई शब्द नहीं मिला।"
     override val headerFooterTitle = "हेडर और फ़ुटर"
     override val headerLine = "हेडर"
     override val footerLine = "फ़ुटर"
@@ -657,6 +681,8 @@ internal object StringsHi : Strings() {
         "हाल में खोली गई फ़ाइलों के नामों की सूची, ऐप की निजी स्टोरेज में और क्लाउड बैकअप से बाहर। आप इसे सेटिंग में बंद या साफ़ कर सकते हैं।"
     override val storesWorking =
         "जिस फ़ाइल को आप एडिट कर रहे हैं उसकी कामकाजी कॉपी, ऐप कैश में। ये अस्थायी हैं और Android इन्हें कभी भी हटा सकता है।"
+    override val storesRecipes = "आपकी सहेजी हुई रेसिपी, और सिर्फ़ तब जब आप कोई सहेजें।"
+    override val storesOcrPacks = "आपके जोड़े हुए OCR भाषा पैक।"
     override val storesPrefs = "आपकी दिखावट की पसंद। बस इतनी ही सूची है।"
     override val noTrustNeeded =
         "इनमें से किसी बात पर आंख मूंदकर भरोसा करने की ज़रूरत नहीं। सोर्स कोड सार्वजनिक है, और इजाज़तों " +
@@ -668,6 +694,10 @@ internal object StringsHi : Strings() {
         "Apache License 2.0. Copyright Apache Software Foundation और Tom Roush। PDF की संरचना पढ़ने और लिखने के लिए।"
     override val licenceAndroidX = "Apache License 2.0. Copyright The Android Open Source Project."
     override val licenceKotlin = "Apache License 2.0. Copyright JetBrains s.r.o."
+    override val licenceTesseract =
+        "Apache License 2.0. कॉपीराइट Google और Tesseract के योगदानकर्ता। स्कैन किए पेजों का टेक्स्ट पढ़ने के लिए।"
+    override val licenceLeptonica = "BSD 2-Clause लाइसेंस। कॉपीराइट Dan Bloomberg और Leptonica के योगदानकर्ता। Tesseract की इमेज लाइब्रेरी।"
+    override val licenceJavaCpp = "Apache License 2.0. कॉपीराइट Samuel Audet. ऐप को Tesseract से जोड़ता है।"
     override val cryptoNote =
         "पासवर्ड सुरक्षा Android की अपनी क्रिप्टोग्राफ़ी लाइब्रेरी से AES-256 इस्तेमाल करती है। कोई बाहरी क्रिप्टो लाइब्रेरी शामिल नहीं है।"
     override val translationsNote =

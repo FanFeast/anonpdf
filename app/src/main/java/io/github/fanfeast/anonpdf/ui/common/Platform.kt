@@ -14,7 +14,9 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
+import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
+import io.github.fanfeast.anonpdf.pdf.OcrPacks
 import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.Recipe
 import io.github.fanfeast.anonpdf.pdf.RecipeStore
@@ -64,6 +66,35 @@ fun rememberOpenImages(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
         if (it.isNotEmpty()) onPicked(it)
     }
     return { launcher.launch(arrayOf("image/*")) }
+}
+
+@Composable
+fun rememberOcrPacks(): OcrPacks {
+    val context = LocalContext.current
+    return remember { OcrPacks(File(context.filesDir, "tessdata")) }
+}
+
+/** Opens the system picker for OCR language packs, any number at once. */
+@Composable
+fun rememberOpenOcrPacks(onPicked: (List<PickedFile>) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val store = rememberDocumentStore()
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
+            scope.launch {
+                onPicked(
+                    uris.map { uri ->
+                        PickedFile(store.displayName(uri)) {
+                            context.contentResolver.openInputStream(uri) ?: error(S.couldNotOpenFile)
+                        }
+                    },
+                )
+            }
+        }
+    }
+    // A .traineddata file has no type of its own, so offer anything; the pack is checked when it arrives.
+    return { launcher.launch(arrayOf("*/*")) }
 }
 
 /** Saved recipes live in the app's own files, which are kept out of backups like everything else. */

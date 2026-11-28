@@ -290,7 +290,7 @@ object PdfConvert {
      * Android's PdfRenderer cannot open an encrypted PDF at all, so when the user
      * has given us a password we hand the rasterizer a decrypted scratch copy.
      */
-    private fun decryptedCopyIfNeeded(input: File, password: String?): File {
+    internal fun decryptedCopyIfNeeded(input: File, password: String?): File {
         if (password.isNullOrEmpty()) return input
         val plain = File(input.parentFile, "plain-${System.nanoTime()}.pdf")
         PdfOps.load(input, password).use { doc ->

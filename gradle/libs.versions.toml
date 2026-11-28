@@ -23,6 +23,11 @@ composeMaterial3Desktop = "1.9.0"
 composeIconsDesktop = "1.7.3"
 # JetBrains' desktop build of androidx.lifecycle, the line Compose 1.11 uses.
 lifecycleDesktop = "2.9.6"
+# Tesseract OCR and its image library, as JavaCPP builds them: one Java API on
+# Android and desktop, with each platform's native library in its own jar.
+javacpp = "1.5.14"
+leptonica = "1.87.0-1.5.14"
+tesseract = "5.5.3-1.5.14"
 junit = "4.13.2"
 androidxTestJunit = "1.3.0"
 espresso = "3.7.0"
@@ -54,6 +59,10 @@ compose-desktop-material3 = { group = "org.jetbrains.compose.material3", name = 
 compose-desktop-icons-extended = { group = "org.jetbrains.compose.material", name = "material-icons-extended", version.ref = "composeIconsDesktop" }
 lifecycle-viewmodel-compose-desktop = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleDesktop" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "coroutines" }
+
+javacpp = { group = "org.bytedeco", name = "javacpp", version.ref = "javacpp" }
+leptonica = { group = "org.bytedeco", name = "leptonica", version.ref = "leptonica" }
+tesseract = { group = "org.bytedeco", name = "tesseract", version.ref = "tesseract" }
 
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-test-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestJunit" }

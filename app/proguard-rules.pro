@@ -22,3 +22,10 @@
 # Kotlin metadata + coroutines
 -keepclassmembers class kotlinx.coroutines.** { volatile <fields>; }
 -dontwarn kotlinx.coroutines.**
+
+# Tesseract (OCR) through JavaCPP: the native side finds the Java classes,
+# fields and methods it calls back by name, and the loader reads their
+# annotations at runtime, so none of it may be renamed or dropped.
+-keep class org.bytedeco.** { *; }
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod
+-dontwarn org.bytedeco.**

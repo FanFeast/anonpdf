@@ -3,10 +3,12 @@ package io.github.fanfeast.anonpdf.ui.tools
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImagesToPdfOptions
+import io.github.fanfeast.anonpdf.pdf.OcrPacks
 import io.github.fanfeast.anonpdf.pdf.PageRanges
 import io.github.fanfeast.anonpdf.pdf.PdfCompare
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
+import io.github.fanfeast.anonpdf.pdf.PdfOcr
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
@@ -21,7 +23,7 @@ import java.io.File
  * Kept out of the composable so the mapping is testable and the UI file stays
  * about layout.
  */
-class ToolRunner(private val store: DocumentStore) {
+class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPacks) {
 
     suspend fun run(
         spec: ToolSpec,
@@ -39,6 +41,7 @@ class ToolRunner(private val store: DocumentStore) {
         ToolId.PDF_TO_IMAGES -> runPdfToImages(docs.single(), options, onProgress)
         ToolId.IMAGES_TO_PDF -> runImagesToPdf(images, options, onProgress)
         ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
+        ToolId.OCR -> runOcr(docs.single(), options, onProgress)
         ToolId.PROTECT -> runProtect(docs.single(), options, onProgress)
         ToolId.UNLOCK -> runUnlock(docs.single(), onProgress)
         ToolId.SIGN -> error(S.hasOwnScreen(spec.title))
@@ -268,6 +271,29 @@ class ToolRunner(private val store: DocumentStore) {
             suggestedName = "$stem.txt",
             isText = true,
             note = note,
+        )
+    }
+
+    private suspend fun runOcr(
+        doc: InputDoc,
+        options: ToolOptionsState,
+        onProgress: Progress,
+    ): ToolResult {
+        val stem = DocumentStore.stem(doc.name)
+        val output = store.newOutputFile("$stem-searchable", "pdf")
+        val found = PdfOcr.recognise(
+            input = doc.requireFile(),
+            output = output,
+            packs = ocrPacks,
+            languages = options.ocrLanguages,
+            password = doc.password,
+            redoPagesWithText = options.ocrRedoText,
+            onProgress = onProgress,
+        )
+        return ToolResult.One(
+            file = output,
+            suggestedName = "$stem-searchable.pdf",
+            note = if (found.recognised == 0) S.ocrNothingRead(found.skipped) else S.ocrNote(found.recognised, found.skipped),
         )
     }
 

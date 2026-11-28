@@ -93,6 +93,8 @@ fun AboutScreen(onBack: () -> Unit) {
             Bullet(
                 S.storesWorking,
             )
+            Bullet(S.storesRecipes)
+            Bullet(S.storesOcrPacks)
             Bullet(S.storesPrefs)
 
             Spacer(Modifier.height(24.dp))
@@ -133,6 +135,9 @@ fun AboutScreen(onBack: () -> Unit) {
                 "Kotlin and kotlinx.coroutines",
                 S.licenceKotlin,
             )
+            Licence("Tesseract", S.licenceTesseract)
+            Licence("Leptonica", S.licenceLeptonica)
+            Licence("JavaCPP", S.licenceJavaCpp)
             Spacer(Modifier.height(8.dp))
             Text(
                 S.cryptoNote,

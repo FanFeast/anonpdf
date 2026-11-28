@@ -350,6 +350,35 @@ internal object StringsDe : Strings() {
     override val recipePickOne = "Wähle ein Rezept."
     override fun recipeEditedWith(name: String) = "Mit ${quoted(name)} bearbeitet."
     override fun recipeEmptiesFile(name: String) = "Das Rezept würde jede Seite von $name löschen."
+    // Texterkennung (OCR).
+    override val ocrPickLanguage = "Wähle mindestens eine Sprache."
+    override val ocrCouldNotStart = "Die Texterkennung konnte mit diesen Sprachpaketen nicht starten."
+    override val ocrNotAPack = "Diese Datei ist kein OCR-Sprachpaket. Pakete sind Dateien mit der Endung .traineddata."
+    override fun ocrNotAPackNamed(names: String) = "Kein Sprachpaket: $names. Pakete sind Dateien mit der Endung .traineddata."
+    override val ocrUnavailable = "Texterkennung ist auf diesem Gerät nicht verfügbar."
+    override val ocrTitle = "Text erkennen (OCR)"
+    override val ocrSummary = "Ein gescanntes PDF durchsuchbar und markierbar machen"
+    override val ocrCaveat =
+        "Läuft auf diesem Gerät, einige Sekunden pro Seite. Die Seiten sehen genauso aus; sie erhalten eine unsichtbare Textebene."
+    override val toolOcr = "Text lesen"
+    override val ocrLanguages = "Sprachen"
+    override val ocrNoPacks =
+        "Noch keine Sprachen. Für jede Sprache braucht es ein Sprachpaket: eine .traineddata-Datei. " +
+            "Lade die benötigten von der AnonPDF-Release-Seite auf GitHub oder aus Tesseracts Sammlung " +
+            "tessdata_fast herunter und füge sie hier hinzu. AnonPDF lädt selbst nie etwas herunter."
+    override val ocrPacksHere = "Sprachpakete auf diesem Gerät"
+    override val ocrAddPack = "Sprachpaket hinzufügen…"
+    override fun ocrRemovePack(language: String) = "$language entfernen"
+    override val ocrRedoText = "Auch Seiten lesen, die schon Text haben"
+    override fun ocrNote(read: Int, skipped: Int) =
+        (if (read == 1) "Text auf 1 Seite erkannt." else "Text auf $read Seiten erkannt.") +
+            when (skipped) {
+                0 -> ""
+                1 -> " 1 Seite hatte ihren Text schon."
+                else -> " $skipped Seiten hatten ihren Text schon."
+            }
+    override fun ocrNothingRead(skipped: Int) =
+        if (skipped > 0) "Keine Wörter zum Hinzufügen gefunden: Jede Seite hat schon Text oder enthält keine Schrift." else "Keine Wörter gefunden."
     override val headerFooterTitle = "Kopf- & Fußzeile"
     override val headerLine = "Kopfzeile"
     override val footerLine = "Fußzeile"
@@ -682,6 +711,8 @@ internal object StringsDe : Strings() {
             "Cloud-Backup ausgeschlossen. Du kannst sie in den Einstellungen ausschalten oder löschen."
     override val storesWorking =
         "Arbeitskopien der Datei, die du bearbeitest, im App-Cache. Sie sind temporär und Android kann sie jederzeit löschen."
+    override val storesRecipes = "Rezepte, die du speicherst – und nur, wenn du eines speicherst."
+    override val storesOcrPacks = "OCR-Sprachpakete, die du hinzufügst."
     override val storesPrefs = "Deine Anzeigeeinstellungen. Das ist die ganze Liste."
     override val noTrustNeeded =
         "Du musst nichts davon einfach glauben. Der Quellcode ist öffentlich, und die Berechtigungsliste " +
@@ -694,6 +725,10 @@ internal object StringsDe : Strings() {
             "und Schreiben der PDF-Struktur verwendet."
     override val licenceAndroidX = "Apache License 2.0. Copyright The Android Open Source Project."
     override val licenceKotlin = "Apache License 2.0. Copyright JetBrains s.r.o."
+    override val licenceTesseract =
+        "Apache License 2.0. Copyright Google und die Tesseract-Mitwirkenden. Zum Lesen des Textes gescannter Seiten."
+    override val licenceLeptonica = "BSD-2-Clause-Lizenz. Copyright Dan Bloomberg und die Leptonica-Mitwirkenden. Die Bildbibliothek von Tesseract."
+    override val licenceJavaCpp = "Apache License 2.0. Copyright Samuel Audet. Verbindet die App mit Tesseract."
     override val cryptoNote =
         "Der Passwortschutz nutzt AES-256 über Androids eigene Kryptografie-Bibliotheken. Es ist keine " +
             "Kryptobibliothek von Dritten enthalten."

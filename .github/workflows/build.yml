@@ -121,6 +121,18 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -yq fonts-noto-core fonts-noto-cjk
 
+      # A real English pack, so the OCR tests read real scans. Pinned by commit
+      # and checked by hash. Only CI fetches it; the app never fetches anything.
+      - name: An English language pack for the OCR tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tessdata"
+          curl -fsSL -o "$RUNNER_TEMP/tessdata/eng.traineddata" \
+            "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/eng.traineddata"
+          echo "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2  $RUNNER_TEMP/tessdata/eng.traineddata" | sha256sum -c -
+          echo "ANONPDF_TESSDATA=$RUNNER_TEMP/tessdata" >> "$GITHUB_ENV"
+
       - name: Engine and app tests
         shell: bash
         run: ./gradlew :desktop-engine:test :desktop:test
@@ -182,6 +194,18 @@ jobs:
         id: snap
         uses: snapcore/action-build@v1
 
+      # A real English pack, so the OCR tests read real scans. Pinned by commit
+      # and checked by hash. Only CI fetches it; the app never fetches anything.
+      - name: An English language pack for the OCR tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tessdata"
+          curl -fsSL -o "$RUNNER_TEMP/tessdata/eng.traineddata" \
+            "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/eng.traineddata"
+          echo "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2  $RUNNER_TEMP/tessdata/eng.traineddata" | sha256sum -c -
+          echo "ANONPDF_TESSDATA=$RUNNER_TEMP/tessdata" >> "$GITHUB_ENV"
+
       - name: Install it and self-test inside its sandbox
         run: |
           set -euo pipefail
@@ -219,6 +243,18 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      # A real English pack, so the OCR tests read real scans. Pinned by commit
+      # and checked by hash. Only CI fetches it; the app never fetches anything.
+      - name: An English language pack for the OCR tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/tessdata"
+          curl -fsSL -o "$RUNNER_TEMP/tessdata/eng.traineddata" \
+            "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/87416418657359cb625c412a48b6e1d6d41c29bd/eng.traineddata"
+          echo "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2  $RUNNER_TEMP/tessdata/eng.traineddata" | sha256sum -c -
+          echo "ANONPDF_TESSDATA=$RUNNER_TEMP/tessdata" >> "$GITHUB_ENV"
 
       # The emulator needs hardware acceleration to finish in a sane time.
       - name: Enable KVM
