@@ -102,6 +102,12 @@ android {
                 "META-INF/INDEX.LIST",
                 // GraalVM native-image hints in the JavaCPP jars; nothing reads them on Android.
                 "META-INF/native-image/**",
+                // C headers and build files the image library's jars carry beside
+                // its libraries, for compiling against it. Play rejects them in a bundle.
+                "lib/*/include/**",
+                "lib/*/lib/**",
+                // Tesseract's command-line program; the app calls the library.
+                "lib/*/tesseract",
             )
         }
     }
