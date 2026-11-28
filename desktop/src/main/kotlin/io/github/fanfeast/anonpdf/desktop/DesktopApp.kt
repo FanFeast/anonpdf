@@ -21,6 +21,7 @@ import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.ImageFiles
+import io.github.fanfeast.anonpdf.pdf.PictureFiles
 import io.github.fanfeast.anonpdf.ui.common.DropInbox
 import io.github.fanfeast.anonpdf.ui.common.Dropped
 import io.github.fanfeast.anonpdf.ui.common.LocalDropInbox
@@ -83,7 +84,8 @@ class DesktopNavigator(initial: File? = null) {
 
     /**
      * Takes files dropped onto the window. The start page sends them where they
-     * fit: one PDF to the editor, several to Merge, pictures to Images to PDF.
+     * fit: one PDF to the editor, several to Merge, pictures to Images to PDF,
+     * text to Text to PDF.
      * Any other pane's screen takes them itself. False when none of the files is
      * something AnonPDF opens.
      */
@@ -97,7 +99,8 @@ class DesktopNavigator(initial: File? = null) {
                     return true
                 }
                 dropped.pdfs.isNotEmpty() -> show(Pane.Tool(ToolId.MERGE))
-                else -> show(Pane.Tool(ToolId.IMAGES_TO_PDF))
+                dropped.images.isNotEmpty() -> show(Pane.Tool(ToolId.IMAGES_TO_PDF))
+                else -> show(Pane.Tool(ToolId.TEXT_TO_PDF))
             }
         }
         drops.offer(dropped)
@@ -209,6 +212,7 @@ private fun dropHint(pane: Pane): String = when (pane) {
             ToolInput.SINGLE_PDF -> S.dropForTool(spec.title)
             ToolInput.MULTIPLE_PDF -> S.dropToAdd(spec.title)
             ToolInput.IMAGES -> S.dropPictures
+            ToolInput.TEXT -> S.dropToAdd(spec.title)
         }
     }
 }
@@ -218,8 +222,12 @@ internal fun sortDropped(files: List<File>): Dropped {
     val usable = files.filter { it.isFile }
     return Dropped(
         pdfs = usable.filter { it.extension.equals("pdf", ignoreCase = true) },
-        images = usable.filter { it.extension.lowercase() in ImageFiles.extensions },
+        images = usable.filter { it.extension.lowercase() in PictureFiles.extensions },
+        texts = usable.filter { it.extension.lowercase() in TEXT_EXTENSIONS },
     )
 }
+
+/** What Text to PDF takes. */
+internal val TEXT_EXTENSIONS = setOf("txt", "text", "md", "markdown")
 
 private val SIDEBAR_WIDTH = 248.dp

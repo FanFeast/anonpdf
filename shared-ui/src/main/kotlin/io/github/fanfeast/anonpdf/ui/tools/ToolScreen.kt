@@ -64,6 +64,7 @@ import io.github.fanfeast.anonpdf.ui.common.rememberOcrPacks
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenImages
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdf
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdfs
+import io.github.fanfeast.anonpdf.ui.common.rememberOpenTextFiles
 import io.github.fanfeast.anonpdf.ui.components.AnonTopBar
 import io.github.fanfeast.anonpdf.ui.components.BusyOverlay
 import io.github.fanfeast.anonpdf.ui.components.ChoiceChips
@@ -149,6 +150,8 @@ fun ToolScreen(
     val pickSinglePdf = rememberOpenPdf { addDocument(it, replace = true) }
     val pickMultiplePdf = rememberOpenPdfs { picked -> picked.forEach { addDocument(it, replace = false) } }
     val pickImages = rememberOpenImages { picked -> images = images + picked }
+    // Text to PDF keeps its files in the same list: they are the input either way.
+    val pickTexts = rememberOpenTextFiles { picked -> images = images + picked }
 
     OnFilesDropped { dropped ->
         when (spec.input) {
@@ -160,6 +163,11 @@ fun ToolScreen(
             } else {
                 dropped.pdfs.forEach { addDocument(it, replace = false) }
             }
+            ToolInput.TEXT -> if (dropped.texts.isEmpty()) {
+                showMessage(S.onlyTextFiles)
+            } else {
+                images = images + dropped.texts
+            }
             ToolInput.IMAGES -> if (dropped.images.isEmpty()) {
                 showMessage(S.onlyPictures)
             } else {
@@ -169,7 +177,7 @@ fun ToolScreen(
     }
 
     LaunchedEffect(initialDocument) {
-        if (initialDocument != null && docs.isEmpty() && spec.input != ToolInput.IMAGES) {
+        if (initialDocument != null && docs.isEmpty() && spec.input != ToolInput.IMAGES && spec.input != ToolInput.TEXT) {
             addDocument(initialDocument, replace = true)
         }
     }
@@ -177,7 +185,7 @@ fun ToolScreen(
     val inputsReady = when (spec.input) {
         ToolInput.SINGLE_PDF -> docs.size == 1 && docs.all { it.isReady }
         ToolInput.MULTIPLE_PDF -> docs.size >= spec.minimumFiles && docs.all { it.isReady }
-        ToolInput.IMAGES -> images.isNotEmpty()
+        ToolInput.IMAGES, ToolInput.TEXT -> images.isNotEmpty()
     }
 
     Scaffold(
@@ -202,7 +210,13 @@ fun ToolScreen(
                 }
 
                 // ---- input selection ------------------------------------
-                SectionLabel(if (spec.input == ToolInput.IMAGES) S.images_ else S.document)
+                SectionLabel(
+                    when (spec.input) {
+                        ToolInput.IMAGES -> S.images_
+                        ToolInput.TEXT -> S.textFiles
+                        else -> S.document
+                    },
+                )
 
                 when (spec.input) {
                     ToolInput.SINGLE_PDF -> {
@@ -246,6 +260,18 @@ fun ToolScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
+                    }
+
+                    ToolInput.TEXT -> {
+                        images.forEachIndexed { index, file ->
+                            RemovableRow(
+                                text = file.fileName() ?: S.textFiles,
+                                supporting = null,
+                                onRemove = { images = images.filterIndexed { i, _ -> i != index } },
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        PickButton(S.addTextFiles, Icons.Filled.Add) { pickTexts() }
                     }
 
                     ToolInput.IMAGES -> {
@@ -538,6 +564,8 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
         }
 
         ToolId.OCR -> OcrOptions(options)
+
+        ToolId.TEXT_TO_PDF -> Text(S.textToPdfHint, style = MaterialTheme.typography.bodyMedium)
 
         ToolId.LAYOUT -> {
             ChoiceChips(

@@ -10,12 +10,14 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImageFiles
+import io.github.fanfeast.anonpdf.pdf.PictureFiles
 import io.github.fanfeast.anonpdf.pdf.OcrPacks
 import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.Recipe
 import io.github.fanfeast.anonpdf.pdf.RecipeStore
 import io.github.fanfeast.anonpdf.pdf.Recipes
 import io.github.fanfeast.anonpdf.desktop.AppFolders
+import io.github.fanfeast.anonpdf.desktop.TEXT_EXTENSIONS
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -51,7 +53,20 @@ fun rememberOpenImages(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
     val callback by rememberUpdatedState(onPicked)
     return remember {
         {
-            chooseFiles(multiple = true, title = S.addImages, extensions = ImageFiles.extensions)
+            chooseFiles(multiple = true, title = S.addImages, extensions = PictureFiles.extensions)
+                .takeIf { it.isNotEmpty() }
+                ?.let(callback)
+        }
+    }
+}
+
+/** Opens the system file dialog for any number of text and Markdown files, for Text to PDF. */
+@Composable
+fun rememberOpenTextFiles(onPicked: (List<DocumentRef>) -> Unit): () -> Unit {
+    val callback by rememberUpdatedState(onPicked)
+    return remember {
+        {
+            chooseFiles(multiple = true, title = S.addTextFiles, extensions = TEXT_EXTENSIONS)
                 .takeIf { it.isNotEmpty() }
                 ?.let(callback)
         }

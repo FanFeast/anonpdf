@@ -17,6 +17,7 @@ import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
 import io.github.fanfeast.anonpdf.pdf.ProtectOptions
 import io.github.fanfeast.anonpdf.pdf.Recipes
+import io.github.fanfeast.anonpdf.pdf.TextToPdf
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.components.formatBytes
 import java.io.File
@@ -45,6 +46,7 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
         ToolId.COMPRESS -> runCompress(docs.single(), options, onProgress)
         ToolId.PDF_TO_IMAGES -> runPdfToImages(docs.single(), options, onProgress)
         ToolId.IMAGES_TO_PDF -> runImagesToPdf(images, options, onProgress)
+        ToolId.TEXT_TO_PDF -> runTextToPdf(images, onProgress)
         ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
         ToolId.OCR -> runOcr(docs.single(), options, onProgress)
         ToolId.EXTRACT_FILES -> runExtractFiles(docs.single(), options, onProgress)
@@ -260,7 +262,7 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
         val output = store.newOutputFile("images", "pdf")
         PdfConvert.imagesToPdf(
             images = images,
-            decode = store::decodeImage,
+            decode = { store.decodeImages(it) },
             output = output,
             options = ImagesToPdfOptions(
                 pageSize = options.imagesPageSize,
@@ -273,6 +275,34 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
             suggestedName = "images.pdf",
             note = S.imagesToPdfNote(images.size, formatBytes(output.length())),
         )
+    }
+
+    /** [files] are text files; each becomes its own PDF. */
+    private suspend fun runTextToPdf(files: List<DocumentRef>, onProgress: Progress): ToolResult {
+        require(files.isNotEmpty()) { S.onlyTextFiles }
+        val directory = store.newOutputDir("text")
+        val used = mutableSetOf<String>()
+        val outputs = files.mapIndexed { index, ref ->
+            val name = store.displayName(ref)
+            val local = store.materialize(ref, name)
+            try {
+                var target = "${DocumentStore.stem(name)}.pdf"
+                var n = 2
+                while (!used.add(target)) target = "${DocumentStore.stem(name)}-${n++}.pdf"
+                File(directory, target).also { output ->
+                    val markdown = name.substringAfterLast('.', "").lowercase() in setOf("md", "markdown")
+                    TextToPdf.convert(local, output, markdown) { onProgress((index + it) / files.size) }
+                }
+            } finally {
+                local.delete()
+            }
+        }
+        val note = S.textToPdfNote(outputs.size)
+        return if (outputs.size == 1) {
+            ToolResult.One(file = outputs.single(), suggestedName = outputs.single().name, note = note)
+        } else {
+            ToolResult.Many(files = outputs, note = note)
+        }
     }
 
     private suspend fun runExtractText(doc: InputDoc, onProgress: Progress): ToolResult {

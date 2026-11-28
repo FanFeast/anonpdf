@@ -234,13 +234,15 @@ object PdfConvert {
     // --------------------------------------------------------- images -> pdf
 
     /**
-     * One page per image, in order. [decode] reads an image the way its platform
+     * One page per picture, in order. [decode] says how to read each picture in
+     * a file — one, or several for a multi-page TIFF — the way its platform
      * should (upright, per its EXIF orientation, and no bigger than
-     * [MAX_SOURCE_IMAGE_EDGE]), or returns null if it cannot.
+     * [MAX_SOURCE_IMAGE_EDGE]); none if it is not a picture it can read. Each is
+     * read only when its page is made, so a long TIFF is never in memory whole.
      */
     suspend fun <T> imagesToPdf(
         images: List<T>,
-        decode: suspend (T) -> PageImage?,
+        decode: suspend (T) -> List<() -> PageImage?>,
         output: File,
         options: ImagesToPdfOptions,
         onProgress: Progress = {},
@@ -248,8 +250,8 @@ object PdfConvert {
         require(images.isNotEmpty()) { S.pickOneImage }
         PDDocument().use { doc ->
             images.forEachIndexed { index, source ->
-                val bitmap = decode(source)
-                    ?: error(S.couldNotReadImage(index + 1))
+              for (load in decode(source).ifEmpty { error(S.couldNotReadImage(index + 1)) }) {
+                val bitmap = load() ?: error(S.couldNotReadImage(index + 1))
                 val flattened = bitmap.flattenedOntoWhite()
 
                 val pageBox = PdfOps.presetRectangle(
@@ -277,6 +279,7 @@ object PdfConvert {
                 }
                 if (flattened !== bitmap) flattened.release()
                 bitmap.release()
+              }
                 onProgress(0.95f * (index + 1f) / images.size)
             }
             doc.save(output)

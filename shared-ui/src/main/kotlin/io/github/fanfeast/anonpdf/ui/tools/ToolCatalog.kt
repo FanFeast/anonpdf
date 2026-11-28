@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.TextSnippet
 import androidx.compose.ui.graphics.vector.ImageVector
 import io.github.fanfeast.anonpdf.i18n.S
 
@@ -38,6 +39,7 @@ enum class ToolId {
     COMPRESS,
     PDF_TO_IMAGES,
     IMAGES_TO_PDF,
+    TEXT_TO_PDF,
     EXTRACT_TEXT,
     EXTRACT_FILES,
     LAYOUT,
@@ -48,7 +50,7 @@ enum class ToolId {
 }
 
 /** What the tool needs the user to hand it. */
-enum class ToolInput { SINGLE_PDF, MULTIPLE_PDF, IMAGES }
+enum class ToolInput { SINGLE_PDF, MULTIPLE_PDF, IMAGES, TEXT }
 
 /** What the tool produces, which decides how we offer to save it. */
 enum class ToolOutput { PDF, TEXT, MANY_FILES }
@@ -170,6 +172,15 @@ object ToolCatalog {
             group = ToolGroup.CONVERT,
             input = ToolInput.IMAGES,
             output = ToolOutput.PDF,
+        ),
+        ToolSpec(
+            id = ToolId.TEXT_TO_PDF,
+            titleText = { S.textToPdfTitle },
+            summaryText = { S.textToPdfSummary },
+            icon = Icons.Filled.TextSnippet,
+            group = ToolGroup.CONVERT,
+            input = ToolInput.TEXT,
+            output = ToolOutput.MANY_FILES,
         ),
         ToolSpec(
             id = ToolId.EXTRACT_TEXT,
