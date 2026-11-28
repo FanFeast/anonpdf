@@ -72,6 +72,10 @@ enum class CropPreset(private val text: () -> String, val inset: Float) {
 class ToolOptionsState {
     var recipe by mutableStateOf<Recipe?>(null)
 
+    /** OCR language pack codes, in the order the user ticked them: Tesseract tries the first first. */
+    var ocrLanguages by mutableStateOf<List<String>>(emptyList())
+    var ocrRedoText by mutableStateOf(false)
+
     var pageRange by mutableStateOf("")
 
     var splitMode by mutableStateOf(SplitMode.RANGES)

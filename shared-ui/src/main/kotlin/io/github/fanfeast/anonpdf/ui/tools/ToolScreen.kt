@@ -56,6 +56,7 @@ import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.OnFilesDropped
 import io.github.fanfeast.anonpdf.ui.common.fileName
 import io.github.fanfeast.anonpdf.ui.common.rememberDocumentStore
+import io.github.fanfeast.anonpdf.ui.common.rememberOcrPacks
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenImages
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdf
 import io.github.fanfeast.anonpdf.ui.common.rememberOpenPdfs
@@ -85,7 +86,8 @@ fun ToolScreen(
     val spec = remember(toolId) { ToolCatalog.spec(toolId) }
     val scope = rememberCoroutineScope()
     val store = rememberDocumentStore()
-    val runner = remember { ToolRunner(store) }
+    val ocrPacks = rememberOcrPacks()
+    val runner = remember { ToolRunner(store, ocrPacks) }
     val options = remember { ToolOptionsState() }
     val snackbarHost = remember { SnackbarHostState() }
 
@@ -511,6 +513,8 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
                 valueLabel = "${options.imagesMargin.roundToInt()} pt",
             )
         }
+
+        ToolId.OCR -> OcrOptions(options)
 
         ToolId.EXTRACT_TEXT -> Text(
             S.textToTxt,

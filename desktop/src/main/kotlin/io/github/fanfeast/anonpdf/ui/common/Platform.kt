@@ -10,11 +10,12 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.DocumentStore
 import io.github.fanfeast.anonpdf.pdf.ImageFiles
+import io.github.fanfeast.anonpdf.pdf.OcrPacks
 import io.github.fanfeast.anonpdf.pdf.PageImage
 import io.github.fanfeast.anonpdf.pdf.Recipe
 import io.github.fanfeast.anonpdf.pdf.RecipeStore
 import io.github.fanfeast.anonpdf.pdf.Recipes
-import io.github.fanfeast.anonpdf.desktop.RecipeFolder
+import io.github.fanfeast.anonpdf.desktop.AppFolders
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
@@ -71,7 +72,23 @@ private fun chooseFiles(multiple: Boolean, title: String, extensions: Set<String
 }
 
 @Composable
-fun rememberRecipeStore(): RecipeStore = remember { RecipeStore(RecipeFolder.dir) }
+fun rememberOcrPacks(): OcrPacks = remember { OcrPacks(AppFolders.ocrPacks) }
+
+/** Opens the system file dialog for OCR language packs, any number at once. */
+@Composable
+fun rememberOpenOcrPacks(onPicked: (List<PickedFile>) -> Unit): () -> Unit {
+    val callback by rememberUpdatedState(onPicked)
+    return remember {
+        {
+            chooseFiles(multiple = true, title = S.ocrAddPack, extensions = setOf("traineddata"))
+                .takeIf { it.isNotEmpty() }
+                ?.let { files -> callback(files.map { file -> PickedFile(file.name) { file.inputStream() } }) }
+        }
+    }
+}
+
+@Composable
+fun rememberRecipeStore(): RecipeStore = remember { RecipeStore(AppFolders.recipes) }
 
 /** Opens the system file dialog for a recipe; [onPicked] gets its text, or null if it couldn't be read. */
 @Composable

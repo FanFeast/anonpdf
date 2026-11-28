@@ -7,6 +7,7 @@ import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.filled.Compress
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Difference
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Image
@@ -34,6 +35,7 @@ enum class ToolId {
     PDF_TO_IMAGES,
     IMAGES_TO_PDF,
     EXTRACT_TEXT,
+    OCR,
     PROTECT,
     UNLOCK,
     SIGN,
@@ -163,6 +165,16 @@ object ToolCatalog {
             input = ToolInput.SINGLE_PDF,
             output = ToolOutput.TEXT,
             caveatText = { S.extractTextCaveat },
+        ),
+        ToolSpec(
+            id = ToolId.OCR,
+            titleText = { S.ocrTitle },
+            summaryText = { S.ocrSummary },
+            icon = Icons.Filled.DocumentScanner,
+            group = ToolGroup.CONVERT,
+            input = ToolInput.SINGLE_PDF,
+            output = ToolOutput.PDF,
+            caveatText = { S.ocrCaveat },
         ),
         ToolSpec(
             id = ToolId.SIGN,

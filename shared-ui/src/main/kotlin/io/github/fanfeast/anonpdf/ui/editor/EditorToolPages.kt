@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentCut
 import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.FilterBAndW
@@ -110,6 +111,7 @@ enum class EditorTool(private val text: () -> String, val icon: ImageVector, val
     TO_IMAGES({ S.toolToImages }, Icons.Filled.Image, handsOff = true),
     FROM_IMAGES({ S.toolFromImages }, Icons.Filled.PictureAsPdf, handsOff = true),
     EXTRACT_TEXT({ S.toolGetText }, Icons.AutoMirrored.Filled.Article, handsOff = true),
+    OCR({ S.toolOcr }, Icons.Filled.DocumentScanner, handsOff = true),
     SIGN({ S.toolSign }, Icons.Filled.Draw, handsOff = true),
     PROTECT({ S.toolProtect }, Icons.Filled.Lock, handsOff = true),
     UNLOCK({ S.toolUnlock }, Icons.Filled.LockOpen, handsOff = true),
@@ -178,6 +180,7 @@ private fun allToolPages(currentPageDeleted: Boolean, hasForm: Boolean): List<To
         listOf(
             EditorTool.STRAIGHTEN,
             EditorTool.GREYSCALE,
+            EditorTool.OCR,
         ),
     ),
     ToolPage(

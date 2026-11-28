@@ -373,6 +373,35 @@ open class Strings {
     open val recipePickOne = "Choose a recipe."
     open fun recipeEditedWith(name: String) = "Edited with ${quoted(name)}."
     open fun recipeEmptiesFile(name: String) = "The recipe would delete every page of $name."
+    // Text recognition (OCR).
+    open val ocrPickLanguage = "Choose at least one language."
+    open val ocrCouldNotStart = "Text recognition could not start with these language packs."
+    open val ocrNotAPack = "That file isn't an OCR language pack. Packs are files ending in .traineddata."
+    open fun ocrNotAPackNamed(names: String) = "Not a language pack: $names. Packs are files ending in .traineddata."
+    open val ocrUnavailable = "Text recognition isn't available on this device."
+    open val ocrTitle = "Recognise text (OCR)"
+    open val ocrSummary = "Make a scanned PDF searchable, selectable and redactable"
+    open val ocrCaveat =
+        "Read on this device, a few seconds a page. Pages look exactly the same; they gain an invisible layer of text."
+    open val toolOcr = "Read text"
+    open val ocrLanguages = "Languages"
+    open val ocrNoPacks =
+        "No languages yet. Reading needs a language pack for each language: a .traineddata file. " +
+            "Download the ones you need from the AnonPDF releases page on GitHub, or from Tesseract's " +
+            "tessdata_fast collection, then add them here. AnonPDF never downloads anything itself."
+    open val ocrPacksHere = "Language packs on this device"
+    open val ocrAddPack = "Add a language pack…"
+    open fun ocrRemovePack(language: String) = "Remove $language"
+    open val ocrRedoText = "Also read pages that already have text"
+    open fun ocrNote(read: Int, skipped: Int) =
+        (if (read == 1) "Read the text on 1 page." else "Read the text on $read pages.") +
+            when (skipped) {
+                0 -> ""
+                1 -> " 1 page already had its text."
+                else -> " $skipped pages already had their text."
+            }
+    open fun ocrNothingRead(skipped: Int) =
+        if (skipped > 0) "No words found to add: every page already has text, or holds no writing." else "No words found."
     // Header and footer.
     open val headerFooterTitle = "Header & footer"
     open val headerLine = "Header"
@@ -726,6 +755,8 @@ open class Strings {
     open val storesWorking =
         "Working copies of the file you are editing, in the app cache. These are temporary and " +
             "Android may delete them at any time."
+    open val storesRecipes = "Recipes you save, and only when you choose to save one."
+    open val storesOcrPacks = "OCR language packs you add."
     open val storesPrefs = "Your display preferences. That is the entire list."
     open val noTrustNeeded =
         "You do not have to take any of this on trust. The source is public and the permission " +
@@ -738,6 +769,10 @@ open class Strings {
             "reading and writing PDF structure."
     open val licenceAndroidX = "Apache License 2.0. Copyright The Android Open Source Project."
     open val licenceKotlin = "Apache License 2.0. Copyright JetBrains s.r.o."
+    open val licenceTesseract =
+        "Apache License 2.0. Copyright Google and the Tesseract contributors. Used for reading the text on scanned pages."
+    open val licenceLeptonica = "BSD 2-Clause Licence. Copyright Dan Bloomberg and the Leptonica contributors. Tesseract's image library."
+    open val licenceJavaCpp = "Apache License 2.0. Copyright Samuel Audet. Connects the app to Tesseract."
     open val cryptoNote =
         "Password protection uses AES-256 through Android's own cryptography libraries. No " +
             "third-party crypto library is bundled."

@@ -32,7 +32,7 @@ Specifically, AnonPDF does not collect, and has no means of collecting:
 
 ## Data stored on your device
 
-The app keeps four things in its own private storage area, which no other app
+The app keeps five things in its own private storage area, which no other app
 can read:
 
 1. **A recent-files list** — the display name and system URI of up to 20
@@ -51,8 +51,13 @@ can read:
    watermark text, form answers, the words to black out. Never a document, and
    never a password. A recipe is saved only when you choose to save one, and
    deleting it in the app deletes the file.
+5. **OCR language packs you add** — the `.traineddata` files that let the app
+   read the text on scanned pages. They are Tesseract's language models, and you
+   fetch them yourself: AnonPDF cannot download anything. Reading a page happens
+   on your device, in the app, and the text it finds goes only into the file you
+   save. Removing a pack in the app deletes it.
 
-All four are excluded from Android's cloud backup and device-to-device transfer,
+All five are excluded from Android's cloud backup and device-to-device transfer,
 so they do not leave your phone even that way. Uninstalling the app removes them.
 
 ## Permissions

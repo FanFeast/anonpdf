@@ -323,6 +323,29 @@ internal object StringsZh : Strings() {
     override val recipePickOne = "请选择一个配方。"
     override fun recipeEditedWith(name: String) = "已用${quoted(name)}编辑。"
     override fun recipeEmptiesFile(name: String) = "该配方会删除 $name 的所有页面。"
+    // 文字识别（OCR）。
+    override val ocrPickLanguage = "请至少选择一种语言。"
+    override val ocrCouldNotStart = "无法用这些语言包启动文字识别。"
+    override val ocrNotAPack = "该文件不是 OCR 语言包。语言包是以 .traineddata 结尾的文件。"
+    override fun ocrNotAPackNamed(names: String) = "不是语言包：$names。语言包是以 .traineddata 结尾的文件。"
+    override val ocrUnavailable = "此设备不支持文字识别。"
+    override val ocrTitle = "识别文字（OCR）"
+    override val ocrSummary = "让扫描的 PDF 可搜索、可选择"
+    override val ocrCaveat = "在本设备上识别，每页几秒钟。页面外观完全不变，只是多了一层看不见的文字。"
+    override val toolOcr = "识别文字"
+    override val ocrLanguages = "语言"
+    override val ocrNoPacks =
+        "还没有语言。每种语言都需要一个语言包：一个 .traineddata 文件。" +
+            "请从 GitHub 上 AnonPDF 的发布页面或 Tesseract 的 tessdata_fast 合集下载所需的语言包，然后在这里添加。" +
+            "AnonPDF 自己从不下载任何东西。"
+    override val ocrPacksHere = "本设备上的语言包"
+    override val ocrAddPack = "添加语言包…"
+    override fun ocrRemovePack(language: String) = "移除$language"
+    override val ocrRedoText = "已有文字的页面也重新识别"
+    override fun ocrNote(read: Int, skipped: Int) =
+        "已识别 $read 页的文字。" + if (skipped > 0) "$skipped 页原本已有文字。" else ""
+    override fun ocrNothingRead(skipped: Int) =
+        if (skipped > 0) "没有可添加的文字：每页都已有文字，或没有任何字迹。" else "没有找到文字。"
     override val headerFooterTitle = "页眉和页脚"
     override val headerLine = "页眉"
     override val footerLine = "页脚"
@@ -619,6 +642,8 @@ internal object StringsZh : Strings() {
     override val whatItStores = "它会存储什么"
     override val storesRecent = "最近打开的文件名列表，保存在应用私有存储中，并且不参与云端备份。你可以在设置中关闭或清除它。"
     override val storesWorking = "你正在编辑的文件的工作副本，保存在应用缓存中。它们是临时的，Android 可能随时删除。"
+    override val storesRecipes = "你保存的配方，且只在你选择保存时。"
+    override val storesOcrPacks = "你添加的 OCR 语言包。"
     override val storesPrefs = "你的显示偏好设置。全部就这些。"
     override val noTrustNeeded = "这些都不需要你盲目相信。源代码是公开的，权限列表可以在应用的 Play 商店页面和 Android 自带的应用信息界面中看到。"
     override val viewSource = "查看源代码"
@@ -627,6 +652,9 @@ internal object StringsZh : Strings() {
     override val licencePdfBox = "Apache License 2.0。Copyright Apache Software Foundation 与 Tom Roush。用于读写 PDF 结构。"
     override val licenceAndroidX = "Apache License 2.0。Copyright The Android Open Source Project。"
     override val licenceKotlin = "Apache License 2.0。Copyright JetBrains s.r.o.。"
+    override val licenceTesseract = "Apache License 2.0。版权归 Google 及 Tesseract 贡献者所有。用于读取扫描页面上的文字。"
+    override val licenceLeptonica = "BSD 2-Clause 许可证。版权归 Dan Bloomberg 及 Leptonica 贡献者所有。Tesseract 的图像库。"
+    override val licenceJavaCpp = "Apache License 2.0。版权归 Samuel Audet 所有。将应用与 Tesseract 连接。"
     override val cryptoNote = "密码保护通过 Android 自带的加密库使用 AES-256。未捆绑任何第三方加密库。"
     override val translationsNote = "译文借助机器翻译完成。欢迎在项目的 GitHub 页面提出修改。"
 

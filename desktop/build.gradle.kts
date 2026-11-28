@@ -20,6 +20,8 @@ sourceSets {
 
 dependencies {
     implementation(project(":desktop-engine"))
+    // The self-test checks the recogniser's native library loads from the package.
+    implementation(libs.tesseract)
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.desktop.material3)
     implementation(libs.compose.desktop.icons.extended)
@@ -59,6 +61,9 @@ compose.desktop {
 
 // LocaleSweepTest can be limited to some languages: -Dsweep.langs=pt,ru
 tasks.withType<Test>().configureEach {
+    System.getenv("ANONPDF_TESSDATA")?.let { systemProperty("anonpdf.tessdata", it) }
+    // Where JavaCPP unpacks Tesseract, instead of ~/.javacpp.
+    systemProperty("org.bytedeco.javacpp.cachedir", layout.buildDirectory.dir("javacpp").get().asFile.absolutePath)
     System.getProperty("sweep.langs")?.let { systemProperty("sweep.langs", it) }
     testLogging { exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL }
 }

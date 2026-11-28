@@ -84,9 +84,15 @@ android {
         getByName("test").kotlin.srcDir("../shared-engine/src/test/kotlin")
         // Engine tests that need a real renderer run on a device here.
         getByName("androidTest").kotlin.srcDir("../shared-engine/src/deviceTest/kotlin")
+        // CI's English language pack for the OCR test, as a test asset; never in the app.
+        System.getenv("ANONPDF_TESSDATA")?.let { getByName("androidTest").assets.srcDir(it) }
     }
 
     packaging {
+        // Compressed in the APK and unpacked at install, rather than stored as-is:
+        // the recogniser's libraries are most of the app's size, and this roughly
+        // halves the download for the APK on the releases page.
+        jniLibs { useLegacyPackaging = true }
         resources {
             excludes += setOf(
                 "/META-INF/{AL2.0,LGPL2.1}",
@@ -94,6 +100,14 @@ android {
                 "META-INF/LICENSE*",
                 "META-INF/NOTICE*",
                 "META-INF/INDEX.LIST",
+                // GraalVM native-image hints in the JavaCPP jars; nothing reads them on Android.
+                "META-INF/native-image/**",
+                // C headers and build files the image library's jars carry beside
+                // its libraries, for compiling against it. Play rejects them in a bundle.
+                "lib/*/include/**",
+                "lib/*/lib/**",
+                // Tesseract's command-line program; the app calls the library.
+                "lib/*/tesseract",
             )
         }
     }
@@ -124,6 +138,16 @@ dependencies {
     // protect/unlock instrumented tests prove the remaining paths still work.
     implementation(libs.pdfbox.android) {
         exclude(group = "org.bouncycastle")
+    }
+
+    // Text recognition: Tesseract, run in-process from the native library inside
+    // the app. 64-bit only, as JavaCPP no longer builds 32-bit ARM: on a 32-bit
+    // phone the app installs and works as before, and says OCR isn't available.
+    implementation(libs.tesseract)
+    listOf("android-arm64", "android-x86_64").forEach { platform ->
+        listOf(libs.javacpp, libs.leptonica, libs.tesseract).forEach { lib ->
+            implementation(variantOf(lib) { classifier(platform) })
+        }
     }
 
     testImplementation(libs.junit)

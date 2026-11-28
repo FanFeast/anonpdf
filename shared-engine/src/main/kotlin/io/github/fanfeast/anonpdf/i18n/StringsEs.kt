@@ -350,6 +350,35 @@ internal object StringsEs : Strings() {
     override val recipePickOne = "Elige una receta."
     override fun recipeEditedWith(name: String) = "Editado con ${quoted(name)}."
     override fun recipeEmptiesFile(name: String) = "La receta eliminaría todas las páginas de $name."
+    // Reconocimiento de texto (OCR).
+    override val ocrPickLanguage = "Elige al menos un idioma."
+    override val ocrCouldNotStart = "El reconocimiento de texto no pudo iniciarse con estos paquetes de idioma."
+    override val ocrNotAPack = "Ese archivo no es un paquete de idioma OCR. Los paquetes son archivos que terminan en .traineddata."
+    override fun ocrNotAPackNamed(names: String) = "No es un paquete de idioma: $names. Los paquetes son archivos que terminan en .traineddata."
+    override val ocrUnavailable = "El reconocimiento de texto no está disponible en este dispositivo."
+    override val ocrTitle = "Reconocer texto (OCR)"
+    override val ocrSummary = "Hacer que un PDF escaneado se pueda buscar y seleccionar"
+    override val ocrCaveat =
+        "Se hace en este dispositivo, unos segundos por página. Las páginas se ven igual; ganan una capa de texto invisible."
+    override val toolOcr = "Leer texto"
+    override val ocrLanguages = "Idiomas"
+    override val ocrNoPacks =
+        "Aún no hay idiomas. Para leer hace falta un paquete por idioma: un archivo .traineddata. " +
+            "Descarga los que necesites de la página de versiones de AnonPDF en GitHub o de la colección " +
+            "tessdata_fast de Tesseract y añádelos aquí. AnonPDF nunca descarga nada por su cuenta."
+    override val ocrPacksHere = "Paquetes de idioma en este dispositivo"
+    override val ocrAddPack = "Añadir un paquete de idioma…"
+    override fun ocrRemovePack(language: String) = "Quitar $language"
+    override val ocrRedoText = "Leer también las páginas que ya tienen texto"
+    override fun ocrNote(read: Int, skipped: Int) =
+        (if (read == 1) "Se leyó el texto de 1 página." else "Se leyó el texto de $read páginas.") +
+            when (skipped) {
+                0 -> ""
+                1 -> " 1 página ya tenía su texto."
+                else -> " $skipped páginas ya tenían su texto."
+            }
+    override fun ocrNothingRead(skipped: Int) =
+        if (skipped > 0) "No se encontraron palabras que añadir: todas las páginas ya tienen texto o no contienen escritura." else "No se encontraron palabras."
     override val headerFooterTitle = "Encabezado y pie de página"
     override val headerLine = "Encabezado"
     override val footerLine = "Pie de página"
@@ -686,6 +715,8 @@ internal object StringsEs : Strings() {
             "privado de la app y excluida de las copias en la nube. Puedes desactivarla o borrarla en Ajustes."
     override val storesWorking =
         "Copias de trabajo del archivo que editas, en la caché de la app. Son temporales y Android puede borrarlas en cualquier momento."
+    override val storesRecipes = "Las recetas que guardas, y solo cuando decides guardar una."
+    override val storesOcrPacks = "Los paquetes de idioma OCR que añades."
     override val storesPrefs = "Tus preferencias de visualización. Esa es la lista completa."
     override val noTrustNeeded =
         "No tienes que fiarte de nada de esto. El código es público y la lista de permisos se ve en " +
@@ -698,6 +729,10 @@ internal object StringsEs : Strings() {
             "leer y escribir la estructura de los PDF."
     override val licenceAndroidX = "Licencia Apache 2.0. Copyright de The Android Open Source Project."
     override val licenceKotlin = "Licencia Apache 2.0. Copyright de JetBrains s.r.o."
+    override val licenceTesseract =
+        "Licencia Apache 2.0. Copyright Google y los colaboradores de Tesseract. Se usa para leer el texto de páginas escaneadas."
+    override val licenceLeptonica = "Licencia BSD de 2 cláusulas. Copyright Dan Bloomberg y los colaboradores de Leptonica. La biblioteca de imágenes de Tesseract."
+    override val licenceJavaCpp = "Licencia Apache 2.0. Copyright Samuel Audet. Conecta la app con Tesseract."
     override val cryptoNote =
         "La protección con contraseña usa AES-256 mediante las propias bibliotecas de criptografía " +
             "de Android. No se incluye ninguna biblioteca criptográfica de terceros."

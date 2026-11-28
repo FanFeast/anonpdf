@@ -9,6 +9,7 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isEnabled
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -43,6 +44,7 @@ import org.apache.pdfbox.text.PDFTextStripper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Test
 import java.awt.image.BufferedImage
@@ -67,6 +69,7 @@ class DesktopAppTest {
         // Where DocumentStore keeps its files, as PrivateScratch would set it.
         System.setProperty("java.io.tmpdir", scratch.absolutePath)
         System.setProperty("anonpdf.recipes", File(scratch, "recipes").absolutePath)
+        System.setProperty("anonpdf.ocrPacks", File(scratch, "tessdata").absolutePath)
         pdf = File(scratch, "three pages.pdf")
         PDDocument().use { document ->
             repeat(3) { index ->
@@ -453,6 +456,66 @@ class DesktopAppTest {
             }
             PdfOps.load(File(out, "two-edited.pdf")).use { assertEquals(1, it.numberOfPages) }
         }
+
+    @Test
+    fun `without a language pack, reading text says how to get one`() = runDesktopComposeUiTest(WIDTH, HEIGHT) {
+        val navigator = DesktopNavigator()
+        setContent { DesktopApp(navigator) }
+        runOnIdle { navigator.show(Pane.Tool(ToolId.OCR)) }
+        waitForIdle()
+        runOnIdle { navigator.drop(listOf(pdf)) }
+        waitUntil(timeoutMillis = TIMEOUT_MS) {
+            onAllNodes(hasText("No languages yet.", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+        onNodeWithText("Add a language pack…").assertExists()
+    }
+
+    @Test
+    fun `a scan is read with an added language pack and comes back searchable`() {
+        val tessdata = System.getProperty("anonpdf.tessdata")?.let { File(it, "eng.traineddata") }
+        assumeTrue("no language pack to test with", tessdata?.isFile == true)
+        File(scratch, "tessdata").mkdirs()
+        tessdata!!.copyTo(File(scratch, "tessdata/eng.traineddata"))
+
+        runDesktopComposeUiTest(WIDTH, HEIGHT) {
+            val navigator = DesktopNavigator()
+            setContent { DesktopApp(navigator) }
+            runOnIdle { navigator.show(Pane.Tool(ToolId.OCR)) }
+            waitForIdle()
+            runOnIdle { navigator.drop(listOf(scanPdf("receipt.pdf", "Invoice number 48213 paid in full"))) }
+            // The only pack is chosen for the user.
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("English")).fetchSemanticsNodes().isNotEmpty() }
+            onNode(hasText("English") and isSelected()).assertExists()
+
+            onNode(hasText("Recognise text (OCR)") and isButton and isEnabled()).performScrollTo().performClick()
+            waitUntil(timeoutMillis = 60_000) {
+                onAllNodes(hasText("Read the text on 1 page.")).fetchSemanticsNodes().isNotEmpty()
+            }
+            val read = File(scratch, "out").listFiles { file -> file.name.startsWith("receipt-searchable") }!!.single()
+            val text = PdfOps.load(read).use { PDFTextStripper().getText(it) }
+            assertTrue(text, text.contains("Invoice number 48213"))
+        }
+    }
+
+    /** A page that is only a picture of its words, as a scanner makes. */
+    private fun scanPdf(name: String, line: String): File = File(scratch, name).also { file ->
+        val image = BufferedImage(1240, 1754, BufferedImage.TYPE_INT_RGB)
+        image.createGraphics().apply {
+            color = java.awt.Color.WHITE
+            fillRect(0, 0, image.width, image.height)
+            color = java.awt.Color.BLACK
+            font = java.awt.Font(java.awt.Font.SERIF, java.awt.Font.PLAIN, 48)
+            drawString(line, 120, 300)
+            dispose()
+        }
+        PDDocument().use { document ->
+            val page = PDPage(PDRectangle.A4)
+            document.addPage(page)
+            val picture = org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory.createFromImage(document, image)
+            PDPageContentStream(document, page).use { it.drawImage(picture, 0f, 0f, page.mediaBox.width, page.mediaBox.height) }
+            document.save(file)
+        }
+    }
 
     private fun pagesPdf(name: String, count: Int): File = File(scratch, name).also { file ->
         PDDocument().use { document ->

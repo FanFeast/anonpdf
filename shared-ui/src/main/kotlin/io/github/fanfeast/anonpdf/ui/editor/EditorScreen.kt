@@ -856,6 +856,7 @@ fun EditorScreen(
             EditorTool.TO_IMAGES -> handOff(ToolId.PDF_TO_IMAGES)
             EditorTool.FROM_IMAGES -> handOff(ToolId.IMAGES_TO_PDF)
             EditorTool.EXTRACT_TEXT -> handOff(ToolId.EXTRACT_TEXT)
+            EditorTool.OCR -> handOff(ToolId.OCR)
             EditorTool.SIGN -> handOff(ToolId.SIGN)
             EditorTool.PROTECT -> handOff(ToolId.PROTECT)
             EditorTool.UNLOCK -> handOff(ToolId.UNLOCK)

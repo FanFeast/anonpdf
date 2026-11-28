@@ -355,6 +355,35 @@ internal object StringsFr : Strings() {
     override val recipePickOne = "Choisissez une recette."
     override fun recipeEditedWith(name: String) = "Modifié avec ${quoted(name)}."
     override fun recipeEmptiesFile(name: String) = "La recette supprimerait toutes les pages de $name."
+    // Reconnaissance de texte (OCR).
+    override val ocrPickLanguage = "Choisissez au moins une langue."
+    override val ocrCouldNotStart = "La reconnaissance de texte n'a pas pu démarrer avec ces packs de langue."
+    override val ocrNotAPack = "Ce fichier n'est pas un pack de langue OCR. Les packs sont des fichiers en .traineddata."
+    override fun ocrNotAPackNamed(names: String) = "Pas un pack de langue : $names. Les packs sont des fichiers en .traineddata."
+    override val ocrUnavailable = "La reconnaissance de texte n'est pas disponible sur cet appareil."
+    override val ocrTitle = "Lire le texte (OCR)"
+    override val ocrSummary = "Rendre un PDF scanné consultable et sélectionnable"
+    override val ocrCaveat =
+        "Fait sur cet appareil, quelques secondes par page. Les pages restent identiques ; elles gagnent une couche de texte invisible."
+    override val toolOcr = "Lire le texte"
+    override val ocrLanguages = "Langues"
+    override val ocrNoPacks =
+        "Pas encore de langue. La lecture demande un pack par langue : un fichier .traineddata. " +
+            "Téléchargez ceux qu'il vous faut depuis la page des versions d'AnonPDF sur GitHub ou la collection " +
+            "tessdata_fast de Tesseract, puis ajoutez-les ici. AnonPDF ne télécharge jamais rien lui-même."
+    override val ocrPacksHere = "Packs de langue sur cet appareil"
+    override val ocrAddPack = "Ajouter un pack de langue…"
+    override fun ocrRemovePack(language: String) = "Retirer $language"
+    override val ocrRedoText = "Lire aussi les pages qui ont déjà du texte"
+    override fun ocrNote(read: Int, skipped: Int) =
+        (if (read == 1) "Texte lu sur 1 page." else "Texte lu sur $read pages.") +
+            when (skipped) {
+                0 -> ""
+                1 -> " 1 page avait déjà son texte."
+                else -> " $skipped pages avaient déjà leur texte."
+            }
+    override fun ocrNothingRead(skipped: Int) =
+        if (skipped > 0) "Aucun mot à ajouter : chaque page a déjà du texte ou ne contient pas d'écriture." else "Aucun mot trouvé."
     override val headerFooterTitle = "En-tête et pied de page"
     override val headerLine = "En-tête"
     override val footerLine = "Pied de page"
@@ -692,6 +721,8 @@ internal object StringsFr : Strings() {
     override val storesWorking =
         "Des copies de travail du fichier que vous modifiez, dans le cache de l'app. Elles sont " +
             "temporaires et Android peut les supprimer à tout moment."
+    override val storesRecipes = "Les recettes que vous enregistrez, et seulement si vous en enregistrez une."
+    override val storesOcrPacks = "Les packs de langue OCR que vous ajoutez."
     override val storesPrefs = "Vos préférences d'affichage. C'est la liste complète."
     override val noTrustNeeded =
         "Inutile de nous croire sur parole. Le code source est public, et la liste des permissions est " +
@@ -704,6 +735,10 @@ internal object StringsFr : Strings() {
             "la structure des PDF."
     override val licenceAndroidX = "Licence Apache 2.0. Copyright The Android Open Source Project."
     override val licenceKotlin = "Licence Apache 2.0. Copyright JetBrains s.r.o."
+    override val licenceTesseract =
+        "Licence Apache 2.0. Copyright Google et les contributeurs de Tesseract. Sert à lire le texte des pages scannées."
+    override val licenceLeptonica = "Licence BSD à 2 clauses. Copyright Dan Bloomberg et les contributeurs de Leptonica. La bibliothèque d'images de Tesseract."
+    override val licenceJavaCpp = "Licence Apache 2.0. Copyright Samuel Audet. Relie l'appli à Tesseract."
     override val cryptoNote =
         "La protection par mot de passe utilise AES-256 via les bibliothèques de cryptographie " +
             "d'Android. Aucune bibliothèque cryptographique tierce n'est incluse."
