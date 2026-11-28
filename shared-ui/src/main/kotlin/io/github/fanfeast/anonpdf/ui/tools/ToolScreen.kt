@@ -51,6 +51,8 @@ import androidx.compose.ui.unit.dp
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.ImageFormat
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
+import io.github.fanfeast.anonpdf.pdf.PaperSize
+import io.github.fanfeast.anonpdf.pdf.PdfLayout
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.PdfPageSizePreset
 import io.github.fanfeast.anonpdf.pdf.PdfWrongPasswordException
@@ -536,6 +538,52 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
         }
 
         ToolId.OCR -> OcrOptions(options)
+
+        ToolId.LAYOUT -> {
+            ChoiceChips(
+                label = S.layoutKind,
+                options = LayoutKind.entries,
+                selected = options.layoutKind,
+                onSelect = { options.layoutKind = it },
+                optionLabel = { it.label },
+            )
+            Spacer(Modifier.height(12.dp))
+            when (options.layoutKind) {
+                LayoutKind.PER_SHEET -> ChoiceChips(
+                    label = S.layoutPerSheet,
+                    options = listOf(2, 4, 6, 9),
+                    selected = options.layoutPerSheet,
+                    onSelect = { options.layoutPerSheet = it },
+                    optionLabel = { it.toString() },
+                )
+                LayoutKind.BOOKLET -> Text(S.layoutBookletHint, style = MaterialTheme.typography.bodyMedium)
+                LayoutKind.POSTER -> {
+                    ChoiceChips(
+                        label = S.layoutPosterSize,
+                        options = listOf(2, 3, 4),
+                        selected = options.layoutPoster,
+                        onSelect = { options.layoutPoster = it },
+                        optionLabel = { "$it × $it" },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(S.layoutPosterHint, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            ChoiceChips(
+                label = S.layoutPaper,
+                options = listOf(PaperSize.A4, PaperSize.LETTER, PaperSize.A3),
+                selected = options.layoutPaper,
+                onSelect = { options.layoutPaper = it },
+                optionLabel = { it.label },
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                S.layoutSheets(PdfLayout.sheets(options.printLayout, pageCount)),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
         ToolId.EXTRACT_FILES -> {
             ChoiceChips(

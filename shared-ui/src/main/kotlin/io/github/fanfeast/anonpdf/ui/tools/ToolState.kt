@@ -6,11 +6,22 @@ import androidx.compose.runtime.setValue
 import io.github.fanfeast.anonpdf.i18n.S
 import io.github.fanfeast.anonpdf.pdf.ImageFormat
 import io.github.fanfeast.anonpdf.pdf.NumberPosition
+import io.github.fanfeast.anonpdf.pdf.PaperSize
 import io.github.fanfeast.anonpdf.pdf.PdfPageSizePreset
+import io.github.fanfeast.anonpdf.pdf.PrintLayout
 import io.github.fanfeast.anonpdf.pdf.Recipe
 import io.github.fanfeast.anonpdf.pdf.WatermarkLayout
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import java.io.File
+
+enum class LayoutKind(private val text: () -> String) {
+    PER_SHEET({ S.layoutPerSheet }),
+    BOOKLET({ S.layoutBooklet }),
+    POSTER({ S.layoutPoster }),
+    ;
+
+    val label: String get() = text()
+}
 
 enum class ExtractWhat(private val text: () -> String) {
     IMAGES({ S.extractImages }),
@@ -87,6 +98,18 @@ class ToolOptionsState {
     var extractWhat by mutableStateOf(ExtractWhat.IMAGES)
 
     var mixReverseLast by mutableStateOf(true)
+
+    var layoutKind by mutableStateOf(LayoutKind.PER_SHEET)
+    var layoutPerSheet by mutableStateOf(2)
+    var layoutPoster by mutableStateOf(2)
+    var layoutPaper by mutableStateOf(PaperSize.A4)
+
+    val printLayout: PrintLayout
+        get() = when (layoutKind) {
+            LayoutKind.PER_SHEET -> PrintLayout.PerSheet(layoutPerSheet)
+            LayoutKind.BOOKLET -> PrintLayout.Booklet
+            LayoutKind.POSTER -> PrintLayout.Poster(layoutPoster, layoutPoster)
+        }
 
     var pageRange by mutableStateOf("")
 

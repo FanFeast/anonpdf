@@ -11,6 +11,7 @@ import androidx.compose.material.icons.filled.Difference
 import androidx.compose.material.icons.filled.DocumentScanner
 import androidx.compose.material.icons.filled.Draw
 import androidx.compose.material.icons.filled.FilterNone
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
@@ -39,6 +40,7 @@ enum class ToolId {
     IMAGES_TO_PDF,
     EXTRACT_TEXT,
     EXTRACT_FILES,
+    LAYOUT,
     OCR,
     PROTECT,
     UNLOCK,
@@ -187,6 +189,15 @@ object ToolCatalog {
             group = ToolGroup.CONVERT,
             input = ToolInput.SINGLE_PDF,
             output = ToolOutput.MANY_FILES,
+        ),
+        ToolSpec(
+            id = ToolId.LAYOUT,
+            titleText = { S.layoutTitle },
+            summaryText = { S.layoutSummary },
+            icon = Icons.Filled.GridView,
+            group = ToolGroup.CONVERT,
+            input = ToolInput.SINGLE_PDF,
+            output = ToolOutput.PDF,
         ),
         ToolSpec(
             id = ToolId.OCR,

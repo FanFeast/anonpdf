@@ -11,6 +11,7 @@ import io.github.fanfeast.anonpdf.pdf.PdfConvert
 import io.github.fanfeast.anonpdf.pdf.PdfDocInfo
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.PdfImages
+import io.github.fanfeast.anonpdf.pdf.PdfLayout
 import io.github.fanfeast.anonpdf.pdf.PdfOcr
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
@@ -47,6 +48,7 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
         ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
         ToolId.OCR -> runOcr(docs.single(), options, onProgress)
         ToolId.EXTRACT_FILES -> runExtractFiles(docs.single(), options, onProgress)
+        ToolId.LAYOUT -> runLayout(docs.single(), options, onProgress)
         ToolId.PROTECT -> runProtect(docs.single(), options, onProgress)
         ToolId.UNLOCK -> runUnlock(docs.single(), onProgress)
         ToolId.SIGN -> error(S.hasOwnScreen(spec.title))
@@ -288,6 +290,17 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
             suggestedName = "$stem.txt",
             isText = true,
             note = note,
+        )
+    }
+
+    private suspend fun runLayout(doc: InputDoc, options: ToolOptionsState, onProgress: Progress): ToolResult {
+        val stem = DocumentStore.stem(doc.name)
+        val output = store.newOutputFile("$stem-print", "pdf")
+        PdfLayout.apply(doc.requireFile(), output, options.printLayout, options.layoutPaper, doc.password, onProgress)
+        return ToolResult.One(
+            file = output,
+            suggestedName = "$stem-print.pdf",
+            note = S.layoutSheets(PdfLayout.sheets(options.printLayout, doc.pageCount)),
         )
     }
 
