@@ -28,6 +28,9 @@ object TextToPdf {
     private const val MARGIN = 56f
     private const val BODY = 11f
 
+    /** What some editors put at the start of a UTF-8 file. */
+    private val BYTE_ORDER_MARK = Char(0xFEFF).toString()
+
     /** A block of the document: its lines are wrapped to fit, each prefixed on its first line only. */
     private data class Block(
         val text: String,
@@ -111,7 +114,7 @@ object TextToPdf {
             utf8.decode(ByteBuffer.wrap(bytes)).toString()
         } catch (_: CharacterCodingException) {
             String(bytes, charset("windows-1252"))
-        }.removePrefix("﻿").replace("\r\n", "\n").replace('\r', '\n').replace("\t", "    ")
+        }.removePrefix(BYTE_ORDER_MARK).replace("\r\n", "\n").replace('\r', '\n').replace("\t", "    ")
     }
 
     /** Each line as it is; its leading spaces kept as an indent, since drawing a line trims them. */
