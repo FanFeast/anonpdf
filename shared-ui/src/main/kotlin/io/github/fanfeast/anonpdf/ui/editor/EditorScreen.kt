@@ -41,6 +41,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.PlaylistPlay
 import androidx.compose.material.icons.automirrored.filled.Redo
 import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Delete
@@ -60,6 +61,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -120,6 +122,7 @@ import io.github.fanfeast.anonpdf.pdf.PdfEditor
 import io.github.fanfeast.anonpdf.pdf.PdfForms
 import io.github.fanfeast.anonpdf.pdf.PdfRedact
 import io.github.fanfeast.anonpdf.pdf.PreviewPage
+import io.github.fanfeast.anonpdf.pdf.Recipes
 import io.github.fanfeast.anonpdf.pdf.RedactCount
 import io.github.fanfeast.anonpdf.pdf.RedactKind
 import io.github.fanfeast.anonpdf.pdf.RedactRule
@@ -291,6 +294,7 @@ fun EditorScreen(
     var previewBusy by remember { mutableStateOf(false) }
     var mode by remember { mutableStateOf<EditorMode>(EditorMode.Normal) }
     var showPending by remember { mutableStateOf(false) }
+    var showRecipes by remember { mutableStateOf(false) }
     var drawerHeight by remember { mutableStateOf(DRAWER_COMPACT) }
     // Hoisted so the group the user swiped to survives opening and closing a tool.
     val toolPager = rememberPagerState(pageCount = { toolPageCount(includeHandOffs = onOpenTool != null) })
@@ -923,6 +927,9 @@ fun EditorScreen(
     Scaffold(
         topBar = {
             AnonTopBar(title = document.name, onBack = onBack) {
+                IconButton(onClick = { showRecipes = true }) {
+                    Icon(Icons.AutoMirrored.Filled.PlaylistPlay, contentDescription = S.recipesTitle)
+                }
                 IconButton(onClick = { state.undo() }, enabled = state.canUndo) {
                     Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = S.undo)
                 }
@@ -1113,6 +1120,31 @@ fun EditorScreen(
                 state.reset()
                 showPending = false
             },
+        )
+    }
+
+    if (showRecipes) {
+        RecipesDialog(
+            state = state,
+            onRun = { recipe ->
+                showRecipes = false
+                val made = Recipes.replay(recipe, state.pageCount, state.ops, state::nextMarkId)
+                made.forEach(state::apply)
+                mode = EditorMode.Normal
+                scope.launch {
+                    if (made.isEmpty()) {
+                        snackbarHost.showSnackbar(S.recipeRanNothing(recipe.name))
+                        return@launch
+                    }
+                    val answer = snackbarHost.showSnackbar(S.recipeRan(recipe.name, made.size), actionLabel = S.undo)
+                    // Only while the recipe's edits are still the last ones made.
+                    if (answer == SnackbarResult.ActionPerformed && state.ops.takeLast(made.size) == made) {
+                        repeat(made.size) { state.undo() }
+                    }
+                }
+            },
+            onMessage = { scope.launch { snackbarHost.showSnackbar(it) } },
+            onDismiss = { showRecipes = false },
         )
     }
 

@@ -295,6 +295,59 @@ internal object StringsPt : Strings() {
     override val bookmarksHint = "Escolha um marcador para ir à página dele. Um marcador recuado fica dentro do de cima."
     override fun editBookmarks(count: Int) = if (count == 1) "Definir 1 marcador" else "Definir $count marcadores"
     override val editRemoveBookmarks = "Remover todos os marcadores"
+    // Receitas.
+    override val recipesTitle = "Receitas"
+    override val recipesHint =
+        "Uma receita guarda as edições que você fez aqui para aplicá-las em outros arquivos: um de cada vez aqui, " +
+            "ou vários de uma vez com a ferramenta Aplicar uma receita."
+    override val recipeSaveCurrent = "Salvar estas edições como receita"
+    override val recipeName = "Nome da receita"
+    override val recipeSave = "Salvar receita"
+    override fun recipeSteps(count: Int) = if (count == 1) "1 passo" else "$count passos"
+    override fun recipeSkipped(count: Int) =
+        (if (count == 1) "1 edição só serve para este arquivo" else "$count edições só servem para este arquivo") +
+            " (páginas adicionadas, endireitamento ou marcadores) e não entrarão na receita."
+    override val recipePlacedNote =
+        "Texto, desenhos e caixas vão no mesmo lugar em cada arquivo, ideal para arquivos com o mesmo layout."
+    override val recipeNothingToSave = "Nenhuma destas edições pode ser aplicada a outro arquivo."
+    override val recipesEmpty = "Nenhuma receita ainda."
+    override val recipeRun = "Aplicar"
+    override val recipeExport = "Exportar"
+    override val recipeDelete = "Excluir receita"
+    override val recipeImport = "Importar uma receita…"
+    override fun recipeSaved(name: String) = "Receita \"$name\" salva."
+    override fun recipeRan(name: String, count: Int) =
+        "\"$name\" aplicada: " + (if (count == 1) "1 edição." else "$count edições.")
+    override fun recipeRanNothing(name: String) = "\"$name\" não encontrou nada para mudar neste arquivo."
+    override fun recipeImported(name: String) = "Receita \"$name\" adicionada."
+    override fun recipeDeleted(name: String) = "\"$name\" excluída."
+    override val recipeExported = "Receita exportada."
+    override val recipeCouldNotRead = "Não foi possível ler essa receita."
+    override val recipeAllPages = "todas as páginas"
+    override val recipeFirstPage = "primeira página"
+    override val recipeLastPage = "última página"
+    override val recipeOddPages = "páginas ímpares"
+    override val recipeEvenPages = "páginas pares"
+    override fun recipeMove(scope: String, earlier: Boolean) =
+        "Mover $scope ${if (earlier) "para antes" else "para depois"}"
+    override fun recipePlaced(what: String, scope: String) = "Colocar $what · $scope"
+    override val recipeHighlight = "um destaque"
+    override val recipeWhiteout = "uma caixa de cobertura"
+    override val recipeDrawing = "um desenho"
+    override val notARecipe = "Esse arquivo não é uma receita do AnonPDF."
+    override val recipeFromNewerVersion = "Essa receita foi feita por uma versão mais nova do AnonPDF. Atualize o app para usá-la."
+    override val recipeUntitled = "Receita sem nome"
+    override val recipeToolTitle = "Aplicar uma receita"
+    override val recipeToolSummary =
+        "Aplique uma receita salva a um ou vários PDFs; cada um é salvo como sua própria cópia editada."
+    override val recipeToolCaveat =
+        "Cada arquivo recebe os passos da receita em ordem. Um passo para uma página que o arquivo não tem é pulado."
+    override val recipeChoose = "Receita"
+    override val recipeNoneYet =
+        "Nenhuma receita ainda. Crie uma no editor: edite um arquivo, abra Receitas e salve suas edições."
+    override val recipePickOne = "Escolha uma receita."
+    override fun recipeEditedWith(name: String) = "Editado com \"$name\"."
+    override fun recipeEmptiesFile(name: String) = "A receita excluiria todas as páginas de $name."
     override val headerFooterTitle = "Cabeçalho e rodapé"
     override val headerLine = "Cabeçalho"
     override val footerLine = "Rodapé"

@@ -66,6 +66,7 @@ class DesktopAppTest {
         scratch = Files.createTempDirectory("desktop-editor").toFile()
         // Where DocumentStore keeps its files, as PrivateScratch would set it.
         System.setProperty("java.io.tmpdir", scratch.absolutePath)
+        System.setProperty("anonpdf.recipes", File(scratch, "recipes").absolutePath)
         pdf = File(scratch, "three pages.pdf")
         PDDocument().use { document ->
             repeat(3) { index ->
@@ -399,6 +400,75 @@ class DesktopAppTest {
         }
         val report = File(scratch, "out").listFiles { file -> file.name.startsWith("comparison") }!!.single()
         PdfOps.load(report).use { assertEquals(1, it.numberOfPages) }
+    }
+
+    @Test
+    fun `edits saved as a recipe run on this file, then on a batch of others`() =
+        runDesktopComposeUiTest(WIDTH, HEIGHT) {
+            val navigator = DesktopNavigator(pdf)
+            setContent { DesktopApp(navigator) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("page 1 / 3")).fetchSemanticsNodes().isNotEmpty() }
+
+            // Delete the first page, then turn the page that is now first.
+            onNodeWithText("Delete").performClick()
+            onNodeWithText("Right").performClick()
+            onNodeWithText("2 edits").assertExists()
+
+            onNodeWithContentDescription("Recipes").performClick()
+            onNodeWithText("Save these edits as a recipe").performClick()
+            onNode(hasSetTextAction()).performTextInput("Tidy scan")
+            onNodeWithText("Delete · first page", substring = true).assertExists()
+            onNodeWithText("Rotate 90° · first page", substring = true).assertExists()
+            onNodeWithText("Save recipe").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Run")).fetchSemanticsNodes().isNotEmpty() }
+            assertEquals(1, File(scratch, "recipes").listFiles()!!.size)
+
+            // Run here: the two pages left lose their first and turn the next.
+            onNodeWithText("Run").performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("4 edits")).fetchSemanticsNodes().isNotEmpty() }
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("Ran \"Tidy scan\": 2 edits.")).fetchSemanticsNodes().isNotEmpty()
+            }
+
+            // And on a batch, each file from scratch.
+            runOnIdle { navigator.show(Pane.Tool(ToolId.RECIPE)) }
+            waitForIdle()
+            runOnIdle { navigator.drop(listOf(pagesPdf("five.pdf", 5), pagesPdf("two.pdf", 2))) }
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("two.pdf", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            waitUntil(timeoutMillis = TIMEOUT_MS) { onAllNodes(hasText("Tidy scan")).fetchSemanticsNodes().isNotEmpty() }
+            val run = hasText("Run a recipe") and isButton and isEnabled()
+            onNode(run).performScrollTo().performClick()
+            waitUntil(timeoutMillis = TIMEOUT_MS) {
+                onAllNodes(hasText("Edited with \"Tidy scan\".", substring = true)).fetchSemanticsNodes().isNotEmpty()
+            }
+            val out = File(scratch, "out").listFiles { file -> file.name.startsWith("recipe") }!!.single()
+            PdfOps.load(File(out, "five-edited.pdf")).use { document ->
+                assertEquals(4, document.numberOfPages)
+                assertEquals(listOf(90, 0, 0, 0), (0 until 4).map { document.getPage(it).rotation })
+                // Turned sideways, the stripper breaks the line up; the letters are what matter.
+                val first = PDFTextStripper().apply { endPage = 1 }.getText(document).filterNot(Char::isWhitespace)
+                assertTrue(first, first.contains("Page2"))
+            }
+            PdfOps.load(File(out, "two-edited.pdf")).use { assertEquals(1, it.numberOfPages) }
+        }
+
+    private fun pagesPdf(name: String, count: Int): File = File(scratch, name).also { file ->
+        PDDocument().use { document ->
+            repeat(count) { index ->
+                val page = PDPage(PDRectangle.A4)
+                document.addPage(page)
+                PDPageContentStream(document, page).use { stream ->
+                    stream.beginText()
+                    stream.setFont(PDType1Font.HELVETICA_BOLD, 30f)
+                    stream.newLineAtOffset(70f, 690f)
+                    stream.showText("Page ${index + 1}")
+                    stream.endText()
+                }
+            }
+            document.save(file)
+        }
     }
 
     @Test

@@ -318,6 +318,58 @@ internal object StringsRu : Strings() {
     override val bookmarksHint = "Выберите закладку, чтобы перейти к её странице. Закладка с отступом вложена в ту, что выше."
     override fun editBookmarks(count: Int) = "Задать закладки: $count"
     override val editRemoveBookmarks = "Удалить все закладки"
+    // Рецепты.
+    override val recipesTitle = "Рецепты"
+    override val recipesHint =
+        "Рецепт запоминает сделанные здесь изменения, чтобы применить их к другим файлам: по одному здесь " +
+            "или сразу к нескольким инструментом «Применить рецепт»."
+    override val recipeSaveCurrent = "Сохранить эти изменения как рецепт"
+    override val recipeName = "Название рецепта"
+    override val recipeSave = "Сохранить рецепт"
+    override fun recipeSteps(count: Int) = plural(count, "шаг", "шага", "шагов")
+    override fun recipeSkipped(count: Int) =
+        "${plural(count, "изменение подходит", "изменения подходят", "изменений подходят")} только к этому файлу " +
+            "(добавленные страницы, выравнивание или закладки) и не попадут в рецепт."
+    override val recipePlacedNote =
+        "Текст, рисунки и рамки встают на то же место в каждом файле — это удобно для файлов с одинаковой вёрсткой."
+    override val recipeNothingToSave = "Ни одно из этих изменений нельзя применить к другому файлу."
+    override val recipesEmpty = "Рецептов пока нет."
+    override val recipeRun = "Применить"
+    override val recipeExport = "Экспорт"
+    override val recipeDelete = "Удалить рецепт"
+    override val recipeImport = "Импортировать рецепт…"
+    override fun recipeSaved(name: String) = "Рецепт ${quoted(name)} сохранён."
+    override fun recipeRan(name: String, count: Int) =
+        "Применён ${quoted(name)}: ${plural(count, "изменение", "изменения", "изменений")}."
+    override fun recipeRanNothing(name: String) = "${quoted(name)} не нашёл, что изменить в этом файле."
+    override fun recipeImported(name: String) = "Рецепт ${quoted(name)} добавлен."
+    override fun recipeDeleted(name: String) = "${quoted(name)} удалён."
+    override val recipeExported = "Рецепт экспортирован."
+    override val recipeCouldNotRead = "Не удалось прочитать этот рецепт."
+    override val recipeAllPages = "все страницы"
+    override val recipeFirstPage = "первая страница"
+    override val recipeLastPage = "последняя страница"
+    override val recipeOddPages = "нечётные страницы"
+    override val recipeEvenPages = "чётные страницы"
+    override fun recipeMove(scope: String, earlier: Boolean) =
+        "Сдвинуть: $scope ${if (earlier) "ближе к началу" else "ближе к концу"}"
+    override fun recipePlaced(what: String, scope: String) = "Поместить $what · $scope"
+    override val recipeHighlight = "выделение"
+    override val recipeWhiteout = "закрывающую рамку"
+    override val recipeDrawing = "рисунок"
+    override val notARecipe = "Этот файл — не рецепт AnonPDF."
+    override val recipeFromNewerVersion = "Этот рецепт создан более новой версией AnonPDF. Обновите приложение, чтобы им воспользоваться."
+    override val recipeUntitled = "Рецепт без названия"
+    override val recipeToolTitle = "Применить рецепт"
+    override val recipeToolSummary = "Сохранённый рецепт — сразу к нескольким PDF, каждый отдельной копией."
+    override val recipeToolCaveat =
+        "Каждый файл проходит шаги рецепта по порядку. Шаг для страницы, которой в файле нет, пропускается."
+    override val recipeChoose = "Рецепт"
+    override val recipeNoneYet =
+        "Рецептов пока нет. Создайте его в редакторе: измените файл, откройте «Рецепты» и сохраните изменения."
+    override val recipePickOne = "Выберите рецепт."
+    override fun recipeEditedWith(name: String) = "Изменено рецептом ${quoted(name)}."
+    override fun recipeEmptiesFile(name: String) = "Рецепт удалил бы все страницы файла $name."
     override val headerFooterTitle = "Колонтитулы"
     override val headerLine = "Верхний колонтитул"
     override val footerLine = "Нижний колонтитул"

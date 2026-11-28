@@ -170,7 +170,7 @@ fun ToolScreen(
 
     val inputsReady = when (spec.input) {
         ToolInput.SINGLE_PDF -> docs.size == 1 && docs.all { it.isReady }
-        ToolInput.MULTIPLE_PDF -> docs.size >= 2 && docs.all { it.isReady }
+        ToolInput.MULTIPLE_PDF -> docs.size >= spec.minimumFiles && docs.all { it.isReady }
         ToolInput.IMAGES -> images.isNotEmpty()
     }
 
@@ -232,7 +232,7 @@ fun ToolScreen(
                         PickButton(S.addPdfs, Icons.Filled.Add) {
                             pickMultiplePdf()
                         }
-                        if (docs.size in 1..1) {
+                        if (docs.size == 1 && spec.minimumFiles > 1) {
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 if (toolId == ToolId.COMPARE) S.addChangedVersion else S.addOneMore,
@@ -411,6 +411,8 @@ private fun ToolOptions(spec: ToolSpec, options: ToolOptionsState, pageCount: In
         // Nothing to set: which file is which is the order they were picked in,
         // and the caveat above says so.
         ToolId.COMPARE -> Unit
+
+        ToolId.RECIPE -> RecipePicker(options)
 
         ToolId.SPLIT -> {
             ChoiceChips(
