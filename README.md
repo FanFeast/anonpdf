@@ -29,6 +29,8 @@ operating system.
 The desktop app is the same engine and editor in a native window, with the
 same rule: no network access.
 
+![The desktop app: every tool beside the page](docs/screenshots/desktop-editor.png)
+
 | Library | Reading | Your files |
 |---|---|---|
 | ![Home](docs/screenshots/home.png) | ![Viewer](docs/screenshots/viewer.png) | ![Browse](docs/screenshots/browse.png) |
@@ -51,14 +53,20 @@ end. Nothing touches disk until you save, and the original is never modified.
 |---|---|---|
 | ![Crop](docs/screenshots/editor-crop.png) | ![Paper size](docs/screenshots/editor-paper.png) | ![Watermark](docs/screenshots/editor-watermark.png) |
 
-Rotate, crop, resize, delete, restore, reverse, add text, white-out, highlights,
-drawings, a watermark and page numbers — each applied to **this page**, a
-**selection**, or **all pages**. Undo and redo the whole history.
+| Find and black out | Headers, footers, Bates numbers | Compare two versions |
+|---|---|---|
+| ![Redact](docs/screenshots/editor-redact.png) | ![Header and footer](docs/screenshots/editor-header-footer.png) | ![Compare](docs/screenshots/compare.png) |
 
-- **Every tool lives here**, on four swipeable pages: *Pages*, *Content*,
-  *Whole file*, *Convert & lock*. The whole-file ones receive the document with
-  your pending edits already applied, so "delete three pages, then compress"
-  means what it looks like it means.
+Rotate, crop, resize, delete, restore, reverse, duplicate, add blank pages,
+add text, white-out, redact, highlights, drawings, a watermark, page numbers,
+headers and footers, straighten and greyscale — each applied to **this page**,
+a **selection**, or **all pages**. Undo and redo the whole history.
+
+- **Every tool lives here**, in six groups: *Pages*, *Content*, *Stamps*,
+  *Scans*, *Whole file*, *Convert & lock*. Tap a group's name to jump to it, or
+  swipe. The whole-file ones receive the document with your pending edits
+  already applied, so "delete three pages, then compress" means what it looks
+  like it means.
 - **Merge inserts, right where you say.** Pick another PDF (or several) and its
   pages drop into the document — after the current page, at the start, or at
   the end — as ordinary pages in the strip. Reorder, rotate, crop, mark or
@@ -158,12 +166,25 @@ advertising ID.
 - Fill in PDF forms: text boxes, checkboxes, radio buttons and dropdowns, previewed
   as you type, with an option to lock the answers into the page when you save
 - Add text; remove content with a white-out block (the page is flattened, so it is really gone); highlight; draw freehand
+- Find and redact: type words, or pick email addresses, phone numbers or long
+  numbers, and every match is blacked out and removed from the file, not just
+  covered. Text inside a scanned image is not found, and the panel says so.
 - Text watermark: diagonal, centred, tiled, top or bottom
 - Page numbers with a format template, position, start number, and cover-skipping
+- Headers and footers: text in any of six places, with the page number, a
+  zero-padded Bates number, the page count and the date
+- Bookmarks: see the table of contents, add one for the page you are on, rename,
+  reorder and nest them
+- Clean up: keep, burn in or remove comments and markups, and find and delete
+  blank pages
+- For scans: straighten a crooked page by hand or automatically, turn pages
+  grey, duplicate a page, add a blank one
 - Applied per page, to a selection, or to everything
 
 **Whole-file jobs**
 - Merge several PDFs into one
+- Compare two versions: a report with each page beside its counterpart, removed
+  words marked red and added words green
 - Split into multiple files by page range, or every N pages
 - Extract chosen pages into a new document
 - Compress — two modes: re-encode images only (text stays selectable), or
@@ -228,9 +249,9 @@ sdk.dir=/path/to/Android/Sdk
 ### Tests
 
 ```bash
-./gradlew testDebugUnitTest          # 55 JVM tests: page ranges, edit-plan folding, render cap, UI logic
-./gradlew connectedDebugAndroidTest  # device tests; needs a device or emulator
-./gradlew :desktop-engine:test       # the engine on desktop: 108 tests, no device needed
+./gradlew testDebugUnitTest          # 70 JVM tests: page ranges, edit-plan folding, render cap, UI logic
+./gradlew connectedDebugAndroidTest  # 141 device tests; needs a device or emulator
+./gradlew :desktop-engine:test       # the engine on desktop: 165 tests, no device needed
 ./gradlew :desktop:test              # the desktop app, driven end to end
 ./gradlew :desktop:run               # run the desktop app
 ```

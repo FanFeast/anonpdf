@@ -46,9 +46,18 @@ n'est jamais modifié.
 |---|---|---|
 | ![Texte](../screenshots/editor-text.png) | ![Dessin](../screenshots/editor-draw.png) | ![Fusion](../screenshots/editor-merge.png) |
 
-- **Tous les outils sont ici**, sur quatre pages : *Pages*, *Contenu*,
-  *Fichier entier* et *Convertir et protéger*. Les outils de fichier entier
+| Trouver et caviarder | En-têtes, pieds de page, numéros Bates | Comparer deux versions |
+|---|---|---|
+| ![Caviarder](../screenshots/editor-redact.png) | ![En-tête et pied](../screenshots/editor-header-footer.png) | ![Comparer](../screenshots/compare.png) |
+
+- **Tous les outils sont ici**, en six groupes : *Pages*, *Contenu*,
+  *Tampons*, *Scans*, *Fichier entier* et *Convertir et protéger*. Touchez le
+  nom d'un groupe pour y aller, ou balayez. Les outils de fichier entier
   reçoivent le document avec vos modifications en attente déjà appliquées.
+- **Trouver et caviarder** : saisissez des mots ou choisissez adresses e-mail,
+  numéros de téléphone ou longs numéros ; chaque résultat est noirci et retiré
+  du fichier, pas seulement masqué. Le texte dans une image scannée n'est pas
+  trouvé, et l'outil le dit.
 - **Remplissez les formulaires PDF** : champs de texte, cases à cocher, boutons
   radio et listes, avec aperçu pendant la saisie et l'option de verrouiller les
   réponses dans la page à l'enregistrement.
@@ -115,10 +124,13 @@ dossiers, ou le sélecteur du système.
 
 **Modifier** (tout en une passe, avec aperçu) : pivoter, recadrer, redimensionner
 (A3, A4, A5, Lettre US, Légal US, Tabloïd), supprimer, réordonner, fusionner,
-remplir des formulaires, texte, correcteur, surlignage, dessin, filigrane et
-numéros de page.
+remplir des formulaires, texte, correcteur, caviardage, surlignage, dessin,
+filigrane, numéros de page, en-têtes et pieds de page avec numéros Bates,
+signets, retirer ou incruster les commentaires, trouver les pages blanches,
+redresser des scans, niveaux de gris, dupliquer des pages et ajouter des pages
+vierges.
 
-**Fichiers entiers :** fusionner, diviser, extraire des pages, compresser, PDF en
+**Fichiers entiers :** fusionner, comparer deux versions (mots retirés en rouge, ajoutés en vert), diviser, extraire des pages, compresser, PDF en
 JPG/PNG, images en PDF, extraire le texte, protéger en AES-256 ou retirer un mot de
 passe, et signer.
 

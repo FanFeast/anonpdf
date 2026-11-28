@@ -204,6 +204,9 @@ The repo screenshots you can upload as-is:
 - `docs/screenshots/editor.png` — the editor with its page strip and tools
 - `docs/screenshots/editor-merge.png` — merging another PDF in at a chosen position
 - `docs/screenshots/editor-text.png` — covering existing text and retyping it
+- `docs/screenshots/editor-redact.png` — finding words and numbers and blacking them out
+- `docs/screenshots/editor-header-footer.png` — a footer with a Bates number on every page
+- `docs/screenshots/compare.png` — two versions side by side, changes marked
 - `docs/screenshots/editor-draw.png` — a highlight and freehand ink on a page
 - `docs/screenshots/editor-crop.png` — dragging the crop frame
 - `docs/screenshots/editor-paper.png` — refitting a page onto a standard sheet
