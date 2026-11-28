@@ -76,7 +76,11 @@ fun rememberOcrPacks(): OcrPacks {
 
 /** Opens the system picker for OCR language packs, any number at once. */
 @Composable
-fun rememberOpenOcrPacks(onPicked: (List<PickedFile>) -> Unit): () -> Unit {
+fun rememberOpenOcrPacks(onPicked: (List<PickedFile>) -> Unit): () -> Unit = rememberOpenAnyFiles(onPicked)
+
+/** Opens the system picker for files of any kind, any number at once. */
+@Composable
+fun rememberOpenAnyFiles(onPicked: (List<PickedFile>) -> Unit): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val store = rememberDocumentStore()
@@ -93,7 +97,8 @@ fun rememberOpenOcrPacks(onPicked: (List<PickedFile>) -> Unit): () -> Unit {
             }
         }
     }
-    // A .traineddata file has no type of its own, so offer anything; the pack is checked when it arrives.
+    // Any type: attachments are anything, and a .traineddata file has no type of
+    // its own (a language pack is checked when it arrives).
     return { launcher.launch(arrayOf("*/*")) }
 }
 

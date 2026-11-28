@@ -318,6 +318,33 @@ internal object StringsRu : Strings() {
     override val bookmarksHint = "Выберите закладку, чтобы перейти к её странице. Закладка с отступом вложена в ту, что выше."
     override fun editBookmarks(count: Int) = "Задать закладки: $count"
     override val editRemoveBookmarks = "Удалить все закладки"
+    // Свойства и вложения.
+    override val propertiesTitle = "Свойства"
+    override val toolProperties = "Свойства"
+    override val propTitle = "Название"
+    override val propAuthor = "Автор"
+    override val propSubject = "Тема"
+    override val propKeywords = "Ключевые слова"
+    override val propertiesHint = "Программы для PDF показывают их в свойствах документа, а название часто и в заголовке окна."
+    override val attachmentsLabel = "Вложенные файлы"
+    override val attachmentsNone = "Вложенных файлов нет."
+    override val attachFile = "Вложить файл…"
+    override fun removeAttachment(name: String) = "Удалить $name"
+    override val attachmentNew = "новый"
+    override val editProperties = "Задать название, автора, тему и ключевые слова"
+    override fun editAttachments(added: Int, removed: Int) = listOfNotNull(
+        added.takeIf { it > 0 }?.let { "Вложить: ${plural(it, "файл", "файла", "файлов")}" },
+        removed.takeIf { it > 0 }?.let { "удалить вложения: $it" },
+    ).joinToString(", ").replaceFirstChar { it.uppercase() }
+    override val extractFilesTitle = "Картинки и вложения"
+    override val extractFilesSummary = "Достать исходные изображения из PDF или вложенные файлы"
+    override val extractImages = "Изображения"
+    override val extractAttachments = "Вложенные файлы"
+    override val extractFilesWhat = "Что сохранить"
+    override val extractImagesHint = "Каждое изображение как было вставлено: JPEG остаётся тем же JPEG, остальное сохраняется как PNG."
+    override val extractAttachmentsHint = "Каждый вложенный в PDF файл под своим именем. Открывайте только то, что ожидали."
+    override val noImagesFound = "В этом PDF нет изображений."
+    override val noAttachmentsFound = "К этому PDF не вложено файлов."
     // Рецепты.
     override val recipesTitle = "Рецепты"
     override val recipesHint =

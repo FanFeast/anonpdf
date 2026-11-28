@@ -287,6 +287,33 @@ internal object StringsHi : Strings() {
     override val bookmarksHint = "किसी बुकमार्क को चुनें तो उसका पेज खुल जाएगा। अंदर किया गया बुकमार्क ऊपर वाले के नीचे आता है।"
     override fun editBookmarks(count: Int) = "$count बुकमार्क सेट करें"
     override val editRemoveBookmarks = "सारे बुकमार्क हटाएँ"
+    // गुण और अटैचमेंट।
+    override val propertiesTitle = "गुण"
+    override val toolProperties = "गुण"
+    override val propTitle = "शीर्षक"
+    override val propAuthor = "लेखक"
+    override val propSubject = "विषय"
+    override val propKeywords = "कीवर्ड"
+    override val propertiesHint = "PDF रीडर इन्हें दस्तावेज़ के गुणों में दिखाते हैं, और शीर्षक अक्सर विंडो की टाइटल बार में।"
+    override val attachmentsLabel = "जुड़ी फ़ाइलें"
+    override val attachmentsNone = "कोई फ़ाइल जुड़ी नहीं है।"
+    override val attachFile = "फ़ाइल जोड़ें…"
+    override fun removeAttachment(name: String) = "$name हटाएँ"
+    override val attachmentNew = "नई"
+    override val editProperties = "शीर्षक, लेखक, विषय और कीवर्ड तय करें"
+    override fun editAttachments(added: Int, removed: Int) = listOfNotNull(
+        added.takeIf { it > 0 }?.let { "$it फ़ाइल जोड़ें" },
+        removed.takeIf { it > 0 }?.let { "$it जुड़ी फ़ाइल हटाएँ" },
+    ).joinToString(", ")
+    override val extractFilesTitle = "चित्र या अटैचमेंट सहेजें"
+    override val extractFilesSummary = "PDF से असली चित्र निकालें, या उससे जुड़ी फ़ाइलें"
+    override val extractImages = "चित्र"
+    override val extractAttachments = "जुड़ी फ़ाइलें"
+    override val extractFilesWhat = "क्या सहेजें"
+    override val extractImagesHint = "हर चित्र जैसा डाला गया था: JPEG वही JPEG रहता है; बाकी PNG के रूप में सहेजा जाता है।"
+    override val extractAttachmentsHint = "PDF से जुड़ी हर फ़ाइल, उसके अपने नाम से। सिर्फ़ वही खोलें जिसकी आपको उम्मीद थी।"
+    override val noImagesFound = "इस PDF में कोई चित्र नहीं है।"
+    override val noAttachmentsFound = "इस PDF से कोई फ़ाइल जुड़ी नहीं है।"
     // रेसिपी।
     override val recipesTitle = "रेसिपी"
     override val recipesHint =

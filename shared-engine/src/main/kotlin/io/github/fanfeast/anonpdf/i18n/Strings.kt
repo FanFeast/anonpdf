@@ -323,6 +323,33 @@ open class Strings {
     open val bookmarksHint = "Pick a bookmark to go to its page. An indented bookmark sits under the one above it."
     open fun editBookmarks(count: Int) = if (count == 1) "Set 1 bookmark" else "Set $count bookmarks"
     open val editRemoveBookmarks = "Remove all bookmarks"
+    // Properties and attachments.
+    open val propertiesTitle = "Properties"
+    open val toolProperties = "Properties"
+    open val propTitle = "Title"
+    open val propAuthor = "Author"
+    open val propSubject = "Subject"
+    open val propKeywords = "Keywords"
+    open val propertiesHint = "Shown by PDF readers in the document's properties, and the title often in the window's title bar."
+    open val attachmentsLabel = "Attached files"
+    open val attachmentsNone = "No files attached."
+    open val attachFile = "Attach a file…"
+    open fun removeAttachment(name: String) = "Remove $name"
+    open val attachmentNew = "new"
+    open val extractFilesTitle = "Images & attachments"
+    open val extractFilesSummary = "Get the original pictures out of a PDF, or the files attached to it"
+    open val extractImages = "Images"
+    open val extractAttachments = "Attached files"
+    open val extractFilesWhat = "What to save"
+    open val extractImagesHint = "Each picture as it was put in: a JPEG stays the same JPEG; anything else is saved as a PNG."
+    open val extractAttachmentsHint = "Each file attached to the PDF, under its own name. Only open what you were expecting."
+    open val noImagesFound = "This PDF has no pictures in it."
+    open val noAttachmentsFound = "No files are attached to this PDF."
+    open val editProperties = "Set the title, author, subject and keywords"
+    open fun editAttachments(added: Int, removed: Int) = listOfNotNull(
+        added.takeIf { it > 0 }?.let { if (it == 1) "Attach 1 file" else "Attach $it files" },
+        removed.takeIf { it > 0 }?.let { if (it == 1) "remove 1 attached file" else "remove $it attached files" },
+    ).joinToString(", ").replaceFirstChar { it.uppercase() }
     // Recipes.
     open val recipesTitle = "Recipes"
     open val recipesHint =

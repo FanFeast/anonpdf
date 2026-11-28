@@ -302,6 +302,33 @@ internal object StringsFr : Strings() {
     override val bookmarksHint = "Choisissez un signet pour aller à sa page. Un signet en retrait se range sous celui du dessus."
     override fun editBookmarks(count: Int) = if (count <= 1) "Définir $count signet" else "Définir $count signets"
     override val editRemoveBookmarks = "Retirer tous les signets"
+    // Propriétés et pièces jointes.
+    override val propertiesTitle = "Propriétés"
+    override val toolProperties = "Propriétés"
+    override val propTitle = "Titre"
+    override val propAuthor = "Auteur"
+    override val propSubject = "Sujet"
+    override val propKeywords = "Mots-clés"
+    override val propertiesHint = "Les lecteurs PDF les affichent dans les propriétés du document, et le titre souvent dans la barre de la fenêtre."
+    override val attachmentsLabel = "Fichiers joints"
+    override val attachmentsNone = "Aucun fichier joint."
+    override val attachFile = "Joindre un fichier…"
+    override fun removeAttachment(name: String) = "Retirer $name"
+    override val attachmentNew = "nouveau"
+    override val editProperties = "Définir titre, auteur, sujet et mots-clés"
+    override fun editAttachments(added: Int, removed: Int) = listOfNotNull(
+        added.takeIf { it > 0 }?.let { if (it == 1) "Joindre 1 fichier" else "Joindre $it fichiers" },
+        removed.takeIf { it > 0 }?.let { if (it == 1) "retirer 1 pièce jointe" else "retirer $it pièces jointes" },
+    ).joinToString(", ").replaceFirstChar { it.uppercase() }
+    override val extractFilesTitle = "Images et annexes"
+    override val extractFilesSummary = "Sortir les images d'origine d'un PDF, ou les fichiers qui y sont joints"
+    override val extractImages = "Images"
+    override val extractAttachments = "Fichiers joints"
+    override val extractFilesWhat = "Quoi enregistrer"
+    override val extractImagesHint = "Chaque image telle qu'insérée : un JPEG reste le même JPEG ; le reste est enregistré en PNG."
+    override val extractAttachmentsHint = "Chaque fichier joint au PDF, sous son propre nom. N'ouvrez que ce que vous attendiez."
+    override val noImagesFound = "Ce PDF ne contient aucune image."
+    override val noAttachmentsFound = "Aucun fichier n'est joint à ce PDF."
     // Recettes.
     override val recipesTitle = "Recettes"
     override val recipesHint =

@@ -7,7 +7,9 @@ import io.github.fanfeast.anonpdf.pdf.OcrPacks
 import io.github.fanfeast.anonpdf.pdf.PageRanges
 import io.github.fanfeast.anonpdf.pdf.PdfCompare
 import io.github.fanfeast.anonpdf.pdf.PdfConvert
+import io.github.fanfeast.anonpdf.pdf.PdfDocInfo
 import io.github.fanfeast.anonpdf.pdf.PdfEditor
+import io.github.fanfeast.anonpdf.pdf.PdfImages
 import io.github.fanfeast.anonpdf.pdf.PdfOcr
 import io.github.fanfeast.anonpdf.pdf.PdfOps
 import io.github.fanfeast.anonpdf.pdf.Progress
@@ -42,6 +44,7 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
         ToolId.IMAGES_TO_PDF -> runImagesToPdf(images, options, onProgress)
         ToolId.EXTRACT_TEXT -> runExtractText(docs.single(), onProgress)
         ToolId.OCR -> runOcr(docs.single(), options, onProgress)
+        ToolId.EXTRACT_FILES -> runExtractFiles(docs.single(), options, onProgress)
         ToolId.PROTECT -> runProtect(docs.single(), options, onProgress)
         ToolId.UNLOCK -> runUnlock(docs.single(), onProgress)
         ToolId.SIGN -> error(S.hasOwnScreen(spec.title))
@@ -272,6 +275,22 @@ class ToolRunner(private val store: DocumentStore, private val ocrPacks: OcrPack
             isText = true,
             note = note,
         )
+    }
+
+    private suspend fun runExtractFiles(
+        doc: InputDoc,
+        options: ToolOptionsState,
+        onProgress: Progress,
+    ): ToolResult {
+        val stem = DocumentStore.stem(doc.name)
+        val files = when (options.extractWhat) {
+            ExtractWhat.IMAGES ->
+                PdfImages.extract(doc.requireFile(), store.newOutputDir("$stem-images"), stem, doc.password, onProgress)
+            ExtractWhat.ATTACHMENTS ->
+                PdfDocInfo.extractAttachments(doc.requireFile(), store.newOutputDir("$stem-attachments"), doc.password, onProgress)
+                    .also { require(it.isNotEmpty()) { S.noAttachmentsFound } }
+        }
+        return ToolResult.Many(files = files, note = S.filesReady(files.size))
     }
 
     private suspend fun runOcr(

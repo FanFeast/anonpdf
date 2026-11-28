@@ -5,7 +5,9 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import io.github.fanfeast.anonpdf.pdf.AttachedFile
 import io.github.fanfeast.anonpdf.pdf.Bookmark
+import io.github.fanfeast.anonpdf.pdf.DocProperties
 import io.github.fanfeast.anonpdf.pdf.FormInfo
 import io.github.fanfeast.anonpdf.ui.common.DocumentRef
 import io.github.fanfeast.anonpdf.ui.common.DocumentSession
@@ -30,6 +32,10 @@ class EditorHolder : ViewModel() {
 
     /** The opened document's own bookmarks, read along with it. */
     var bookmarks by mutableStateOf<List<Bookmark>>(emptyList())
+
+    /** The opened document's own properties and attached files, read along with it. */
+    var properties by mutableStateOf(DocProperties())
+    var attachments by mutableStateOf<List<AttachedFile>>(emptyList())
 
     /**
      * Documents merged into this session, in the order they arrived. Their pages

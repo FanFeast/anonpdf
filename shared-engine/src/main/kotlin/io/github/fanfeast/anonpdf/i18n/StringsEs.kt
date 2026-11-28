@@ -297,6 +297,33 @@ internal object StringsEs : Strings() {
     override val bookmarksHint = "Elige un marcador para ir a su página. Un marcador con sangría va dentro del de arriba."
     override fun editBookmarks(count: Int) = if (count == 1) "Poner 1 marcador" else "Poner $count marcadores"
     override val editRemoveBookmarks = "Quitar todos los marcadores"
+    // Propiedades y adjuntos.
+    override val propertiesTitle = "Propiedades"
+    override val toolProperties = "Propiedades"
+    override val propTitle = "Título"
+    override val propAuthor = "Autor"
+    override val propSubject = "Asunto"
+    override val propKeywords = "Palabras clave"
+    override val propertiesHint = "Los lectores de PDF las muestran en las propiedades del documento, y el título a menudo en la barra de la ventana."
+    override val attachmentsLabel = "Archivos adjuntos"
+    override val attachmentsNone = "No hay archivos adjuntos."
+    override val attachFile = "Adjuntar un archivo…"
+    override fun removeAttachment(name: String) = "Quitar $name"
+    override val attachmentNew = "nuevo"
+    override val editProperties = "Fijar título, autor, asunto y palabras clave"
+    override fun editAttachments(added: Int, removed: Int) = listOfNotNull(
+        added.takeIf { it > 0 }?.let { if (it == 1) "Adjuntar 1 archivo" else "Adjuntar $it archivos" },
+        removed.takeIf { it > 0 }?.let { if (it == 1) "quitar 1 adjunto" else "quitar $it adjuntos" },
+    ).joinToString(", ").replaceFirstChar { it.uppercase() }
+    override val extractFilesTitle = "Imágenes y adjuntos"
+    override val extractFilesSummary = "Sacar las imágenes originales de un PDF, o los archivos adjuntos"
+    override val extractImages = "Imágenes"
+    override val extractAttachments = "Archivos adjuntos"
+    override val extractFilesWhat = "Qué guardar"
+    override val extractImagesHint = "Cada imagen tal como se puso: un JPEG sigue siendo el mismo JPEG; lo demás se guarda como PNG."
+    override val extractAttachmentsHint = "Cada archivo adjunto al PDF, con su propio nombre. Abre solo lo que esperabas."
+    override val noImagesFound = "Este PDF no tiene imágenes."
+    override val noAttachmentsFound = "Este PDF no tiene archivos adjuntos."
     // Recetas.
     override val recipesTitle = "Recetas"
     override val recipesHint =
